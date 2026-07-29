@@ -47,9 +47,11 @@ class StreakWidget : GlanceAppWidget() {
 private fun StreakWidgetContent(streak: Int, context: Context) {
     // Colours are baked (widgets can't read MaterialTheme); emerald primary + on-surface, matching
     // the app's default accent. A themed widget would need per-theme layouts, out of scope here.
-    val accent = ColorProvider(Color(0xFF34C77B))
-    val onBg = ColorProvider(Color(0xFFE6E6E6))
-    val bg = ColorProvider(Color(0xFF14181B))
+    // Hand-kept mirror of ApexPalette's dark scheme — Glance has no access to the ColorScheme.
+    // See the note in GoalsWidget.kt.
+    val accent = ColorProvider(Color(0xFFD9613C))
+    val onBg = ColorProvider(Color(0xFFEDE8E2))
+    val bg = ColorProvider(Color(0xFF131210))
 
     Column(
         modifier = GlanceModifier

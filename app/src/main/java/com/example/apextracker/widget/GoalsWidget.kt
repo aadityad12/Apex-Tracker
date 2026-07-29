@@ -48,10 +48,13 @@ class GoalsWidget : GlanceAppWidget() {
     }
 }
 
-private val accent = ColorProvider(Color(0xFF34C77B))
-private val onBg = ColorProvider(Color(0xFFE6E6E6))
-private val muted = ColorProvider(Color(0xFF8A9299))
-private val bg = ColorProvider(Color(0xFF14181B))
+// Glance cannot read the Compose ColorScheme, so the widget palette is a hand-kept mirror of
+// ApexPalette's dark scheme. These used to be a fifth green (#34C77B) that matched none of the
+// four old accent themes. If ApexPalette changes, change these too — nothing enforces it.
+private val accent = ColorProvider(Color(0xFFD9613C))
+private val onBg = ColorProvider(Color(0xFFEDE8E2))
+private val muted = ColorProvider(Color(0xFFA09890))
+private val bg = ColorProvider(Color(0xFF131210))
 
 @Composable
 private fun GoalsWidgetContent(goals: List<GoalStatus>, context: Context) {

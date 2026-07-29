@@ -9,6 +9,7 @@ import android.os.Bundle
 import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.core.content.ContextCompat
@@ -47,7 +48,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -68,13 +68,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
-import com.example.apextracker.ui.theme.ApexTheme
-import com.example.apextracker.ui.theme.ApexTrackerTheme
-import com.example.apextracker.ui.theme.EmeraldMuted
-import com.example.apextracker.ui.theme.MagmaPrimary
-import com.example.apextracker.ui.theme.OceanPrimary
-import com.example.apextracker.ui.theme.RoyalPrimary
-import kotlinx.coroutines.delay
+import com.example.apextracker.ui.design.ApexTheme
+import com.example.apextracker.ui.design.ApexTrackerTheme
 import kotlinx.coroutines.launch
 
 // FragmentActivity (not ComponentActivity) because androidx.biometric's BiometricPrompt requires
@@ -112,6 +107,12 @@ class MainActivity : FragmentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Before super.onCreate so the system splash owns the very first frame. This replaces a
+        // hand-rolled composable that held a delay(2000) on every cold start — an artificial two
+        // seconds in front of a UI that was already ready. The system splash hands off as soon as
+        // the first frame draws, so launch is genuinely faster, and AppNavigation no longer does
+        // splash-gating on top of navigation.
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         pendingRoute = sanitizeRequestedRoute(intent?.getStringExtra(EXTRA_NAVIGATE_TO))
@@ -126,7 +127,7 @@ class MainActivity : FragmentActivity() {
             val authViewModel: AuthViewModel = viewModel()
             val user by authViewModel.user.collectAsState()
             
-            var currentTheme by rememberSaveable { mutableStateOf(ApexTheme.EMERALD) }
+            var currentTheme by rememberSaveable { mutableStateOf(ApexTheme.EMBER) }
             var isDarkMode by rememberSaveable { mutableStateOf(true) }
 
             // Currency lives in DataStore rather than rememberSaveable — unlike theme, it must
@@ -199,9 +200,7 @@ class MainActivity : FragmentActivity() {
             ApexTrackerTheme(theme = currentTheme, darkTheme = isDarkMode) {
                 CompositionLocalProvider(LocalCurrencyCode provides (storedCurrency ?: defaultCurrencyCode())) {
                     AppNavigation(
-                        currentTheme = currentTheme,
                         isDarkMode = isDarkMode,
-                        onThemeChange = { currentTheme = it },
                         onDarkModeChange = { isDarkMode = it },
                         currencyCode = storedCurrency ?: defaultCurrencyCode(),
                         onCurrencyChange = { scope.launch { currencySettings.setCurrencyCode(it) } },
@@ -216,9 +215,7 @@ class MainActivity : FragmentActivity() {
 
 @Composable
 fun AppNavigation(
-    currentTheme: ApexTheme,
     isDarkMode: Boolean,
-    onThemeChange: (ApexTheme) -> Unit,
     onDarkModeChange: (Boolean) -> Unit,
     currencyCode: String,
     onCurrencyChange: (String) -> Unit,
@@ -226,7 +223,6 @@ fun AppNavigation(
     onRequestedRouteConsumed: () -> Unit = {}
 ) {
     val navController = rememberNavController()
-    var showSplash by remember { mutableStateOf(true) }
 
     // Per-module lock flags (Issue #45). initial = null so the gate fails closed until DataStore
     // has read the real value — see LockGate.
@@ -254,143 +250,137 @@ fun AppNavigation(
     var showSettings by remember { mutableStateOf(false) }
     var showMoreSheet by remember { mutableStateOf(false) }
 
-    if (showSplash) {
-        SplashScreen(onFinished = { showSplash = false })
-    } else {
-        // Honor a route requested by the launching intent (notification tap) once the
-        // NavHost exists — covers both cold start and onNewIntent while running.
-        LaunchedEffect(requestedRoute) {
-            if (requestedRoute != null) {
-                navController.navigate(requestedRoute) { launchSingleTop = true }
-                onRequestedRouteConsumed()
-            }
+    // Honor a route requested by the launching intent (notification tap) once the
+    // NavHost exists — covers both cold start and onNewIntent while running.
+    LaunchedEffect(requestedRoute) {
+        if (requestedRoute != null) {
+            navController.navigate(requestedRoute) { launchSingleTop = true }
+            onRequestedRouteConsumed()
         }
+    }
 
-        val enterAnimSpec = tween<Float>(durationMillis = 400, easing = FastOutSlowInEasing)
-        val exitAnimSpec = tween<Float>(durationMillis = 350, easing = FastOutSlowInEasing)
+    val enterAnimSpec = tween<Float>(durationMillis = 400, easing = FastOutSlowInEasing)
+    val exitAnimSpec = tween<Float>(durationMillis = 350, easing = FastOutSlowInEasing)
 
-        // Bottom bar shows only on the primary destinations; secondary screens (goals, reminders,
-        // notes, overview) hide it and rely on their own back arrow.
-        val navBackStackEntry by navController.currentBackStackEntryAsState()
-        val currentRoute = navBackStackEntry?.destination?.route
+    // Bottom bar shows only on the primary destinations; secondary screens (goals, reminders,
+    // notes, overview) hide it and rely on their own back arrow.
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
 
-        Scaffold(
-            snackbarHost = { SnackbarHost(snackbarHostState) },
-            bottomBar = {
-                if (currentRoute in PRIMARY_ROUTES) {
-                    AppBottomBar(
-                        currentRoute = currentRoute,
-                        onSelectPrimary = { route ->
-                            navController.navigate(route) {
-                                popUpTo("dashboard") { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        onMore = { showMoreSheet = true }
-                    )
-                }
-            },
-            containerColor = MaterialTheme.colorScheme.background
-        ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = "dashboard",
-            modifier = Modifier.padding(innerPadding),
-            enterTransition = {
-                fadeIn(animationSpec = enterAnimSpec) +
-                        scaleIn(initialScale = 0.94f, animationSpec = enterAnimSpec)
-            },
-            exitTransition = {
-                fadeOut(animationSpec = exitAnimSpec) +
-                        scaleOut(targetScale = 1.06f, animationSpec = exitAnimSpec)
-            },
-            popEnterTransition = {
-                fadeIn(animationSpec = enterAnimSpec) +
-                        scaleIn(initialScale = 1.06f, animationSpec = enterAnimSpec)
-            },
-            popExitTransition = {
-                fadeOut(animationSpec = exitAnimSpec) +
-                        scaleOut(targetScale = 0.94f, animationSpec = exitAnimSpec)
-            }
-        ) {
-            composable("overview") {
-                OverviewView(
-                    onBackToMenu = { navController.popBackStack() },
-                    onNavigate = { route -> navController.navigate(route) }
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        bottomBar = {
+            if (currentRoute in PRIMARY_ROUTES) {
+                AppBottomBar(
+                    currentRoute = currentRoute,
+                    onSelectPrimary = { route ->
+                        navController.navigate(route) {
+                            popUpTo("dashboard") { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    onMore = { showMoreSheet = true }
                 )
             }
-            composable("dashboard") {
-                DashboardView(
-                    onManageGoals = { navController.navigate("goals") },
-                    onOpenSettings = { showSettings = true },
-                    signedIn = user != null,
-                    isSyncing = isSyncing
-                )
-            }
-            composable("goals") {
-                GoalsView(onBack = { navController.popBackStack() })
-            }
-            composable("budget_tracker") {
-                LockGate(
-                    route = "budget_tracker",
-                    lockEnabled = budgetLockEnabled,
-                    promptTitle = stringResource(R.string.security_prompt_title, stringResource(R.string.module_budget)),
-                    promptSubtitle = stringResource(R.string.security_lock_subtitle),
-                    onCancelled = { navController.popBackStack() }
-                ) {
-                    BudgetTrackerApp(onBackToMenu = { navController.popBackStack() })
-                }
-            }
-            composable("study_tracker") {
-                StudyTrackerView(onBackToMenu = { navController.popBackStack() })
-            }
-            composable("screen_time") {
-                ScreenTimeTrackerView(onBackToMenu = { navController.popBackStack() })
-            }
-            composable("reminders") {
-                ReminderView(onBackToMenu = { navController.popBackStack() })
-            }
-            composable("notes") {
-                LockGate(
-                    route = "notes",
-                    lockEnabled = notesLockEnabled,
-                    promptTitle = stringResource(R.string.security_prompt_title, stringResource(R.string.module_notes)),
-                    promptSubtitle = stringResource(R.string.security_lock_subtitle),
-                    onCancelled = { navController.popBackStack() }
-                ) {
-                    NoteView(onBackToMenu = { navController.popBackStack() })
-                }
+        },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { innerPadding ->
+    NavHost(
+        navController = navController,
+        startDestination = "dashboard",
+        modifier = Modifier.padding(innerPadding),
+        enterTransition = {
+            fadeIn(animationSpec = enterAnimSpec) +
+                    scaleIn(initialScale = 0.94f, animationSpec = enterAnimSpec)
+        },
+        exitTransition = {
+            fadeOut(animationSpec = exitAnimSpec) +
+                    scaleOut(targetScale = 1.06f, animationSpec = exitAnimSpec)
+        },
+        popEnterTransition = {
+            fadeIn(animationSpec = enterAnimSpec) +
+                    scaleIn(initialScale = 1.06f, animationSpec = enterAnimSpec)
+        },
+        popExitTransition = {
+            fadeOut(animationSpec = exitAnimSpec) +
+                    scaleOut(targetScale = 0.94f, animationSpec = exitAnimSpec)
+        }
+    ) {
+        composable("overview") {
+            OverviewView(
+                onBackToMenu = { navController.popBackStack() },
+                onNavigate = { route -> navController.navigate(route) }
+            )
+        }
+        composable("dashboard") {
+            DashboardView(
+                onManageGoals = { navController.navigate("goals") },
+                onOpenSettings = { showSettings = true },
+                signedIn = user != null,
+                isSyncing = isSyncing
+            )
+        }
+        composable("goals") {
+            GoalsView(onBack = { navController.popBackStack() })
+        }
+        composable("budget_tracker") {
+            LockGate(
+                route = "budget_tracker",
+                lockEnabled = budgetLockEnabled,
+                promptTitle = stringResource(R.string.security_prompt_title, stringResource(R.string.module_budget)),
+                promptSubtitle = stringResource(R.string.security_lock_subtitle),
+                onCancelled = { navController.popBackStack() }
+            ) {
+                BudgetTrackerApp(onBackToMenu = { navController.popBackStack() })
             }
         }
-        } // Scaffold content
+        composable("study_tracker") {
+            StudyTrackerView(onBackToMenu = { navController.popBackStack() })
+        }
+        composable("screen_time") {
+            ScreenTimeTrackerView(onBackToMenu = { navController.popBackStack() })
+        }
+        composable("reminders") {
+            ReminderView(onBackToMenu = { navController.popBackStack() })
+        }
+        composable("notes") {
+            LockGate(
+                route = "notes",
+                lockEnabled = notesLockEnabled,
+                promptTitle = stringResource(R.string.security_prompt_title, stringResource(R.string.module_notes)),
+                promptSubtitle = stringResource(R.string.security_lock_subtitle),
+                onCancelled = { navController.popBackStack() }
+            ) {
+                NoteView(onBackToMenu = { navController.popBackStack() })
+            }
+        }
+    }
+    } // Scaffold content
 
-        if (showSettings) {
-            AppSettingsSheet(
-                onDismiss = { showSettings = false },
-                currentTheme = currentTheme,
-                isDarkMode = isDarkMode,
-                onThemeChange = onThemeChange,
-                onDarkModeChange = onDarkModeChange,
-                currencyCode = currencyCode,
-                onCurrencyChange = onCurrencyChange,
-                authViewModel = authViewModel
-            )
-        }
-        if (showMoreSheet) {
-            MoreSheet(
-                onDismiss = { showMoreSheet = false },
-                onSelect = { route ->
-                    showMoreSheet = false
-                    // Reset to the dashboard root first, so backing out of a More destination
-                    // always lands on the home surface rather than whatever tab was showing.
-                    navController.navigate(route) {
-                        popUpTo("dashboard")
-                        launchSingleTop = true
-                    }
+    if (showSettings) {
+        AppSettingsSheet(
+            onDismiss = { showSettings = false },
+            isDarkMode = isDarkMode,
+            onDarkModeChange = onDarkModeChange,
+            currencyCode = currencyCode,
+            onCurrencyChange = onCurrencyChange,
+            authViewModel = authViewModel
+        )
+    }
+    if (showMoreSheet) {
+        MoreSheet(
+            onDismiss = { showMoreSheet = false },
+            onSelect = { route ->
+                showMoreSheet = false
+                // Reset to the dashboard root first, so backing out of a More destination
+                // always lands on the home surface rather than whatever tab was showing.
+                navController.navigate(route) {
+                    popUpTo("dashboard")
+                    launchSingleTop = true
                 }
-            )
-        }
+            }
+        )
     }
 }
 
@@ -501,44 +491,6 @@ private fun MoreRow(icon: ImageVector, @StringRes labelRes: Int, route: String, 
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = Modifier.clickable { onSelect(route) }
     )
-}
-
-@Composable
-fun SplashScreen(onFinished: () -> Unit) {
-    var startAnimation by remember { mutableStateOf(false) }
-    val scaleAnim = animateFloatAsState(
-        targetValue = if (startAnimation) 1f else 0f,
-        animationSpec = tween(durationMillis = 800),
-        label = "splashScale"
-    )
-
-    LaunchedEffect(Unit) {
-        startAnimation = true
-        delay(2000)
-        onFinished()
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.scale(scaleAnim.value)
-        ) {
-            ApexLogo(modifier = Modifier.size(120.dp))
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = stringResource(R.string.app_title_caps),
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 4.sp,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-    }
 }
 
 @Composable

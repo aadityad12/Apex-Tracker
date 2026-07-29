@@ -41,7 +41,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.ApexTracker">
+            android:theme="@style/Theme.ApexTracker.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

@@ -40,7 +40,7 @@ class StylePlateActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             var dark by remember { mutableStateOf(true) }
-            ApexDesignTheme(darkTheme = dark) {
+            ApexTrackerTheme(darkTheme = dark) {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     StylePlate(dark = dark, onToggleTheme = { dark = !dark })
                 }

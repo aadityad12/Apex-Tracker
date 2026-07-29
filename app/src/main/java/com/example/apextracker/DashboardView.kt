@@ -33,6 +33,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.apextracker.ui.design.LocalApexSemantics
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -172,6 +173,10 @@ private fun TodayCard(todayGoals: List<GoalStatus>, loaded: Boolean, onToggle: (
 private fun GoalStatusRow(status: GoalStatus, onToggle: (Goal) -> Unit) {
     val goal = status.goal
     val isManual = goal.type == GoalType.MANUAL
+    // A satisfied goal is Sage, not Ember. Ember is emphasis (the streak, selection, the FAB);
+    // using it for "met" too would leave the screen with no way to distinguish "notable" from
+    // "good", which is the whole reason the semantic pair exists.
+    val met = LocalApexSemantics.current.positive
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -183,13 +188,13 @@ private fun GoalStatusRow(status: GoalStatus, onToggle: (Goal) -> Unit) {
             Checkbox(
                 checked = status.satisfied,
                 onCheckedChange = { onToggle(goal) },
-                colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
+                colors = CheckboxDefaults.colors(checkedColor = met)
             )
         } else {
             Icon(
                 if (status.satisfied) Icons.Default.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
                 contentDescription = null,
-                tint = if (status.satisfied) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                tint = if (status.satisfied) met else MaterialTheme.colorScheme.outline,
                 modifier = Modifier.padding(horizontal = 12.dp).size(24.dp)
             )
         }
@@ -205,7 +210,7 @@ private fun GoalStatusRow(status: GoalStatus, onToggle: (Goal) -> Unit) {
                 text = if (status.satisfied) stringResource(R.string.dashboard_auto_met) else stringResource(R.string.dashboard_auto_unmet),
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
-                color = if (status.satisfied) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+                color = if (status.satisfied) met else MaterialTheme.colorScheme.outline
             )
         }
     }
@@ -446,21 +451,16 @@ private fun DayDetailSheet(
 }
 
 /**
- * Theme-accent intensity ramp, indexed by bucket+1 (so index 0 = the -1 "no goals" neutral, then
- * 0..4 deepening toward a perfect day). Resolved once per heatmap render — see [rampColor] — rather
- * than reading MaterialTheme inside every one of ~371 cells.
+ * The heatmap intensity ramp, indexed by bucket+1 (index 0 = the -1 "no goals" neutral, then 0..4
+ * deepening toward a perfect day). Resolved once per heatmap render — see [rampColor] — rather than
+ * reading MaterialTheme inside every one of ~371 cells.
+ *
+ * This used to alpha-modulate `colorScheme.primary` at 10/35/55/78/100%. Two problems, both
+ * confirmed on device: alpha-over-a-dark-background compresses the low end so hard that the whole
+ * grid nearly disappeared, and the middle steps did not separate from each other. The ramp is now
+ * an explicit six-step scale in ApexPalette that gains chroma and lightness together.
  */
 @Composable
-private fun cellColorRamp(): List<Color> {
-    val cs = MaterialTheme.colorScheme
-    return listOf(
-        cs.surfaceVariant.copy(alpha = 0.30f), // -1: no active goals that day
-        cs.onSurface.copy(alpha = 0.10f),      // 0: tracked, none completed
-        cs.primary.copy(alpha = 0.35f),        // 1
-        cs.primary.copy(alpha = 0.55f),        // 2
-        cs.primary.copy(alpha = 0.78f),        // 3
-        cs.primary                             // 4: perfect day
-    )
-}
+private fun cellColorRamp(): List<Color> = LocalApexSemantics.current.heatRamp
 
 private fun rampColor(ramp: List<Color>, bucket: Int): Color = ramp[(bucket + 1).coerceIn(0, 5)]

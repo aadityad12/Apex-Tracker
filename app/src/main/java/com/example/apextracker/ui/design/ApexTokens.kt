@@ -92,20 +92,35 @@ val LocalApexSemantics = staticCompositionLocalOf {
 }
 
 /**
- * Self-contained theme for the redesign work. Deliberately separate from the live
- * `ApexTrackerTheme` so the style plate can be judged without changing the shipping app;
- * the two merge once the plate is signed off.
+ * The app's accent identity.
+ *
+ * One entry, deliberately. The app used to ship four interchangeable accents
+ * (EMERALD/OCEAN/MAGMA/ROYAL), which is customisation theatre: four accents means no identity.
+ * The enum survives rather than being inlined so a *second, fully-authored* identity is a
+ * drop-in — a monochrome + semantic-only theme is the planned next one. A single entry also
+ * means the settings picker disappears on its own, with no dead code left behind.
+ *
+ * `FirebaseManager` still round-trips this by name. Legacy values ("EMERALD" etc.) written by
+ * older builds fail `valueOf` and are swallowed at the call site in `MainActivity`, which is
+ * the correct behaviour — an unknown identity falls back to the default.
  */
+enum class ApexTheme { EMBER }
+
 @Composable
-fun ApexDesignTheme(
+fun ApexTrackerTheme(
+    theme: ApexTheme = ApexTheme.EMBER,
     darkTheme: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    val colors = if (darkTheme) ApexDarkColors else ApexLightColors
-    val semantics = ApexSemantics(
-        positive = if (darkTheme) SageDark else SageLight,
-        heatRamp = if (darkTheme) ApexHeatRampDark else ApexHeatRampLight
-    )
+    val colors = when (theme) {
+        ApexTheme.EMBER -> if (darkTheme) ApexDarkColors else ApexLightColors
+    }
+    val semantics = when (theme) {
+        ApexTheme.EMBER -> ApexSemantics(
+            positive = if (darkTheme) SageDark else SageLight,
+            heatRamp = if (darkTheme) ApexHeatRampDark else ApexHeatRampLight
+        )
+    }
     CompositionLocalProvider(LocalApexSemantics provides semantics) {
         MaterialTheme(
             colorScheme = colors,

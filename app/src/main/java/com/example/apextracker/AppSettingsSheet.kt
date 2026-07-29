@@ -33,17 +33,11 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.annotation.StringRes
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import com.example.apextracker.ui.theme.ApexTheme
-import com.example.apextracker.ui.theme.EmeraldMuted
-import com.example.apextracker.ui.theme.MagmaPrimary
-import com.example.apextracker.ui.theme.OceanPrimary
-import com.example.apextracker.ui.theme.RoyalPrimary
 
 /**
- * App-wide settings bottom sheet — account/sign-in, dark mode, theme accent, and currency. Extracted
+ * App-wide settings bottom sheet — account/sign-in, dark mode, and currency. Extracted
  * from the old MainMenu (retired in the Phase 4 nav restructure) so it can be hosted from the
  * Dashboard's settings gear. The dashboard is the app's home now, so this is the single place these
  * global controls live.
@@ -52,9 +46,7 @@ import com.example.apextracker.ui.theme.RoyalPrimary
 @Composable
 fun AppSettingsSheet(
     onDismiss: () -> Unit,
-    currentTheme: ApexTheme,
     isDarkMode: Boolean,
-    onThemeChange: (ApexTheme) -> Unit,
     onDarkModeChange: (Boolean) -> Unit,
     currencyCode: String,
     onCurrencyChange: (String) -> Unit,
@@ -186,67 +178,6 @@ fun AppSettingsSheet(
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
-                stringResource(R.string.menu_color_accent),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                ApexTheme.entries.forEach { theme ->
-                    // The same tokens Theme.kt feeds into each scheme's `primary`, so the
-                    // swatch can't drift from the theme it previews (Issue #66).
-                    val themeColor = when (theme) {
-                        ApexTheme.EMERALD -> EmeraldMuted
-                        ApexTheme.OCEAN -> OceanPrimary
-                        ApexTheme.MAGMA -> MagmaPrimary
-                        ApexTheme.ROYAL -> RoyalPrimary
-                    }
-
-                    // Colour is the only thing distinguishing these swatches, so name the theme
-                    // for TalkBack and expose the selected state (Issue #107).
-                    val isSelected = currentTheme == theme
-                    val themeLabel = stringResource(R.string.cd_theme_swatch, stringResource(themeNameRes(theme)))
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(CircleShape)
-                            .background(themeColor.copy(alpha = 0.1f))
-                            .border(
-                                width = 2.dp,
-                                color = if (isSelected) themeColor else Color.Transparent,
-                                shape = CircleShape
-                            )
-                            .selectable(selected = isSelected, onClick = { onThemeChange(theme) })
-                            .semantics { contentDescription = themeLabel }
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(themeColor)
-                        ) {
-                            if (currentTheme == theme) {
-                                Icon(
-                                    Icons.Default.Check,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp).align(Alignment.Center),
-                                    tint = Color.White
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
                 stringResource(R.string.menu_currency),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary
@@ -269,15 +200,6 @@ fun AppSettingsSheet(
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
-}
-
-/** Display name for an accent theme — used for the swatches' accessibility labels (Issue #107). */
-@StringRes
-private fun themeNameRes(theme: ApexTheme): Int = when (theme) {
-    ApexTheme.EMERALD -> R.string.theme_name_emerald
-    ApexTheme.OCEAN -> R.string.theme_name_ocean
-    ApexTheme.MAGMA -> R.string.theme_name_magma
-    ApexTheme.ROYAL -> R.string.theme_name_royal
 }
 
 /**

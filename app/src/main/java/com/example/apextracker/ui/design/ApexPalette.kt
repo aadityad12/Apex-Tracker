@@ -69,10 +69,14 @@ val ApexDarkColors: ColorScheme = darkColorScheme(
     onPrimary = Color(0xFF14100E),
     primaryContainer = Color(0xFF3A211A),
     onPrimaryContainer = Color(0xFFF0A98F),
-    secondary = SageDark,
-    onSecondary = Color(0xFF0E1512),
-    secondaryContainer = Color(0xFF1D2E27),
-    onSecondaryContainer = Color(0xFFA7CFBD),
+    // Secondary is a *desaturated Ember*, not Sage. Sage lives only in ApexSemantics.positive.
+    // Putting it in the ColorScheme meant every M3 component that defaults to secondary —
+    // FilterChip's selected state most visibly — rendered "goal met" green for things that had
+    // nothing to do with goals. One accent means secondary is a variant of it, not a new hue.
+    secondary = Color(0xFFB5745C),
+    onSecondary = Color(0xFF14100E),
+    secondaryContainer = Color(0xFF3A211A),
+    onSecondaryContainer = Color(0xFFF0A98F),
     tertiary = BoneDim,
     onTertiary = InkBase,
     background = InkBase,
@@ -95,10 +99,11 @@ val ApexLightColors: ColorScheme = lightColorScheme(
     onPrimary = Color(0xFFFFFFFF),
     primaryContainer = Color(0xFFF7DED3),
     onPrimaryContainer = Color(0xFF5C220F),
-    secondary = SageLight,
+    // See the dark scheme's note: secondary is a desaturated Ember, never Sage.
+    secondary = Color(0xFF94553B),
     onSecondary = Color(0xFFFFFFFF),
-    secondaryContainer = Color(0xFFD5E7DE),
-    onSecondaryContainer = Color(0xFF1D3B2E),
+    secondaryContainer = Color(0xFFF7DED3),
+    onSecondaryContainer = Color(0xFF5C220F),
     tertiary = SableDim,
     onTertiary = PaperSurface,
     background = PaperBase,
@@ -121,14 +126,18 @@ val ApexLightColors: ColorScheme = lightColorScheme(
  * rather than alpha-modulating the accent at the call site (which is what produces a ramp
  * whose middle steps are indistinguishable).
  *
- * Index 0 is "no goals active that day" and is deliberately a *neutral*, not a faint accent:
- * an untracked day must not read as a barely-achieved one. Steps 1..5 walk from a dim ember
- * toward full intensity, gaining chroma and lightness together so they separate on an AMOLED
- * panel at 20dp as well as they do in a swatch strip.
+ * Index 0 is "no goals active that day". It separates from index 1 ("tracked, none met") by
+ * *hue*, not by visibility: untracked is a cool neutral, tracked-but-empty is warm. An earlier
+ * pass made untracked near-background so it couldn't be mistaken for a failed day, which
+ * overcorrected — it erased the grid's structure, so a user with little history saw a blank
+ * panel instead of the shape of their year. Both must be visible; only their temperature differs.
+ *
+ * Steps 1..5 walk from a dim ember toward full intensity, gaining chroma and lightness together
+ * so they separate on an AMOLED panel at 20dp as well as they do in a swatch strip.
  */
 val ApexHeatRampDark = listOf(
-    Color(0xFF181614), // -1  untracked — near-background, reads as absent
-    Color(0xFF3A322D), // 0   tracked, none met — a real, visible, empty cell
+    Color(0xFF211F1E), // -1  untracked — visible, cool neutral: the cell exists, nothing was asked of it
+    Color(0xFF3B2C24), // 0   tracked, none met — visible and warm: on the ramp, at zero
     Color(0xFF6B3524), // 1
     Color(0xFF9A462A), // 2
     Color(0xFFC05733), // 3
@@ -136,8 +145,8 @@ val ApexHeatRampDark = listOf(
 )
 
 val ApexHeatRampLight = listOf(
-    Color(0xFFF0EDE7), // -1  untracked — near-background, reads as absent
-    Color(0xFFD5CBBB), // 0   tracked, none met — a real, visible, empty cell
+    Color(0xFFE7E4DF), // -1  untracked — visible, cool neutral
+    Color(0xFFDCCCBD), // 0   tracked, none met — visible and warm
     Color(0xFFEFC0A6), // 1
     Color(0xFFE29370), // 2
     Color(0xFFC96844), // 3
