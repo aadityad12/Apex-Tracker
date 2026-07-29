@@ -150,14 +150,42 @@ fun weekSunday(date: LocalDate): LocalDate =
     date.minusDays((date.dayOfWeek.value % 7).toLong()) // ISO MON=1..SUN=7; SUN%7=0
 
 /**
- * The inclusive day range the heatmap shows: the rolling last 365 days when [year] is null
- * (GitHub's default), otherwise that calendar year, never running past [today].
+ * Which slice of history the heatmap shows.
+ *
+ * [Recent] is the default and is deliberately short. A full year of 7-wide cells does not fit a
+ * portrait phone: the grid gets ~210dp of height, so 53 rows forces a ~5dp cell, which is neither
+ * readable nor tappable. Issue #128 optimised for "a whole year with no scrolling" and got exactly
+ * that cell size in exchange. Cell size is now held constant and legible instead, and the window
+ * decides how far the grid scrolls — so the default answers "how am I doing lately" at a glance,
+ * and the longer windows remain one tap away.
  */
-fun heatmapRange(year: Int?, today: LocalDate): Pair<LocalDate, LocalDate> {
-    if (year == null) return today.minusDays(364) to today
-    val start = LocalDate.of(year, 1, 1)
-    val end = LocalDate.of(year, 12, 31)
-    return start to if (end.isAfter(today)) today else end
+sealed interface HeatmapWindow {
+    /** The default: recent momentum, sized to fit without scrolling. */
+    data object Recent : HeatmapWindow
+
+    /** The old default — still offered, now scrolls. */
+    data object Rolling12Months : HeatmapWindow
+
+    data class Year(val year: Int) : HeatmapWindow
+}
+
+/** Weeks shown by [HeatmapWindow.Recent]. Eight rows fit the available height at a 32dp cell. */
+const val RECENT_WEEKS = 8
+
+/**
+ * The inclusive day range for [window], ending no later than [today] — a heatmap must never show
+ * future days as untracked.
+ */
+fun heatmapRange(window: HeatmapWindow, today: LocalDate): Pair<LocalDate, LocalDate> = when (window) {
+    // Snapped to the week boundary, not `today - 55 days`: an unsnapped start lands mid-week and
+    // heatmapWeeks then emits nine ragged rows instead of eight whole ones. The row count has to be
+    // deterministic because the layout is sized around it.
+    HeatmapWindow.Recent -> weekSunday(today).minusWeeks((RECENT_WEEKS - 1).toLong()) to today
+    HeatmapWindow.Rolling12Months -> today.minusDays(364) to today
+    is HeatmapWindow.Year -> {
+        val end = LocalDate.of(window.year, 12, 31)
+        LocalDate.of(window.year, 1, 1) to if (end.isAfter(today)) today else end
+    }
 }
 
 /**

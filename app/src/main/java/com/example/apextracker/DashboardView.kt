@@ -33,6 +33,12 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.apextracker.ui.design.ApexDivider
+import com.example.apextracker.ui.design.ApexEmptyState
+import com.example.apextracker.ui.design.ApexNumerals
+import com.example.apextracker.ui.design.ApexSectionHeader
+import com.example.apextracker.ui.design.ApexShapes
+import com.example.apextracker.ui.design.ApexSpacing
 import com.example.apextracker.ui.design.LocalApexSemantics
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.time.DayOfWeek
@@ -52,8 +58,14 @@ fun DashboardView(
 ) {
     val state by viewModel.uiState.collectAsState()
     var selectedDay by remember { mutableStateOf<LocalDate?>(null) }
-    // null = rolling last 12 months (the default window), otherwise a specific calendar year.
-    var selectedYear by rememberSaveable { mutableStateOf<Int?>(null) }
+    // Saved as a plain Int so it survives process death: -1 = Recent, 0 = Rolling12Months,
+    // anything else = that calendar year. A sealed type isn't Parcelable without extra ceremony.
+    var windowKey by rememberSaveable { mutableIntStateOf(-1) }
+    val window = when (windowKey) {
+        -1 -> HeatmapWindow.Recent
+        0 -> HeatmapWindow.Rolling12Months
+        else -> HeatmapWindow.Year(windowKey)
+    }
 
     Scaffold(
         topBar = {
@@ -86,27 +98,39 @@ fun DashboardView(
     ) { innerPadding ->
         // A Column (not a LazyColumn): the heatmap takes whatever height is left and sizes its
         // cells to fit, so a full year is on screen with no page scrolling (Issue #128).
+        // The page scrolls. It used to be a fixed viewport with the heatmap on weight(1f), which
+        // meant that at a large font scale the scaled text consumed the column and the graph — the
+        // whole point of the screen — was allocated zero height and disappeared. Sections now have
+        // intrinsic heights and the page scrolls when it must; at the default font scale everything
+        // still fits, so no scrollbar appears.
         Column(
             modifier = Modifier
                 .padding(innerPadding)
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
-                .padding(horizontal = 20.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = ApexSpacing.l)
         ) {
-            StreakRow(state.perfectStreak)
-            // The checklist is capped and scrolls internally so a long goal list can never push
-            // the graph off screen.
-            Box(Modifier.heightIn(max = 220.dp).verticalScroll(rememberScrollState())) {
-                TodayCard(state.todayGoals, state.loaded, onToggle = viewModel::toggleTodayGoal, onManageGoals = onManageGoals)
-            }
+            StreakHero(state.perfectStreak, state.loaded)
+            Spacer(Modifier.height(ApexSpacing.l))
+            ApexDivider()
+            Spacer(Modifier.height(ApexSpacing.l))
+            TodaySection(
+                todayGoals = state.todayGoals,
+                loaded = state.loaded,
+                onToggle = viewModel::toggleTodayGoal,
+                onManageGoals = onManageGoals
+            )
+            Spacer(Modifier.height(ApexSpacing.l))
+            ApexDivider()
+            Spacer(Modifier.height(ApexSpacing.l))
             HeatmapSection(
                 state = state,
-                selectedYear = selectedYear,
-                onSelectYear = { selectedYear = it },
-                onDayClick = { selectedDay = it },
-                modifier = Modifier.weight(1f)
+                window = window,
+                onSelectWindow = { windowKey = it },
+                onDayClick = { selectedDay = it }
             )
+            Spacer(Modifier.height(ApexSpacing.l))
         }
     }
 
@@ -120,68 +144,123 @@ fun DashboardView(
     }
 }
 
+/**
+ * The screen's thesis: the streak, at hero size.
+ *
+ * The count is Geist Mono (every quantity is) and the unit beside it is Instrument Serif — the
+ * mixed pair is deliberate, and it is the only place the display face appears on the home screen.
+ * Baseline-aligned via Alignment.Bottom so the two faces sit on one line despite very different
+ * cap heights.
+ */
 @Composable
-private fun StreakRow(streak: Int) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            Icons.Default.LocalFireDepartment,
-            contentDescription = null,
-            tint = if (streak > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-            modifier = Modifier.size(20.dp)
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(
-            text = if (streak > 0) stringResource(R.string.dashboard_streak, streak)
-            else stringResource(R.string.dashboard_streak_none),
-            style = MaterialTheme.typography.labelLarge,
-            color = if (streak > 0) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.outline
-        )
+private fun StreakHero(streak: Int, loaded: Boolean) {
+    // Don't assert "no streak" before Room has emitted — same gate TodaySection uses (Issue #118).
+    if (!loaded) {
+        Spacer(Modifier.height(56.dp))
+        return
+    }
+    if (streak > 0) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                streak.toString(),
+                style = ApexNumerals.hero,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(Modifier.width(ApexSpacing.m))
+            Text(
+                stringResource(R.string.dashboard_streak_unit_other),
+                style = MaterialTheme.typography.displaySmall,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.padding(bottom = ApexSpacing.s)
+            )
+        }
+    } else {
+        Column {
+            Text(
+                stringResource(R.string.dashboard_streak_start),
+                style = MaterialTheme.typography.displaySmall,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Text(
+                stringResource(R.string.dashboard_streak_start_hint),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
+/**
+ * Today's checklist. No card: an eyebrow plus rows separated by hairlines.
+ *
+ * The old version was a rounded Surface with an accent-coloured label at the top — the exact
+ * stacked-card shape this redesign exists to remove (see Design.md §5). Dropping it also reclaims
+ * ~32dp of container padding, which goes to the graph.
+ */
 @Composable
-private fun TodayCard(todayGoals: List<GoalStatus>, loaded: Boolean, onToggle: (Goal) -> Unit, onManageGoals: () -> Unit) {
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(Modifier.padding(16.dp)) {
-            Text(stringResource(R.string.dashboard_today), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, letterSpacing = 1.5.sp)
-            Spacer(Modifier.height(8.dp))
-            if (todayGoals.isEmpty()) {
-                // Only claim "no goals" once the Room flows have actually emitted — the seeded
-                // EMPTY state would otherwise flash the empty message on launch for a user who
-                // does have goals (Issue #118), same gate GoalsView already uses.
-                if (loaded) {
+private fun TodaySection(
+    todayGoals: List<GoalStatus>,
+    loaded: Boolean,
+    onToggle: (Goal) -> Unit,
+    onManageGoals: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier.fillMaxWidth()) {
+        ApexSectionHeader(
+            stringResource(R.string.dashboard_today),
+            trailing = {
+                if (todayGoals.isNotEmpty()) {
                     Text(
-                        stringResource(R.string.dashboard_no_goals),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.clickable { onManageGoals() }
+                        String.format(
+                            stringResource(R.string.dashboard_today_progress),
+                            todayGoals.count { it.satisfied },
+                            todayGoals.size
+                        ),
+                        style = ApexNumerals.small,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-            } else {
-                todayGoals.forEach { status -> GoalStatusRow(status, onToggle) }
+            }
+        )
+        if (todayGoals.isEmpty()) {
+            // Only claim "no goals" once the Room flows have actually emitted — the seeded EMPTY
+            // state would otherwise flash the empty message on launch (Issue #118).
+            if (loaded) {
+                ApexEmptyState(
+                    message = stringResource(R.string.dashboard_no_goals),
+                    actionLabel = stringResource(R.string.dashboard_add_goal),
+                    onAction = onManageGoals
+                )
+            }
+        } else {
+            todayGoals.forEachIndexed { i, status ->
+                if (i > 0) ApexDivider()
+                GoalStatusRow(status, onToggle)
             }
         }
     }
 }
 
-/** One goal's row with an interactive checkbox (MANUAL) or a read-only computed status (AUTO). */
+/**
+ * One goal's row: an interactive checkbox (MANUAL) or a read-only computed status (AUTO).
+ *
+ * A satisfied goal reads Sage, not Ember. Ember is emphasis — the streak, selection, the FAB —
+ * and using it for "met" as well would leave the screen unable to distinguish "notable" from
+ * "good" (Design.md §3).
+ */
 @Composable
 private fun GoalStatusRow(status: GoalStatus, onToggle: (Goal) -> Unit) {
     val goal = status.goal
     val isManual = goal.type == GoalType.MANUAL
-    // A satisfied goal is Sage, not Ember. Ember is emphasis (the streak, selection, the FAB);
-    // using it for "met" too would leave the screen with no way to distinguish "notable" from
-    // "good", which is the whole reason the semantic pair exists.
     val met = LocalApexSemantics.current.positive
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .then(if (isManual) Modifier.clickable { onToggle(goal) } else Modifier)
-            .padding(vertical = 6.dp),
+            // 48dp is the minimum *target*; extra vertical padding on top of it just spends
+            // height the graph needs.
+            .heightIn(min = 48.dp)
+            .padding(vertical = ApexSpacing.xs),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (isManual) {
@@ -195,52 +274,61 @@ private fun GoalStatusRow(status: GoalStatus, onToggle: (Goal) -> Unit) {
                 if (status.satisfied) Icons.Default.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
                 contentDescription = null,
                 tint = if (status.satisfied) met else MaterialTheme.colorScheme.outline,
-                modifier = Modifier.padding(horizontal = 12.dp).size(24.dp)
+                modifier = Modifier.padding(horizontal = ApexSpacing.m).size(24.dp)
             )
         }
-        Spacer(Modifier.width(4.dp))
+        Spacer(Modifier.width(ApexSpacing.xs))
         Column(Modifier.weight(1f)) {
-            Text(goal.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+            Text(
+                goal.name,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
             if (!isManual) {
-                Text(goalRuleText(goal), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                Text(
+                    goalRuleText(goal),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
         if (!isManual) {
             Text(
-                text = if (status.satisfied) stringResource(R.string.dashboard_auto_met) else stringResource(R.string.dashboard_auto_unmet),
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = if (status.satisfied) met else MaterialTheme.colorScheme.outline
+                text = if (status.satisfied) stringResource(R.string.dashboard_auto_met)
+                else stringResource(R.string.dashboard_auto_unmet),
+                style = MaterialTheme.typography.labelMedium,
+                color = if (status.satisfied) met else MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
 }
 
-private val GUTTER_WIDTH = 30.dp
-private val HEADER_ROW_HEIGHT = 16.dp
-private val MAX_CELL = 20.dp
-private val MIN_CELL = 7.dp
-private val GRID_SPACING = 8.dp
+// Cell size is a constant, not a function of available height. Deriving it from height is what
+// produced a 7dp cell in a 79dp-wide grid: 53 rows simply do not fit a portrait phone. The window
+// now decides how far the grid scrolls instead — see HeatmapWindow.
+private val GUTTER_WIDTH = 36.dp
+private val MAX_CELL = 30.dp
+private val MIN_CELL = 14.dp
 private val MONTH_LABEL_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM")
 private val HEATCELL_DATE_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("MMMM d, yyyy")
 
 @Composable
 private fun HeatmapSection(
     state: DashboardUiState,
-    selectedYear: Int?,
-    onSelectYear: (Int?) -> Unit,
+    window: HeatmapWindow,
+    onSelectWindow: (Int) -> Unit,
     onDayClick: (LocalDate) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val today = state.today
-    val (rangeStart, rangeEnd) = remember(selectedYear, today) { heatmapRange(selectedYear, today) }
+    val (rangeStart, rangeEnd) = remember(window, today) { heatmapRange(window, today) }
     val weeks = remember(state, rangeStart, rangeEnd) {
         heatmapWeeks(rangeStart, rangeEnd) { date -> state.dayCell(date) }
     }
     val years = remember(state.earliestGoalStart, today) { heatmapYears(state.earliestGoalStart, today) }
 
-    // Sunday-first to match the rows heatmapWeeks builds, but the letters themselves come from the
-    // locale rather than a hardcoded English list (Issue #120), same pattern as BudgetCalendar.
+    // Sunday-first to match the rows heatmapWeeks builds, but the letters come from the locale
+    // rather than a hardcoded English list (Issue #120).
     val locale = LocalLocale.current.platformLocale
     val weekdayLetters = remember(locale) {
         (0L..6L).map { DayOfWeek.SUNDAY.plus(it).getDisplayName(TextStyle.NARROW, locale) }
@@ -257,28 +345,29 @@ private fun HeatmapSection(
         action = stringResource(R.string.cd_dashboard_day_action)
     )
     val interactionSource = remember { MutableInteractionSource() }
-    // Resolve the six-step ramp once, not once per cell — ~371 MaterialTheme reads were part of
-    // what made the first composition heavy.
+    // Resolve the ramp once, not once per cell — ~371 MaterialTheme reads was part of the ANR.
     val ramp = cellColorRamp()
 
     Column(modifier.fillMaxWidth()) {
-        YearSelector(years = years, selectedYear = selectedYear, onSelectYear = onSelectYear)
-        Spacer(Modifier.height(8.dp))
+        // The chips are too wide to live in the header's trailing slot — as one they squeezed
+        // "CONSISTENCY" onto two lines and collided with it.
+        ApexSectionHeader(stringResource(R.string.dashboard_consistency))
+        Spacer(Modifier.height(ApexSpacing.s))
+        WindowSelector(years, window, onSelectWindow)
+        Spacer(Modifier.height(ApexSpacing.m))
 
-        // Cells shrink to whatever fits the remaining height, capped so a short window (a new
-        // user's first weeks) doesn't blow them up into giant squares.
-        BoxWithConstraints(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.TopCenter) {
-            val rows = weeks.size.coerceAtLeast(1)
-            // Height left for the cells once the weekday header, the legend and their spacing are
-            // accounted for. Floored at MIN_CELL so cells stay visible/tappable on a short screen —
-            // the grid scrolls in that case rather than being clipped.
-            val byHeight = (maxHeight - HEADER_ROW_HEIGHT - GRID_SPACING) / rows
-            val byWidth = (maxWidth - GUTTER_WIDTH) / 7
-            val cellSize = minOf(byWidth, byHeight, MAX_CELL).coerceAtLeast(MIN_CELL)
+        // Width-derived only: this sits inside a vertically-scrolling parent, where maxHeight is
+        // unbounded, so there is no height to divide by. The result is a constant, legible cell —
+        // which is the property that matters (a height-derived cell is what produced the old 7dp
+        // grid) — and the window decides how tall the grid gets.
+        BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+            val cellSize = ((maxWidth - GUTTER_WIDTH) / 7).coerceIn(MIN_CELL, MAX_CELL)
             val gridWidth = GUTTER_WIDTH + cellSize * 7
 
-            Column(Modifier.width(gridWidth).verticalScroll(rememberScrollState())) {
-                Row(Modifier.fillMaxWidth().height(HEADER_ROW_HEIGHT)) {
+            Column(Modifier.width(gridWidth)) {
+                // Height comes from the text, not a constant: a fixed height let the letters
+                // overlap the first row of cells at a large font scale.
+                Row(Modifier.fillMaxWidth()) {
                     Spacer(Modifier.width(GUTTER_WIDTH))
                     weekdayLetters.forEach { letter ->
                         Text(
@@ -286,65 +375,72 @@ private fun HeatmapSection(
                             modifier = Modifier.weight(1f),
                             textAlign = TextAlign.Center,
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.outline
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
 
-                weeks.forEach { week ->
-                    val monthLabel = week.firstOrNull { it?.date?.dayOfMonth == 1 }?.date
-                        ?.format(MONTH_LABEL_FORMAT)?.uppercase() ?: ""
-                    // Fixed row height: the month label must not inflate the twelve rows it
-                    // lands on, or a full year stops fitting on screen.
-                    Row(Modifier.fillMaxWidth().height(cellSize), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.width(GUTTER_WIDTH), contentAlignment = Alignment.CenterEnd) {
-                            if (monthLabel.isNotEmpty()) {
-                                Text(
-                                    monthLabel,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.outline,
-                                    maxLines = 1,
-                                    fontSize = 8.sp,
-                                    lineHeight = 8.sp,
-                                    modifier = Modifier.padding(end = 4.dp)
-                                )
+                Column {
+                    weeks.forEach { week ->
+                        val monthLabel = week.firstOrNull { it?.date?.dayOfMonth == 1 }?.date
+                            ?.format(MONTH_LABEL_FORMAT)?.uppercase() ?: ""
+                        // Fixed row height: a month label must not inflate the twelve rows it
+                        // lands on.
+                        Row(Modifier.fillMaxWidth().height(cellSize), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.width(GUTTER_WIDTH), contentAlignment = Alignment.CenterEnd) {
+                                if (monthLabel.isNotEmpty()) {
+                                    Text(
+                                        monthLabel,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        modifier = Modifier.padding(end = ApexSpacing.s)
+                                    )
+                                }
                             }
-                        }
-                        week.forEach { cell ->
-                            HeatCell(cell, today, labels, ramp, interactionSource, Modifier.size(cellSize), onDayClick)
+                            week.forEach { cell ->
+                                HeatCell(cell, today, labels, ramp, interactionSource, Modifier.size(cellSize), onDayClick)
+                            }
                         }
                     }
                 }
-
             }
         }
 
-        // Outside the grid column: it is only ~7 cells wide, which would wrap the legend's text.
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(ApexSpacing.s))
         HeatmapLegend()
     }
 }
 
-/** "Last 12 months" plus one chip per calendar year with history (Issue #128). */
+/** Window chips: the short default, the rolling year, then one per calendar year with history. */
 @Composable
-private fun YearSelector(years: List<Int>, selectedYear: Int?, onSelectYear: (Int?) -> Unit) {
+private fun WindowSelector(years: List<Int>, window: HeatmapWindow, onSelect: (Int) -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(ApexSpacing.s)
     ) {
-        FilterChip(
-            selected = selectedYear == null,
-            onClick = { onSelectYear(null) },
-            label = { Text(stringResource(R.string.dashboard_window_rolling)) }
-        )
+        WindowChip(stringResource(R.string.dashboard_window_recent), window is HeatmapWindow.Recent) { onSelect(-1) }
+        WindowChip(stringResource(R.string.dashboard_window_rolling), window is HeatmapWindow.Rolling12Months) { onSelect(0) }
         years.forEach { year ->
-            FilterChip(
-                selected = selectedYear == year,
-                onClick = { onSelectYear(year) },
-                label = { Text(year.toString()) }
-            )
+            WindowChip(year.toString(), window is HeatmapWindow.Year && window.year == year) { onSelect(year) }
         }
     }
+}
+
+@Composable
+private fun WindowChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    // M3 defaults a selected FilterChip to secondaryContainer and to a pill; both are overridden
+    // here for the same reasons documented in Design.md §4.
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        shape = RoundedCornerShape(ApexShapes.control),
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+        ),
+        label = { Text(label, style = MaterialTheme.typography.labelMedium) }
+    )
 }
 
 /** Pre-resolved accessibility strings, so a 365-cell grid resolves them once, not once per cell. */

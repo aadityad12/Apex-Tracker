@@ -433,13 +433,12 @@ what *new* categories get. Existing categories stay pastel forever, permanently 
 into two palettes. Three options: map old hexes to the nearest new slot on read, run a one-time
 migration, or accept the split. **Needs a decision before the Budget screen PR.**
 
-**Instrument Serif never appears on the home screen.** The Dashboard has no display-level text at
-all, so the identity's strongest element is absent from the first thing you see. Dashboard PR
-should fix this.
+**The perfect-day streak reads "Start a streak" each morning** until today's goals are ticked,
+since the streak counts today inclusive. Pre-existing and deliberate, but now the hero of the home
+screen rather than a small caption, so it is much more visible. Worth reconsidering.
 
-**The perfect-day streak reads "No streak yet" each morning** until today's goals are ticked, since
-the streak counts today inclusive. Pre-existing, deliberate, trivially changed — but now visible
-in a redesigned surface.
+**The bottom bar truncates at 200% font scale** ("Stud y", "Budg et"). `AppBottomBar`, not the
+Dashboard — its own PR.
 
 **`graphics-shapes` has no use site yet.** Adopt it in the first screen that needs state morphing.
 
@@ -471,7 +470,7 @@ layer do not change. What changes per screen is layout, emphasis, component anat
 
 | Screen | State | Job / intent |
 |---|---|---|
-| `dashboard` (home) | **Foundation only** — heatmap cells floor at 7dp in a 79dp column; weekday header squashed to `SMTWTFS`; month labels garble to `.JUL`; no serif anywhere | Answer "how am I doing" in one glance. The heatmap is the signature and must own the screen. |
+| `dashboard` (home) | **Redesigned 2026-07-29.** Streak hero (mono numeral + serif unit), de-carded Today section, heatmap at 30dp cells with an 8-week default window. Remaining: the grid is centred at ~76% width, and at 200% font scale the month label truncates to one letter. | Answer "how am I doing" in one glance. The heatmap is the signature and must own the screen. |
 | `study_tracker` | Not started | One dominant element (the stopwatch, `ApexNumerals.hero`) plus controls. **Delete the two counter-rotating rings.** |
 | `budget_tracker` | Not started | Densest data in the app. Currently totals-card → pie-card → limits-card → trend-card → list, which is the exact banned shape. Blocked on the palette question in §8. |
 | `screen_time` | Not started | Per-app list + trend. Duration axis rules apply. |
