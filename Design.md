@@ -3,9 +3,9 @@
 The specification for how this app looks and behaves visually: the token values, the
 measurements behind them, and the reasoning that is not recoverable from the code.
 
-**Status.** Foundation shipped on `redesign/foundation` (2026-07-29). Screens not yet
-redesigned — they render correct type and colour but have not had layout attention. Per-screen
-work is tracked in [Screen inventory](#screen-inventory).
+**Status.** Foundation and the Dashboard shipped on `redesign/foundation` (2026-07-29). Every other
+screen renders correct type and colour but has not had layout attention. Per-screen state is
+tracked in [Screen inventory](#screen-inventory).
 
 **Relationship to the skill.** `.claude/skills/android-product-design/SKILL.md` is the *enforcing*
 document — the rules and bans an agent applies while building. This file is the *reference* — the
