@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!--
+          Debug-only style plate. Lives in the debug source set so it cannot ship.
+          Exported so it can be launched over adb without adding a nav route (which would
+          also mean adding it to NavRoutes.APP_ROUTES — see Issue #105).
+        -->
+        <activity
+            android:name="com.example.apextracker.design.StylePlateActivity"
+            android:exported="true"
+            android:label="Apex Style Plate"
+            android:theme="@style/Theme.ApexTracker" />
+    </application>
+
+</manifest>

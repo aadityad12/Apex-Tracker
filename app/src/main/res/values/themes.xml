@@ -1,5 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.ApexTracker" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.ApexTracker" parent="android:Theme.Material.NoActionBar" />
+
+    <!--
+      The launch theme. androidx.core:core-splashscreen backports the API 31 system splash to
+      API 21+, so there is one code path. postSplashScreenTheme is what the Activity switches to
+      once the splash hands off — without it the app would keep the splash theme forever.
+    -->
+    <style name="Theme.ApexTracker.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/apex_ink_base</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.ApexTracker</item>
+    </style>
+
 </resources>

@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.google.services)
+    alias(libs.plugins.compose.screenshot)
 }
 
 android {
@@ -41,6 +42,16 @@ android {
     buildFeatures {
         compose = true
     }
+    // Compose Preview Screenshot Testing renders @Preview composables to PNGs and diffs them —
+    // the only safety net a 20-screen visual redesign has. It uses Layoutlib, not Robolectric, so
+    // it sidesteps the serialization clash that blocks Room's MigrationTestHelper here.
+    //
+    // Both this AND the matching line in gradle.properties are required: the plugin reads the
+    // properties file at apply time and this one when the android block is evaluated. Dropping
+    // either produces a confusing "enable screenshotTest source set first" failure.
+    //   record:   ./gradlew updateDebugScreenshotTest
+    //   validate: ./gradlew validateDebugScreenshotTest
+    experimentalProperties["android.experimental.enableScreenshotTest"] = true
 }
 
 // Room exports schema JSONs here (checked in) so future migrations can be
@@ -52,6 +63,7 @@ ksp {
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.biometric)
+    implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.glance.material3)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -94,5 +106,12 @@ dependencies {
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
+    // Screenshot tests render previews via Layoutlib, so the tooling artifact is needed on that
+    // source set's compile classpath too.
+    screenshotTestImplementation(platform(libs.androidx.compose.bom))
+    screenshotTestImplementation(libs.androidx.compose.ui.tooling)
+    // @PreviewTest lives here. The plugin puts it on the runtime classpath but not the compile
+    // one, so without this the annotation is an unresolved reference.
+    screenshotTestImplementation(libs.screenshot.validation.api)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
