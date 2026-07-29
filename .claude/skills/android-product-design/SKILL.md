@@ -15,6 +15,13 @@ already chosen. Your job is not to re-invent it per screen; it is to apply it wi
 precision that a stranger could tell two ApexTracker screens belong to the same app, and
 that neither was generated.
 
+**Values live in `Design.md` at the repo root, not here.** That file is the reference: the full
+type scale, both palettes with measured contrast ratios, the token tables, the chart spec, the
+screen inventory, and the reasoning. This file carries the *rules*; when the two disagree on a
+number, Design.md wins. Read it before designing a screen — enumerated values duplicated across
+two documents rot, which this repo has already been bitten by (see the doc-accuracy note in
+CLAUDE.md).
+
 ## The identity (locked - do not renegotiate per screen)
 
 **Axis.** Structure from Spotify: dark-first, dense, tight vertical rhythm, motion
