@@ -77,7 +77,6 @@ private fun StylePlate(dark: Boolean, onToggleTheme: () -> Unit) {
         NumeralSection()
         SurfaceSection()
         SemanticSection()
-        AlarmCandidatesSection(dark)
         HeatSection()
         ComponentSection()
         ChartSection()
@@ -192,37 +191,6 @@ private fun SemanticSection() = PlateSection("Semantics — the collision test")
     StateRow("Screen time under 4h", "Missed", cs.error, cs)
     StateRow("Groceries budget", "$284 over", cs.error, cs)
     StateRow("Reading streak", "12 days", cs.primary, cs)
-}
-
-@Composable
-private fun AlarmCandidatesSection(dark: Boolean) = PlateSection("Alarm candidates") {
-    val cs = MaterialTheme.colorScheme
-    Caption(
-        "The pair above failed on device — in light mode \"Missed\" and \"12 days\" are the same " +
-            "colour. Each row pairs a candidate against Ember in the context that matters."
-    )
-    Spacer(Modifier.height(ApexSpacing.m))
-    listOf(
-        "A · current" to (if (dark) AlarmDark else AlarmLight),
-        "B · rose" to (if (dark) AlarmRoseDark else AlarmRoseLight),
-        "C · crimson" to (if (dark) AlarmCrimsonDark else AlarmCrimsonLight),
-        "D · violet" to (if (dark) AlarmVioletDark else AlarmVioletLight)
-    ).forEach { (name, candidate) ->
-        Row(
-            Modifier.fillMaxWidth().padding(vertical = ApexSpacing.s),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(name, style = MaterialTheme.typography.labelMedium, modifier = Modifier.width(96.dp))
-            Box(Modifier.size(28.dp).clip(RoundedCornerShape(ApexShapes.cell)).background(candidate))
-            Spacer(Modifier.width(ApexSpacing.m))
-            Text("Missed", style = MaterialTheme.typography.labelLarge, color = candidate)
-            Spacer(Modifier.width(ApexSpacing.l))
-            Text("12 days", style = MaterialTheme.typography.labelLarge, color = cs.primary)
-            Spacer(Modifier.weight(1f))
-            Text(candidate.hex(), style = ApexNumerals.small, color = cs.onSurfaceVariant)
-        }
-        HorizontalDivider(color = cs.outlineVariant)
-    }
 }
 
 @Composable

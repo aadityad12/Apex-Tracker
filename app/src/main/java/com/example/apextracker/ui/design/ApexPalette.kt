@@ -52,21 +52,17 @@ val EmberLight = Color(0xFFB84A28)
  */
 val SageDark      = Color(0xFF6FA88C)
 val SageLight     = Color(0xFF3F7A62)
-val AlarmDark     = Color(0xFFE0574E)
-val AlarmLight    = Color(0xFFC0392F)
-
 /**
- * Candidate replacements for [AlarmDark]/[AlarmLight]. The first pass failed on device: at
- * ~15° hue separation from Ember, "Missed" and "12 days" were marginal in dark and effectively
- * identical in light. Each candidate below moves further around the wheel while staying
- * readable as "bad". Rendered side by side on the style plate — pick from pixels, not hex.
+ * Crimson, not the conventional red. The first pass used #E0574E, ~15° from Ember: on device
+ * "Missed" and "12 days" were marginal in dark and literally the same colour in light. Crimson
+ * separates on hue *and* value, which is what makes it survive both themes.
+ *
+ * Do not warm this toward Ember. If a future change makes Alarm more orange, the two stop
+ * being distinguishable and every over-budget and missed-goal state in the app degrades at
+ * once — silently, because nothing crashes.
  */
-val AlarmRoseDark     = Color(0xFFE24C6A)
-val AlarmRoseLight    = Color(0xFFB82746)
-val AlarmCrimsonDark  = Color(0xFFDC3D57)
-val AlarmCrimsonLight = Color(0xFFAE1F38)
-val AlarmVioletDark   = Color(0xFFAE7BD6)
-val AlarmVioletLight  = Color(0xFF7A47A8)
+val AlarmDark  = Color(0xFFDC3D57)
+val AlarmLight = Color(0xFFAE1F38)
 
 val ApexDarkColors: ColorScheme = darkColorScheme(
     primary = EmberDark,
