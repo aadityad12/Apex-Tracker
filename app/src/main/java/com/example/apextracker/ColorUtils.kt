@@ -17,6 +17,49 @@ fun parseColorSafe(colorHex: String?, fallback: Color = Color.Gray): Color {
     }
 }
 
+/**
+ * A colour in cylindrical HSV: [hue] in degrees 0–360, [saturation] and [value] in 0–1.
+ *
+ * Hue is meaningless for an achromatic colour, so [isAchromatic] is the caller's gate rather than a
+ * magic saturation comparison repeated at each site. The threshold matches the one [swatchHueOf]
+ * has always used.
+ */
+data class Hsv(val hue: Double, val saturation: Double, val value: Double) {
+    val isAchromatic: Boolean get() = saturation < 0.18
+}
+
+/**
+ * Parses "#RRGGBB"/"#AARRGGBB" into [Hsv], or null if it cannot be read.
+ *
+ * Deliberately hand-rolled rather than `android.graphics.Color.colorToHSV`: this is the shared
+ * basis for both [swatchHueOf] and the category palette mapping, and both need to be unit-testable
+ * on the JVM without Robolectric.
+ */
+fun hsvOf(colorHex: String?): Hsv? {
+    val hex = colorHex?.removePrefix("#") ?: return null
+    val rgb = when (hex.length) {
+        6 -> hex
+        8 -> hex.substring(2) // AARRGGBB
+        else -> return null
+    }
+    val r = rgb.substring(0, 2).toIntOrNull(16) ?: return null
+    val g = rgb.substring(2, 4).toIntOrNull(16) ?: return null
+    val b = rgb.substring(4, 6).toIntOrNull(16) ?: return null
+
+    val max = maxOf(r, g, b)
+    val min = minOf(r, g, b)
+    val delta = (max - min).toDouble()
+    if (max == 0) return Hsv(0.0, 0.0, 0.0)
+
+    val hue = if (delta == 0.0) 0.0 else when (max) {
+        r -> 60.0 * (((g - b) / delta) % 6)
+        g -> 60.0 * (((b - r) / delta) + 2)
+        else -> 60.0 * (((r - g) / delta) + 4)
+    }.let { if (it < 0) it + 360 else it }
+
+    return Hsv(hue = hue, saturation = delta / max, value = max / 255.0)
+}
+
 /** Coarse colour families, enough to say aloud which swatch is which (Issue #107). */
 enum class SwatchHue { RED, ORANGE, YELLOW, GREEN, TEAL, BLUE, PURPLE, PINK, GREY, UNKNOWN }
 
@@ -26,26 +69,9 @@ enum class SwatchHue { RED, ORANGE, YELLOW, GREEN, TEAL, BLUE, PURPLE, PINK, GRE
  * saturation collapses to [SwatchHue.GREY] and unparseable input to [SwatchHue.UNKNOWN].
  */
 fun swatchHueOf(colorHex: String?): SwatchHue {
-    val hex = colorHex?.removePrefix("#") ?: return SwatchHue.UNKNOWN
-    val rgb = when (hex.length) {
-        6 -> hex
-        8 -> hex.substring(2) // AARRGGBB
-        else -> return SwatchHue.UNKNOWN
-    }
-    val r = rgb.substring(0, 2).toIntOrNull(16) ?: return SwatchHue.UNKNOWN
-    val g = rgb.substring(2, 4).toIntOrNull(16) ?: return SwatchHue.UNKNOWN
-    val b = rgb.substring(4, 6).toIntOrNull(16) ?: return SwatchHue.UNKNOWN
-
-    val max = maxOf(r, g, b)
-    val min = minOf(r, g, b)
-    val delta = (max - min).toDouble()
-    if (max == 0 || delta / max < 0.18) return SwatchHue.GREY
-
-    val hue = when (max) {
-        r -> 60.0 * (((g - b) / delta) % 6)
-        g -> 60.0 * (((b - r) / delta) + 2)
-        else -> 60.0 * (((r - g) / delta) + 4)
-    }.let { if (it < 0) it + 360 else it }
+    val hsv = hsvOf(colorHex) ?: return SwatchHue.UNKNOWN
+    if (hsv.isAchromatic) return SwatchHue.GREY
+    val hue = hsv.hue
 
     return when {
         hue < 15 -> SwatchHue.RED

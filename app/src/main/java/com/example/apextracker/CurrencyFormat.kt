@@ -94,3 +94,21 @@ fun formatCurrencyCompact(
     format.roundingMode = RoundingMode.HALF_UP
     return format.format(amount)
 }
+
+/**
+ * A share of a whole, as a percentage.
+ *
+ * Localized via [NumberFormat] rather than `"%.0f%%"`: the percent sign's position and the digits
+ * themselves are locale-dependent, and the previous call sites hardcoded `Locale.US`, so a
+ * right-to-left or non-Latin-digit locale rendered the wrong thing. [fraction] is 0–1, not 0–100.
+ *
+ * Shares below 1% get one decimal place. Whole numbers alone would render a real $5.25 expense in a
+ * $1,800 month as "0%", which reads as "nothing" rather than "a little" — and a legend row saying 0%
+ * next to a non-zero amount looks like a bug. One decimal is preferred over a "<1%" literal because
+ * it needs no new translated string and stays a number, which is what the mono column is aligned for.
+ */
+fun formatPercent(fraction: Double, locale: Locale = Locale.getDefault()): String {
+    val format = NumberFormat.getPercentInstance(locale)
+    format.maximumFractionDigits = if (fraction > 0.0 && fraction < 0.01) 1 else 0
+    return format.format(fraction)
+}

@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.example.apextracker.ui.design.ApexSpacing
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.YearMonth
@@ -214,6 +215,9 @@ fun CategoriesView(
     if (showAddDialog) {
         CategoryDialog(
             title = stringResource(R.string.budget_new_category),
+            // Pre-select a slot nothing else is using, so a run of new categories doesn't all come
+            // out the same colour.
+            initialColor = nextCategoryHex(categories.map { it.colorHex }),
             onDismiss = { showAddDialog = false },
             onConfirm = { name, color, limit -> onAdd(name, color, limit) }
         )
@@ -251,7 +255,7 @@ fun CategoryItem(category: Category, onEdit: () -> Unit) {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                Box(modifier = Modifier.size(20.dp).background(parseColorSafe(category.colorHex), CircleShape))
+                Box(modifier = Modifier.size(20.dp).background(categoryColorOf(category.colorHex), CircleShape))
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(category.name, style = MaterialTheme.typography.bodyMedium)
@@ -286,13 +290,12 @@ fun CategoryDialog(
     // Rendered bare (not via formatCurrency) because this is an editable numeric field —
     // a "$400.00" string wouldn't survive a round-trip back through the input filter.
     var limit by remember { mutableStateOf(initialLimit?.let { formatLimitForInput(it) } ?: "") }
-    val colors = listOf(
-        "#ac725e", "#d06b64", "#f83a22", "#fa573c", "#ff7537", "#ffad46",
-        "#42d692", "#16a765", "#7bd148", "#b3dc6c", "#fbe983", "#fad165",
-        "#92e1c0", "#9fe1e7", "#9fc6e7", "#4986e7", "#9a9cff", "#b99aff",
-        "#c2c2c2", "#cabdbf", "#cca6ac", "#f691b2", "#cd74e6", "#a47ae2"
-    )
-    var selectedColor by remember { mutableStateOf(initialColor ?: colors[15]) }
+    // The 24 Google Calendar swatches this used to offer are gone — see CategoryPalette.kt. An
+    // existing category whose stored hex predates the palette opens with its *resolved* slot
+    // pre-selected, which is the same colour the rest of the app is already showing it as; without
+    // resolving, the dialog would open with nothing selected and silently recolour on save.
+    val colors = PALETTE
+    var selectedColor by remember { mutableStateOf(resolveCategoryHex(initialColor)) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -337,32 +340,53 @@ fun CategoryDialog(
     )
 }
 
+/**
+ * The category colour picker: the eight [PALETTE] slots in their fixed order.
+ *
+ * [colors] is still a parameter rather than reading [PALETTE] directly so the composable stays
+ * stateless and previewable, but every caller passes the palette — a category colour that is not a
+ * palette slot can no longer be created.
+ *
+ * Names come from [PALETTE_NAME_RES], indexed positionally, rather than from `swatchHueOf`. The hue
+ * classifier puts both the gold and the brown slot in its ORANGE band, so TalkBack announced two of
+ * the eight swatches identically — which defeats the point of labelling them at all (Issue #107).
+ */
 @Composable
 fun ColorGrid(colors: List<String>, selectedColor: String, onColorSelected: (String) -> Unit) {
-    val columns = 6
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        colors.chunked(columns).forEach { rowColors ->
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                rowColors.forEach { color ->
-                    // Swatches have no text of their own; name the hue so TalkBack can tell them
-                    // apart, and mark the selected one (Issue #107).
+    val columns = 4
+    Column(verticalArrangement = Arrangement.spacedBy(ApexSpacing.m)) {
+        colors.chunked(columns).forEachIndexed { rowIndex, rowColors ->
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(ApexSpacing.m)) {
+                rowColors.forEachIndexed { colIndex, color ->
+                    val index = rowIndex * columns + colIndex
                     val isSelected = selectedColor == color
-                    val colorLabel = stringResource(
-                        R.string.cd_color_swatch,
-                        stringResource(swatchHueLabelRes(swatchHueOf(color)))
-                    )
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .background(parseColorSafe(color), CircleShape)
-                            .border(
-                                width = if (isSelected) 2.dp else 1.dp,
-                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-                                shape = CircleShape
+                    val name = PALETTE_NAME_RES.getOrNull(index)
+                        ?.let { stringResource(it) }
+                        ?: stringResource(swatchHueLabelRes(swatchHueOf(color)))
+                    val colorLabel = stringResource(R.string.cd_color_swatch, name)
+                    // The visual swatch is 32dp; minimumInteractiveComponentSize brings the touch
+                    // target up to 48dp without growing the dot.
+                    Box(contentAlignment = Alignment.Center) {
+                        Box(
+                            modifier = Modifier
+                                .minimumInteractiveComponentSize()
+                                .selectable(selected = isSelected, onClick = { onColorSelected(color) }),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(parseColorSafe(color), CircleShape)
+                                    .border(
+                                        width = if (isSelected) 2.dp else 1.dp,
+                                        color = if (isSelected) MaterialTheme.colorScheme.onSurface
+                                        else MaterialTheme.colorScheme.outlineVariant,
+                                        shape = CircleShape
+                                    )
+                                    .semantics { contentDescription = colorLabel }
                             )
-                            .selectable(selected = isSelected, onClick = { onColorSelected(color) })
-                            .semantics { contentDescription = colorLabel }
-                    )
+                        }
+                    }
                 }
             }
         }

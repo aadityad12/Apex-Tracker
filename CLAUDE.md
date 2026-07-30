@@ -317,11 +317,20 @@ inventory, and the reasoning. Do not restate its values here.
   It exists because five values were correct on paper and wrong on an AMOLED panel — invisible
   hairlines, a heatmap ramp that compressed to nothing, and an Ember/Alarm pair that rendered as
   one colour in light mode. **Judge design changes there before touching a screen.**
-- **Only the foundation has landed.** Every screen renders the new type and palette; none except
-  the Dashboard has had layout attention, and the Dashboard's heatmap still has real layout bugs
-  (7dp cells in a 79dp column, squashed weekday header, garbled month labels). Screen-by-screen
-  PRs are listed in `Design.md` §10.
-- **Still open**: the category-colour palette cannot simply be swapped — the existing 24 swatches
-  are Google Calendar's, and every `Category.colorHex` is persisted in Room *and* Firestore, so
-  replacing the picker would permanently split the app into two palettes. Needs a decision before
-  the Budget PR. See `Design.md` §8.
+- **All eight screens have landed** (PRs #140–#146, merged 2026-07-29/30). `Design.md` §10 tracks
+  per-screen state; don't restate it here.
+- **Category colours are mapped on read, never migrated** (`CategoryPalette.kt`). The picker offers
+  the eight validated hues from `Design.md` §6; every legacy `Category.colorHex` still sits in Room
+  and Firestore untouched, and `resolveCategoryHex()` maps it onto a palette slot at render time.
+  **Every surface that paints a category colour must go through `categoryColorOf()`/
+  `resolveCategoryHex()`** — a raw `parseColorSafe(category.colorHex)` reintroduces the two-palette
+  split. The mapping is many-to-one, so colour is never the only channel: always show the category
+  name too. Collapse table and rationale in `Design.md` §8.
+- **Every `ColorScheme` slot the app touches must exist in both schemes.** An undefined slot falls
+  back to Material's *default* scheme, not to something neutral — that's how the Overview's
+  screen-time card rendered in Material Purple.
+- **`outline` is for borders, dividers and strokes — never for text or a meaningful icon.** Raising it
+  for hairline visibility silently dropped 51 text call sites across eleven files to ~2.5:1. Text uses
+  `onSurfaceVariant`.
+- **Still untouched**: the settings sheets, `CalendarGrid`, and the various dialogs/editors — left out
+  of the per-screen PRs deliberately to keep diffs reviewable.
