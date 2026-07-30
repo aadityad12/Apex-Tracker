@@ -41,6 +41,12 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
+import androidx.compose.foundation.lazy.itemsIndexed
+import com.example.apextracker.ui.design.ApexDivider
+import com.example.apextracker.ui.design.ApexEmptyState
+import com.example.apextracker.ui.design.ApexNumerals
+import com.example.apextracker.ui.design.ApexShapes
+import com.example.apextracker.ui.design.ApexSpacing
 
 internal val bulletSequence = listOf("• ", "  ◦ ", "    ▪ ")
 internal val bulletRegex = Regex("^(\\s*[•◦▪])\\s")
@@ -111,7 +117,10 @@ fun NoteView(onBackToMenu: () -> Unit, viewModel: NoteViewModel = viewModel()) {
                                 )
                             )
                         } else {
-                            Text(stringResource(R.string.notes_title), fontWeight = FontWeight.Bold)
+                            Text(
+                                stringResource(R.string.notes_title),
+                                style = MaterialTheme.typography.titleSmall
+                            )
                         }
                     },
                     navigationIcon = {
@@ -135,26 +144,35 @@ fun NoteView(onBackToMenu: () -> Unit, viewModel: NoteViewModel = viewModel()) {
                 )
             },
             floatingActionButton = {
-                FloatingActionButton(onClick = { noteToEdit = Note(title = "", content = "") }) {
+                FloatingActionButton(
+                    onClick = { noteToEdit = Note(title = "", content = "") },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    shape = RoundedCornerShape(ApexShapes.control)
+                ) {
                     Icon(Icons.Default.Add, contentDescription = stringResource(R.string.cd_add_note))
                 }
             }
         ) { innerPadding ->
             if (activeNotes.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
-                    Text(stringResource(R.string.notes_empty), color = MaterialTheme.colorScheme.outline)
+                    ApexEmptyState(message = stringResource(R.string.notes_empty))
                 }
             } else if (filteredNotes.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
-                    Text(stringResource(R.string.notes_search_no_results, searchQuery), color = MaterialTheme.colorScheme.outline)
+                    ApexEmptyState(message = stringResource(R.string.notes_search_no_results, searchQuery))
                 }
             } else {
                 LazyColumn(
-                    modifier = Modifier.padding(innerPadding).fillMaxSize().padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier = Modifier
+                        .padding(innerPadding)
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background)
+                        .padding(horizontal = ApexSpacing.l)
                 ) {
-                    items(filteredNotes) { note ->
-                        NoteCard(
+                    itemsIndexed(filteredNotes) { i, note ->
+                        if (i > 0) ApexDivider()
+                        NoteRow(
                             note = note,
                             onClick = { noteToEdit = note },
                             onDelete = { viewModel.moveToRecycleBin(note) },
@@ -167,75 +185,86 @@ fun NoteView(onBackToMenu: () -> Unit, viewModel: NoteViewModel = viewModel()) {
     }
 }
 
+/**
+ * One note row. Was a tinted card per note, which stacked into a card run.
+ *
+ * The delete icon used to be `error` tinted, which read as irreversible — it is not: notes go to the
+ * recycle bin and can be restored. It is now a normal secondary control, so Alarm keeps meaning
+ * "something is wrong" rather than "this button is red".
+ */
 @Composable
-fun NoteCard(note: Note, onClick: () -> Unit, onDelete: () -> Unit, onTogglePin: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable { onClick() },
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+fun NoteRow(note: Note, onClick: () -> Unit, onDelete: () -> Unit, onTogglePin: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(vertical = ApexSpacing.m)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (note.isPinned) {
-                    Icon(
-                        Icons.Default.PushPin,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp).padding(end = 4.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-                Text(
-                    text = note.title.ifBlank { stringResource(R.string.notes_untitled) },
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.weight(1f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                IconButton(onClick = onTogglePin, modifier = Modifier.size(24.dp)) {
-                    Icon(
-                        if (note.isPinned) Icons.Default.PushPin else Icons.Outlined.PushPin,
-                        contentDescription = stringResource(if (note.isPinned) R.string.cd_unpin_note else R.string.cd_pin_note),
-                        tint = if (note.isPinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
-                    )
-                }
-                IconButton(onClick = onDelete, modifier = Modifier.size(24.dp)) {
-                    Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.action_delete), tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f))
-                }
-            }
-            if (note.content.isNotBlank()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = note.content,
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = note.title.ifBlank { stringResource(R.string.notes_untitled) },
+                style = MaterialTheme.typography.titleMedium,
+                color = cs.onSurface,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            IconButton(onClick = onTogglePin) {
+                Icon(
+                    if (note.isPinned) Icons.Default.PushPin else Icons.Outlined.PushPin,
+                    contentDescription = stringResource(if (note.isPinned) R.string.cd_unpin_note else R.string.cd_pin_note),
+                    tint = if (note.isPinned) cs.primary else cs.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp)
                 )
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = stringResource(R.string.notes_modified_prefix, note.modifiedAt.format(DateTimeFormatter.ofPattern("MMM dd, HH:mm"))),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline
+            IconButton(onClick = onDelete) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = stringResource(R.string.action_delete),
+                    tint = cs.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp)
                 )
-                // Image-attachment indicator (Issue #127).
-                val attachmentCount = attachmentList(note.attachments).size
-                if (attachmentCount > 0) {
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Icon(
-                        Icons.Default.Image,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.outline
-                    )
-                    Text(
-                        text = attachmentCount.toString(),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.padding(start = 2.dp)
-                    )
-                }
             }
+        }
+        if (note.content.isNotBlank()) {
+            Text(
+                text = note.content,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                color = cs.onSurfaceVariant
+            )
+        }
+        Spacer(modifier = Modifier.height(ApexSpacing.xs))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // The timestamp is a quantity — mono, so the column of dates lines up. The old string
+            // carried a "Modified: " prefix baked into the resource; the eyebrow-quiet styling says
+            // the same thing without spending a line on it.
+            Text(
+                text = note.modifiedAt.format(DateTimeFormatter.ofPattern("MMM d, HH:mm")),
+                style = ApexNumerals.small,
+                color = cs.onSurfaceVariant
+            )
+            // Image-attachment indicator (Issue #127).
+            val attachmentCount = attachmentList(note.attachments).size
+            if (attachmentCount > 0) {
+                Spacer(modifier = Modifier.width(ApexSpacing.s))
+                Icon(
+                    Icons.Default.Image,
+                    contentDescription = null,
+                    modifier = Modifier.size(13.dp),
+                    tint = cs.onSurfaceVariant
+                )
+                Text(
+                    text = attachmentCount.toString(),
+                    style = ApexNumerals.small,
+                    color = cs.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 2.dp)
+                )
+            }
+            // No "PINNED" badge: the filled accent pin icon above already says it, and the DAO
+            // sorts pinned notes to the top. Two channels for one bit of state is noise.
         }
     }
 }
