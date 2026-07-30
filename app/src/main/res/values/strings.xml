@@ -67,12 +67,10 @@
 
     <!-- Budget -->
     <string name="budget_title">BUDGET FLOW</string>
-    <string name="budget_transactions">TRANSACTIONS</string>
-    <string name="budget_trends_title">SPENDING TRENDS</string>
+    <string name="budget_transactions">Transactions</string>
+    <string name="budget_trends_title">Spending trends</string>
     <string name="budget_trends_empty">No spending data yet</string>
-    <string name="budget_no_data">No data for this period</string>
-    <string name="budget_total_monthly_spend">Total Monthly Spend</string>
-    <string name="budget_plus_n_more">+ %1$d more</string>
+    <string name="budget_no_data">Nothing recorded this month — add an expense to start tracking</string>
     <string name="budget_add_item_title">Add Budget Item</string>
     <string name="budget_edit_item_title">Edit Budget Item</string>
     <string name="budget_date_prefix">Date: %1$s</string>
@@ -81,7 +79,7 @@
     <string name="budget_new_category">New Category</string>
     <string name="budget_edit_category">Edit Category</string>
     <string name="budget_select_color">Select Color:</string>
-    <string name="budget_category_limits_title">SPENDING LIMITS</string>
+    <string name="budget_category_limits_title">Spending limits</string>
     <string name="budget_overall_limit_label_row">All spending</string>
     <string name="budget_limit_spent_of">%1$s of %2$s</string>
     <string name="budget_limit_remaining">%1$s left</string>
@@ -115,6 +113,14 @@
          its own untranslated literal; see the comment there. -->
     <string name="budget_category_subscriptions">Subscriptions</string>
     <string name="budget_pending_category">Pending: %1$s</string>
+    <!-- Section eyebrow over the donut. Distinct from budget_breakdown_title, which is the
+         calendar's per-day dialog heading. -->
+    <string name="budget_where_it_went">Where it went</string>
+    <string name="budget_other_categories">Other</string>
+    <plurals name="budget_total_transactions">
+        <item quantity="one">Total spent · %1$d transaction</item>
+        <item quantity="other">Total spent · %1$d transactions</item>
+    </plurals>
     <string name="budget_uncategorized">Uncategorized</string>
     <string name="budget_subscription_item_title">[Subscription] %1$s</string>
     <string name="budget_pending_legend">Pending</string>
@@ -379,4 +385,8 @@
     <string name="color_name_pink">Pink</string>
     <string name="color_name_grey">Grey</string>
     <string name="color_name_other">Colour</string>
+    <string name="color_name_gold">Gold</string>
+    <string name="color_name_brown">Brown</string>
+    <string name="color_name_indigo">Indigo</string>
+    <string name="color_name_olive">Olive</string>
 </resources>

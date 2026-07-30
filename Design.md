@@ -3,9 +3,11 @@
 The specification for how this app looks and behaves visually: the token values, the
 measurements behind them, and the reasoning that is not recoverable from the code.
 
-**Status.** Foundation and the Dashboard shipped on `redesign/foundation` (2026-07-29). Every other
-screen renders correct type and colour but has not had layout attention. Per-screen state is
-tracked in [Screen inventory](#screen-inventory).
+**Status.** Foundation plus **all eight screens** shipped 2026-07-29. The bottom bar's large-font
+behaviour and the category palette — the two things §8 was holding open — are both resolved. What
+remains untouched: the settings sheets, `CalendarGrid`, and the dialogs/editors, left out of the
+per-screen PRs deliberately to keep diffs reviewable. Per-screen state is tracked in
+[Screen inventory](#screen-inventory).
 
 **Relationship to the skill.** `.claude/skills/android-product-design/SKILL.md` is the *enforcing*
 document — the rules and bans an agent applies while building. This file is the *reference* — the
@@ -387,7 +389,7 @@ if you change one, change the other.
 Never a blank plot area. Draw the baseline and a label. `maxTotal == 0.0` is a legitimate state, not
 an error.
 
-### Categorical palette — PROPOSED, not applied
+### Categorical palette — APPLIED 2026-07-29
 
 For budget categories. Validated with the `dataviz` validator (not eyeballed), in fixed order:
 
@@ -416,8 +418,9 @@ Two things to know before touching this:
 
 Assign in fixed order, never cycled. A ninth category folds into "Other" — it is never a generated hue.
 
-**This palette is not in the code yet**, because applying it has a data problem — see
-[§8](#8-open-questions).
+Live in `CategoryPalette.kt` as `PALETTE`. Legacy `Category.colorHex` values are mapped onto these
+slots on read rather than migrated — see [§8](#8-open-questions) for the mapping, the collapse table,
+and what it costs.
 
 ---
 
@@ -446,13 +449,45 @@ Not stylistic. A screen failing any of these is not done.
 
 ## 8. Open questions
 
-**The category palette cannot just be swapped.** The current 24 swatches in `BudgetSettings.kt` are
-Google Calendar's event palette, copied verbatim (`#ac725e`, `#d06b64`, `#f83a22`, `#9fc6e7`, …) —
-borrowed, not designed, and most of them fail contrast against `#131210`. But every existing
-`Category.colorHex` is persisted in Room **and** Firestore, so replacing the picker only changes
-what *new* categories get. Existing categories stay pastel forever, permanently splitting the app
-into two palettes. Three options: map old hexes to the nearest new slot on read, run a one-time
-migration, or accept the split. **Needs a decision before the Budget screen PR.**
+**~~The category palette cannot just be swapped~~ — resolved 2026-07-29: map on read.** The 24
+Google Calendar swatches are gone from the picker, which now offers the eight §6 hues. Stored values
+are **never rewritten**: `resolveCategoryHex()` in `CategoryPalette.kt` maps whatever is in Room or
+Firestore onto a palette slot at render time, and every surface that paints a category colour goes
+through it. A one-time migration was the alternative; read-side mapping was chosen because it is
+reversible by deleting one function and because an older build on another device still renders its own
+colours correctly from the same rows.
+
+The mapping is nearest-slot by cylindrical HSV distance, **hue-dominant** — a plain RGB distance drags
+the whole pastel legacy set toward whichever palette entry is lightest, which is how a "nearest
+colour" mapping ends up making everything brown. Saturation and value carry a little weight and earn
+it on one real case: `#ff7537` (bright orange) and `#ac725e` (muted clay) are ~7° apart in hue but
+belong on the gold and brown slots respectively.
+
+How the 24 actually collapse — worth knowing, because **it is many-to-one and a collision is visible
+immediately**:
+
+| Slot | | Legacy swatches landing there |
+|---|---|---|
+| 0 pink `#C75C8A` | | `#d06b64` `#cca6ac` `#f691b2` |
+| 1 gold `#C1832B` | | `#f83a22` `#fa573c` `#ff7537` `#ffad46` `#fbe983` `#fad165` |
+| 2 blue `#3E90C4` | | `#9fe1e7` `#9fc6e7` `#4986e7` |
+| 3 brown `#9A5F2A` | | `#ac725e` `#c2c2c2` `#cabdbf` |
+| 4 purple `#A0509F` | | `#cd74e6` |
+| 5 green `#3FA47C` | | `#42d692` `#16a765` `#92e1c0` |
+| 6 indigo `#5A62CC` | | `#9a9cff` `#b99aff` `#a47ae2` |
+| 7 olive `#8E9432` | | `#7bd148` `#b3dc6c` |
+
+Two consequences to keep in mind:
+- **There is deliberately no red slot**, because Ember is reserved. Reds resolve to gold, which is
+  hue-preserving but not what a user picking `#f83a22` had in mind. Accepted.
+- **Greys cannot stay grey** — the palette has a chroma floor, so `#c2c2c2` goes to brown, the least
+  saturated-reading slot. Fixed rather than computed, since hue is undefined for an achromatic input.
+
+Because collisions exist, **colour is never the only channel**: every legend row, limit row and
+transaction row shows the category's name as text beside its dot.
+
+New categories pre-select the first unused slot via `nextCategoryHex()`, so a run of new categories
+does not all come out the same colour — the old picker defaulted every one of them to `colors[15]`.
 
 **The perfect-day streak reads "Start a streak" each morning** until today's goals are ticked,
 since the streak counts today inclusive. Pre-existing and deliberate, but now the hero of the home
@@ -512,7 +547,7 @@ layer do not change. What changes per screen is layout, emphasis, component anat
 |---|---|---|
 | `dashboard` (home) | **Redesigned 2026-07-29.** Streak hero (mono numeral + serif unit), de-carded Today section, heatmap at 30dp cells with an 8-week default window. Remaining: the grid is centred at ~76% width, and at 200% font scale the month label truncates to one letter. | Answer "how am I doing" in one glance. The heatmap is the signature and must own the screen. |
 | `study_tracker` | **Redesigned 2026-07-29.** Rings deleted, timer on `ApexNumerals.hero`, de-carded history, chart spec'd with real axis labels. Remaining: the goal ring reads as a plain circle at 0 progress. | One dominant element (the stopwatch) plus controls. |
-| `budget_tracker` | Not started | Densest data in the app. Currently totals-card → pie-card → limits-card → trend-card → list, which is the exact banned shape. Blocked on the palette question in §8. |
+| `budget_tracker` | **Redesigned 2026-07-29.** Hero total on `ApexNumerals.hero` (was a `primaryContainer` card with a decorative accent circle), donut given a legend that names every slice, limits and trend de-carded, transaction rows de-carded off their per-row colour tints. Category palette applied via read-side mapping. Remaining: nothing known. | Densest data in the app. |
 | `screen_time` | **Redesigned 2026-07-29.** Total on `ApexNumerals.hero` (was Instrument Serif in a tinted card), eyebrow section heads, de-carded device/app/history rows, chart on the shared duration-axis treatment. | Per-app list + trend. |
 | `notes` | **Redesigned 2026-07-29.** Eyebrow title, de-carded rows on hairlines, mono timestamps, delete demoted off Alarm. | Calm dense list. |
 | `reminders` | **Redesigned 2026-07-29.** De-carded rows, mono dates, overdue carried by icon + badge rather than repainting the row, exact-alarm banner given a real alert treatment. | Calm dense list. |

@@ -1,8 +1,7 @@
 package com.example.apextracker
 
 import android.app.DatePickerDialog
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,21 +16,24 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.example.apextracker.ui.design.ApexDivider
+import com.example.apextracker.ui.design.ApexMotion
+import com.example.apextracker.ui.design.ApexNumerals
+import com.example.apextracker.ui.design.ApexSpacing
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 /**
  * The synthetic `id = -1L` "Subscriptions" bucket that subscription-derived budget items fall
  * into. It has no `categories` row — it's rebuilt on the fly wherever such items render, so its
- * colour has to be produced, not looked up. Deriving it from the theme primary (not a literal)
- * keeps it tracking the active [ApexTheme] palette and light/dark mode.
+ * colour has to be produced, not looked up. See [SUBSCRIPTIONS_CATEGORY_HEX] for which colour and why.
  *
  * This exists because the colour used to drift: the transactions list and pie chart built it from
  * the accent while the calendar day-breakdown hardcoded gold (#82), the same class of bug #67 fixed
@@ -40,11 +42,37 @@ import java.util.Locale
  * free — see the note there.)
  */
 @Composable
-fun subscriptionsCategory(): Category {
-    val colorHex = String.format("#%06X", (0xFFFFFF and MaterialTheme.colorScheme.primary.value.toInt()))
-    return Category(id = -1L, name = stringResource(R.string.budget_category_subscriptions), colorHex = colorHex)
-}
+fun subscriptionsCategory(): Category = Category(
+    id = -1L,
+    name = stringResource(R.string.budget_category_subscriptions),
+    colorHex = SUBSCRIPTIONS_CATEGORY_HEX
+)
 
+/**
+ * The fixed palette slot the synthetic Subscriptions bucket occupies.
+ *
+ * It used to be derived from `MaterialTheme.colorScheme.primary` — i.e. Ember, the accent. That
+ * breaks the rule that status colours are reserved and never appear as a category (`Design.md` §6):
+ * the accent carries state and emphasis, so spending it on one bucket in the pie made that bucket
+ * look important rather than merely different. A fixed palette hex also means the colour no longer
+ * changes with the theme, which is what the old derivation did on every light/dark switch.
+ *
+ * Being fixed, it can collide with a user category that resolves to the same slot. That is
+ * acceptable for the same reason the many-to-one legacy mapping is: every surface showing a category
+ * colour also shows the category's name.
+ */
+private const val SUBSCRIPTIONS_CATEGORY_HEX = "#5A62CC" // PALETTE[6], indigo
+
+/**
+ * One transaction. De-carded in the 2026-07-29 redesign.
+ *
+ * This was a `Card` per row, elevated 2dp and filled with the category's own colour at 20% alpha —
+ * so a screen of transactions was a vertical run of differently-tinted rounded rectangles. Three
+ * things were wrong with it: the elevation draws nothing over a near-black background, colour was
+ * being spent on every row rather than on what matters, and the category name was painted in the
+ * category's colour, which is text wearing a series colour (`Design.md` §6). Identity now comes from
+ * a small dot; the row itself sits on the background with a hairline under it.
+ */
 @Composable
 fun BudgetListItem(
     item: BudgetItem,
@@ -52,89 +80,83 @@ fun BudgetListItem(
     onClick: () -> Unit,
     isPending: Boolean = false
 ) {
-    val catColor = category?.let { parseColorSafe(it.colorHex) } ?: MaterialTheme.colorScheme.surface
-    val displayColor = if (isPending) catColor.copy(alpha = 0.4f) else catColor
+    val catColor = category?.let { categoryColorOf(it.colorHex) } ?: MaterialTheme.colorScheme.outline
+    // Pending renewals haven't happened yet, so they read as provisional rather than as spend.
+    val dotColor = if (isPending) catColor.copy(alpha = 0.4f) else catColor
+    val amountColor =
+        if (isPending) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
 
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.98f else 1.0f,
-        animationSpec = tween(100),
-        label = "scale"
+    val pressTint by animateColorAsState(
+        targetValue = if (isPressed) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f) else Color.Transparent,
+        animationSpec = ApexMotion.snap(),
+        label = "press"
     )
 
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .scale(scale)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = LocalIndication.current,
-                onClick = onClick
-            ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 2.dp,
-            pressedElevation = 0.dp
-        ),
-        colors = CardDefaults.cardColors(
-            containerColor = if (category != null) displayColor.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surface
-        ),
-        shape = MaterialTheme.shapes.large
-    ) {
-        Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    // Auto-created subscription items get their "[Subscription]" label here rather than baked into
+    // the stored title; rows written by older builds still carry the old English prefix, which
+    // budgetItemBaseTitle() strips (Issue #119).
+    val baseTitle = budgetItemBaseTitle(item.title)
+    val title = if (isSubscriptionItem(item) && !isPending) {
+        stringResource(R.string.budget_subscription_item_title, baseTitle)
+    } else {
+        baseTitle
+    }
+
+    // The category name and the date share the supporting line — two separate small Texts stacked
+    // under the title is what made the old row three lines tall for no extra information.
+    val dateLabel = item.date.format(SHORT_DATE)
+    val categoryLabel = category?.let {
+        if (isPending) stringResource(R.string.budget_pending_category, it.name) else it.name
+    }
+    val supporting = listOfNotNull(categoryLabel, dateLabel, item.description?.takeIf { it.isNotBlank() })
+        .joinToString(" · ")
+
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = LocalIndication.current,
+                    onClick = onClick
+                )
+                .background(pressTint)
+                .heightIn(min = 48.dp)
+                .padding(vertical = ApexSpacing.m),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(modifier = Modifier.size(10.dp).background(dotColor, CircleShape))
+            Spacer(modifier = Modifier.width(ApexSpacing.m))
             Column(modifier = Modifier.weight(1f)) {
-                BudgetListItemHeader(item, category, isPending)
-                if (!item.description.isNullOrBlank()) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = item.description, 
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                if (category != null) {
-                    Text(
-                        text = if (isPending) stringResource(R.string.budget_pending_category, category.name) else category.name,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = displayColor,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = supporting,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
+            Spacer(modifier = Modifier.width(ApexSpacing.m))
+            Text(
+                text = formatCurrency(item.amount, LocalCurrencyCode.current),
+                style = ApexNumerals.medium,
+                color = amountColor
+            )
         }
+        ApexDivider()
     }
 }
 
-@Composable
-fun BudgetListItemHeader(item: BudgetItem, category: Category?, isPending: Boolean) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (category != null) {
-                val color = parseColorSafe(category.colorHex)
-                Box(modifier = Modifier.size(12.dp).background(if (isPending) color.copy(alpha = 0.4f) else color, CircleShape))
-                Spacer(modifier = Modifier.width(8.dp))
-            }
-            // Auto-created subscription items get their "[Subscription]" label here rather than
-            // baked into the stored title; rows written by older builds still carry the old
-            // English prefix, which budgetItemBaseTitle() strips (Issue #119).
-            val baseTitle = budgetItemBaseTitle(item.title)
-            Text(
-                text = if (isSubscriptionItem(item) && !isPending) {
-                    stringResource(R.string.budget_subscription_item_title, baseTitle)
-                } else {
-                    baseTitle
-                },
-                style = MaterialTheme.typography.titleMedium
-            )
-        }
-        Text(
-            text = formatCurrency(item.amount, LocalCurrencyCode.current),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.ExtraBold,
-            color = if (isPending) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.primary
-        )
-    }
-}
+private val SHORT_DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -226,7 +248,7 @@ fun CategoryDropdown(categories: List<Category>, selectedCategory: Category?, ex
                 DropdownMenuItem(
                     text = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(modifier = Modifier.size(12.dp).background(parseColorSafe(category.colorHex), CircleShape))
+                            Box(modifier = Modifier.size(12.dp).background(categoryColorOf(category.colorHex), CircleShape))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(category.name)
                         }

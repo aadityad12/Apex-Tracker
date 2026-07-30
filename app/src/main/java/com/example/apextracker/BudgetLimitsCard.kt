@@ -1,10 +1,8 @@
 package com.example.apextracker
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -12,16 +10,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.example.apextracker.ui.design.ApexNumerals
+import com.example.apextracker.ui.design.ApexSectionHeader
+import com.example.apextracker.ui.design.ApexSpacing
 import java.time.YearMonth
 import kotlin.math.abs
 
-private val BAR_HEIGHT = 8.dp
+private val BAR_HEIGHT = 6.dp
 
 /**
  * Spend-vs-cap progress for the capped categories in [month].
  *
  * Renders nothing at all when no category has a cap — limits are opt-in, and an empty
  * card would be permanent noise for users who never set one.
+ *
+ * De-carded in the 2026-07-29 redesign: this was a 24dp rounded `surfaceVariant` container with an
+ * invisible shadow and an accent-coloured title, the third in a vertical run of four such cards.
+ * A section eyebrow plus the bars themselves separates it just as well and costs no nesting.
  */
 @Composable
 fun BudgetLimitsCard(
@@ -34,32 +39,22 @@ fun BudgetLimitsCard(
     val overall = remember(items, month, overallLimit) { overallLimitStatus(items, month, overallLimit) }
     if (statuses.isEmpty() && overall == null) return
 
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        shadowElevation = 2.dp
-    ) {
-        Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text(
-                text = stringResource(R.string.budget_category_limits_title),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary
-            )
-            // The whole-month ceiling reads first — it's the number the per-category rows add up
-            // against (Issue #125).
-            overall?.let { OverallLimitRow(it) }
-            statuses.forEach { status ->
-                CategoryLimitRow(status)
-            }
+    Column(verticalArrangement = Arrangement.spacedBy(ApexSpacing.l)) {
+        ApexSectionHeader(stringResource(R.string.budget_category_limits_title))
+        // The whole-month ceiling reads first — it's the number the per-category rows add up
+        // against (Issue #125).
+        overall?.let { OverallLimitRow(it) }
+        statuses.forEach { status ->
+            CategoryLimitRow(status)
         }
     }
 }
 
 @Composable
 private fun CategoryLimitRow(status: CategoryLimitStatus) {
-    // Over-limit switches to the theme's error color; under-limit keeps the category's own
-    // color so the row still reads as that category at a glance.
+    // Over-limit switches to the theme's error colour; under-limit keeps the category's own colour so
+    // the row still reads as that category at a glance. Via categoryColorOf so a legacy pastel hex
+    // renders as its palette slot rather than as itself.
     LimitRow(
         label = status.category.name,
         spent = status.spent,
@@ -67,7 +62,7 @@ private fun CategoryLimitRow(status: CategoryLimitStatus) {
         fraction = status.fraction,
         remaining = status.remaining,
         isOver = status.isOver,
-        barColor = if (status.isOver) MaterialTheme.colorScheme.error else parseColorSafe(status.category.colorHex)
+        barColor = if (status.isOver) MaterialTheme.colorScheme.error else categoryColorOf(status.category.colorHex)
     )
 }
 
@@ -81,16 +76,20 @@ private fun LimitRow(
     isOver: Boolean,
     barColor: androidx.compose.ui.graphics.Color
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(
+    Column(verticalArrangement = Arrangement.spacedBy(ApexSpacing.s)) {
+        // FlowRow, not Row: a name and a "$1,806.49 of $2,200.00" pair cannot share one line at large
+        // font scales. With a plain Row the value took the space it needed and squeezed the label into
+        // a column narrower than one word, so "All spending" broke as "All / spend / ing" and collided
+        // with the amount. Here the pair simply wraps onto its own line instead, and at normal scale
+        // the layout is unchanged.
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(ApexSpacing.xs)
         ) {
             Text(
                 text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.weight(1f)
+                style = MaterialTheme.typography.bodyMedium
             )
             Text(
                 text = stringResource(
@@ -98,7 +97,7 @@ private fun LimitRow(
                     formatCurrency(spent, LocalCurrencyCode.current),
                     formatCurrency(limit, LocalCurrencyCode.current)
                 ),
-                style = MaterialTheme.typography.labelMedium,
+                style = ApexNumerals.small,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -119,7 +118,7 @@ private fun LimitRow(
             } else {
                 stringResource(R.string.budget_limit_remaining, formatCurrency(remaining, LocalCurrencyCode.current))
             },
-            style = MaterialTheme.typography.labelSmall,
+            style = ApexNumerals.small,
             color = if (isOver) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
         )
     }

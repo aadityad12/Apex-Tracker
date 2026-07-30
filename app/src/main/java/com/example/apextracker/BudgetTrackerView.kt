@@ -28,21 +28,30 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.apextracker.ui.design.ApexChartFrame
+import com.example.apextracker.ui.design.ApexEmptyState
+import com.example.apextracker.ui.design.ApexNumerals
+import com.example.apextracker.ui.design.ApexSectionHeader
+import com.example.apextracker.ui.design.ApexShapes
+import com.example.apextracker.ui.design.ApexSpacing
+import com.example.apextracker.ui.design.LocalApexSemantics
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -270,19 +279,32 @@ fun BudgetOverview(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            contentPadding = PaddingValues(
+                start = ApexSpacing.l,
+                end = ApexSpacing.l,
+                top = ApexSpacing.s,
+                // Scaffold's innerPadding does not reserve space for a floating action button, so
+                // without this the last row — or the trend chart's month labels, for a month with no
+                // transactions — sits underneath the FAB and cannot be read or tapped.
+                bottom = ApexSpacing.xxl + ApexSpacing.xxl
+            ),
+            verticalArrangement = Arrangement.spacedBy(ApexSpacing.xl)
         ) {
             item {
-                SummaryCardModern(totalExpenditure, monthItems, categories, pendingSubs)
+                MonthTotal(totalExpenditure, monthItems.size)
+            }
+
+            if (monthItems.isNotEmpty() || pendingSubs.isNotEmpty()) {
+                item {
+                    ExpenseBreakdown(monthItems, categories, pendingSubs)
+                }
             }
 
             // Sits above trends: a cap the user set is more actionable than history.
-            // Gated here as well as inside the card so the spacer doesn't leave a gap
-            // for users who have never set a limit.
+            // Gated here as well as inside the card so the arrangement's spacing doesn't leave a
+            // gap for users who have never set a limit.
             if (categories.any { it.effectiveMonthlyLimit() != null } || overallLimit != null) {
                 item {
-                    Spacer(modifier = Modifier.height(12.dp))
                     BudgetLimitsCard(
                         items = items,
                         categories = categories,
@@ -293,23 +315,21 @@ fun BudgetOverview(
             }
 
             item {
-                Spacer(modifier = Modifier.height(12.dp))
                 BudgetTrendsCard(items = items, selectedMonth = monthToDisplay, onMonthSelected = onMonthChange)
             }
 
             if (visibleItems.isNotEmpty() || pendingSubs.isNotEmpty()) {
                 val sortedItems = visibleItems.sortedByDescending { it.date }
-                
-                item { 
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(stringResource(R.string.budget_transactions), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+
+                item {
+                    ApexSectionHeader(stringResource(R.string.budget_transactions))
                 }
-                
+
                 items(pendingSubs.sortedBy { it.renewalDate }) { sub ->
                     val category = subscriptionsCategory()
                     BudgetListItem(
-                        BudgetItem(title = sub.name, amount = sub.amount, date = sub.renewalDate, categoryId = -1L), 
-                        category, 
+                        BudgetItem(title = sub.name, amount = sub.amount, date = sub.renewalDate, categoryId = -1L),
+                        category,
                         onClick = {},
                         isPending = true
                     )
@@ -325,191 +345,226 @@ fun BudgetOverview(
                 }
             } else {
                 item {
-                    Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                        Text(
-                            if (searchQuery.isNotBlank() && monthItems.isNotEmpty()) {
-                                stringResource(R.string.budget_search_no_results, searchQuery)
-                            } else {
-                                stringResource(R.string.budget_no_data)
-                            },
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    // An empty month is an invitation to act, not a dead end — so the no-data case
+                    // names the button that fills it. The no-results case deliberately does not:
+                    // the fix there is changing the query, not adding an expense.
+                    ApexEmptyState(
+                        message = if (searchQuery.isNotBlank() && monthItems.isNotEmpty()) {
+                            stringResource(R.string.budget_search_no_results, searchQuery)
+                        } else {
+                            stringResource(R.string.budget_no_data)
+                        }
+                    )
                 }
             }
         }
     }
 }
 
+/**
+ * The month's headline figure. Replaces `SummaryCardModern`, which put this number inside a 24dp
+ * `primaryContainer` card with a decorative 48dp accent circle beside it and the pie chart nested
+ * underneath — the top of a vertical run of four cards, which is the shape this redesign removes.
+ *
+ * The number carries the screen on its own now: [ApexNumerals.hero] is Geist Mono, so the figure is
+ * tabular and does not reflow as the month changes.
+ */
+@Composable
+private fun MonthTotal(total: Double, itemCount: Int) {
+    Column {
+        Text(
+            text = formatCurrency(total, LocalCurrencyCode.current),
+            style = ApexNumerals.hero,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Text(
+            text = pluralStringResource(R.plurals.budget_total_transactions, itemCount, itemCount),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+/**
+ * Month stepper. De-carded — it used to be a tinted 16dp container, which read as a control panel
+ * above the content rather than part of it.
+ *
+ * The month name is a localized pattern rather than `.uppercase()` on a hand-built string: the label
+ * is a date, not an eyebrow, and upper-casing a localized month name is wrong in several languages.
+ */
 @Composable
 fun MonthSelectorCompact(currentMonth: YearMonth, onMonthChange: (YearMonth) -> Unit) {
-    Surface(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    val locale = LocalLocale.current.platformLocale
+    val formatter = remember(locale) { DateTimeFormatter.ofPattern("MMMM yyyy", locale) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = ApexSpacing.s, vertical = ApexSpacing.xs),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.padding(4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = { onMonthChange(currentMonth.minusMonths(1)) }) {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = stringResource(R.string.cd_prev))
-            }
-            
-            Text(
-                text = currentMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy")).uppercase(),
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 1.sp
-            )
+        IconButton(onClick = { onMonthChange(currentMonth.minusMonths(1)) }) {
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = stringResource(R.string.cd_prev))
+        }
 
-            IconButton(onClick = { onMonthChange(currentMonth.plusMonths(1)) }) {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = stringResource(R.string.cd_next))
-            }
+        Text(
+            text = currentMonth.format(formatter),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            modifier = Modifier.weight(1f)
+        )
+
+        IconButton(onClick = { onMonthChange(currentMonth.plusMonths(1)) }) {
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = stringResource(R.string.cd_next))
         }
     }
 }
 
-@Composable
-fun SummaryCardModern(
-    total: Double, 
-    items: List<BudgetItem>, 
-    categories: List<Category>,
-    pendingSubs: List<Subscription>
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.primaryContainer,
-        shadowElevation = 2.dp
-    ) {
-        Column(modifier = Modifier.padding(24.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Column {
-                    Text(
-                        text = stringResource(R.string.budget_total_monthly_spend),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                    )
-                    Text(
-                        text = formatCurrency(total, LocalCurrencyCode.current),
-                        style = MaterialTheme.typography.displaySmall,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-                Surface(
-                    modifier = Modifier.size(48.dp),
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primary
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.SwapHoriz, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary)
-                    }
-                }
-            }
-            
-            if (items.isNotEmpty() || pendingSubs.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(24.dp))
-                ExpensePieChartModern(items, categories, pendingSubs)
-            }
-        }
-    }
-}
+/** One slice: an entity, its share, and the colour that belongs to that entity. */
+private data class Slice(val label: String, val amount: Double, val color: Color)
 
+/** Slices beyond this many fold into a single "Other" row rather than being hidden. */
+private const val MAX_NAMED_SLICES = 7
+
+private val DONUT_SIZE = 108.dp
+private val DONUT_STROKE = 18.dp
+private val LEGEND_DOT = 10.dp
+
+/**
+ * Where the month's money went: the spec'd donut plus a legend that names **every** slice.
+ *
+ * The legend is not decoration and not optional. `Design.md` §6 records that three of the eight
+ * palette hues fall to 2.76–2.92:1 against the light-mode paper — a non-dismissable warning from the
+ * palette validator — and the relief that makes that acceptable is direct text labels. A legend-less
+ * or partially-labelled donut violates the spec. The old legend showed the top four and collapsed
+ * the rest into "+3 more", so the remainder had no label at all; the tail now folds into an explicit
+ * **Other** slice, which is a named entity with its own row.
+ *
+ * Also fixed here: the labels used to be painted in `onPrimaryContainer` inside a tinted card, and
+ * the transaction rows painted the category name in the category's own colour. Text wears text
+ * tokens; the dot beside it carries identity (`Design.md` §6).
+ */
 @Composable
-fun ExpensePieChartModern(
-    items: List<BudgetItem>, 
+private fun ExpenseBreakdown(
+    items: List<BudgetItem>,
     categories: List<Category>,
     pendingSubs: List<Subscription>
 ) {
-    val itemsByCategory = items.groupBy { it.categoryId }
     val totalExpenses = items.sumOf { it.amount }
     val totalPending = pendingSubs.sumOf { it.amount }
     val totalCombined = totalExpenses + totalPending
-    
     if (totalCombined == 0.0) return
 
-    val chartData = mutableListOf<Triple<String, Float, Color>>()
     // Hoisted out of the loop: it reads MaterialTheme, and the value is identical for every -1L item.
     val subsCategory = subscriptionsCategory()
     // Legend labels are user-facing text, so they go through strings.xml like the rest of the
     // screen (Issue #114) rather than being baked in as English literals.
     val uncategorizedLabel = stringResource(R.string.budget_uncategorized)
     val pendingLabel = stringResource(R.string.budget_pending_legend)
+    val otherLabel = stringResource(R.string.budget_other_categories)
+    val mutedColor = LocalApexSemantics.current.chartMuted
 
-    itemsByCategory.forEach { (catId, catItems) ->
-        val category = if (catId == -1L) {
-            subsCategory
-        } else {
-            categories.find { it.id == catId }
+    val named = items.groupBy { it.categoryId }.map { (catId, catItems) ->
+        val category = if (catId == -1L) subsCategory else categories.find { it.id == catId }
+        Slice(
+            label = category?.name ?: uncategorizedLabel,
+            amount = catItems.sumOf { it.amount },
+            // Via categoryColorOf, so a category still holding a legacy pastel hex renders as its
+            // palette slot instead of as itself.
+            color = category?.let { categoryColorOf(it.colorHex) } ?: mutedColor
+        )
+    }.sortedByDescending { it.amount }
+
+    val slices = buildList {
+        addAll(named.take(MAX_NAMED_SLICES))
+        // Rank decides which entities get their own row, but never repaints the ones that do — the
+        // survivors keep their own colour (Design.md §6).
+        if (named.size > MAX_NAMED_SLICES) {
+            add(Slice(otherLabel, named.drop(MAX_NAMED_SLICES).sumOf { it.amount }, mutedColor))
         }
-        val color = category?.let { parseColorSafe(it.colorHex) } ?: Color.Gray
-        val amount = catItems.sumOf { it.amount }
-        chartData.add(Triple(category?.name ?: uncategorizedLabel, amount.toFloat(), color))
+        // Pending renewals are money not yet spent, so they read as muted rather than as a category.
+        if (totalPending > 0) add(Slice(pendingLabel, totalPending, mutedColor))
     }
 
-    if (totalPending > 0) {
-        chartData.add(Triple(pendingLabel, totalPending.toFloat(), MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)))
+    ApexChartFrame(stringResource(R.string.budget_where_it_went)) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Donut(slices, totalCombined)
+            Spacer(Modifier.height(ApexSpacing.l))
+        }
+        slices.forEach { slice ->
+            LegendRow(slice, totalCombined)
+        }
     }
+}
 
-    val sortedData = chartData.sortedByDescending { it.second }
+/**
+ * The ring. **No centre label** — it used to show `spentExpenses / combinedTotal`, which is 100%
+ * whenever there are no pending renewals, i.e. almost always. A number that reads "100%" on a chart
+ * showing seven categories is worse than no number, and every share the reader might want is in the
+ * legend directly below with its own text label.
+ */
+@Composable
+private fun Donut(slices: List<Slice>, total: Double) {
+    // A 2dp gap of surface between adjacent fills, per the chart spec. Expressed as an angle so it
+    // stays 2dp of arc regardless of the ring's radius.
+    val gapDegrees = 2f
+    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(DONUT_SIZE)) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val stroke = DONUT_STROKE.toPx()
+            val inset = stroke / 2f
+            var startAngle = -90f
+            slices.forEach { slice ->
+                val sweep = (slice.amount / total).toFloat() * 360f
+                // A slice narrower than the gap would render as nothing at all; give it the gap's
+                // width rather than dropping it, so a tiny category is still visible.
+                val drawn = (sweep - gapDegrees).coerceAtLeast(gapDegrees / 2f)
+                drawArc(
+                    color = slice.color,
+                    startAngle = startAngle,
+                    sweepAngle = drawn,
+                    useCenter = false,
+                    style = Stroke(width = stroke, cap = StrokeCap.Butt),
+                    topLeft = Offset(inset, inset),
+                    size = Size(size.width - stroke, size.height - stroke)
+                )
+                startAngle += sweep
+            }
+        }
+    }
+}
 
+@Composable
+private fun LegendRow(slice: Slice, total: Double) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().padding(vertical = ApexSpacing.s),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(120.dp)) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                var startAngle = -90f
-                sortedData.forEach { (_, amount, color) ->
-                    val sweepAngle = (amount / totalCombined.toFloat()) * 360f
-                    drawArc(
-                        color = color,
-                        startAngle = startAngle,
-                        sweepAngle = sweepAngle,
-                        useCenter = false,
-                        style = Stroke(width = 20.dp.toPx(), cap = StrokeCap.Butt)
-                    )
-                    startAngle += sweepAngle
-                }
-            }
-            Text(
-                text = "${(totalExpenses/totalCombined * 100).toInt()}%",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Black
-            )
-        }
-        
-        Spacer(modifier = Modifier.width(24.dp))
-        
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            sortedData.take(4).forEach { (name, amount, color) ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(color))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "$name",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                    Spacer(modifier = Modifier.weight(1f))
-                    Text(
-                        text = "${String.format(Locale.US, "%.0f%%", (amount / totalCombined.toFloat()) * 100)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-            }
-            if (sortedData.size > 4) {
-                Text(stringResource(R.string.budget_plus_n_more, sortedData.size - 4), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f))
-            }
-        }
+        Box(modifier = Modifier.size(LEGEND_DOT).clip(CircleShape).background(slice.color))
+        Spacer(modifier = Modifier.width(ApexSpacing.m))
+        Text(
+            text = slice.label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        Spacer(modifier = Modifier.width(ApexSpacing.s))
+        Text(
+            text = formatPercent(slice.amount / total),
+            style = ApexNumerals.small,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.width(ApexSpacing.m))
+        Text(
+            text = formatCurrency(slice.amount, LocalCurrencyCode.current),
+            style = ApexNumerals.small,
+            color = MaterialTheme.colorScheme.onSurface
+        )
     }
 }
