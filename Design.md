@@ -342,7 +342,7 @@ heatmap. No chart library (decision #6).
 | Element | Spec |
 |---|---|
 | Axis labels | `ApexNumerals.small`, `onSurfaceVariant` |
-| Axis ticks | Max and zero only. Not a full grid. |
+| Axis ticks | Max and zero only — except duration axes, which take three (see below). Never a full grid. |
 | Baseline | 1dp `outline` hairline. No box, no card, no shadow. |
 | Bar radius | `ApexShapes.cell` (3dp) |
 | Bar fill — current period | `primary` |
@@ -369,6 +369,12 @@ The y-axis maximum comes from `niceAxisMaxMinutes()`, which rounds **up past** t
 widening with magnitude: 10 / 30 / 60 minutes). Strictly past, so the tallest bar and any target
 line are never flush with the top edge where they read as a border; and round, because scaling the
 peak by a factor produces maxima like "1h 6m", which tells the reader nothing.
+
+**Duration axes carry three ticks, not two**, via `durationAxisLabels()` fed that rounded maximum.
+Three is the one exception to the max-and-zero rule above, and it exists because the helper forces a
+single shared unit across the labels — without it a sub-minute week collapsed to three identical
+"0m"s (Issue #97). Both duration charts (Study's week, Screen Time's week) use the same treatment;
+if you change one, change the other.
 
 ### Empty states
 
@@ -487,7 +493,7 @@ layer do not change. What changes per screen is layout, emphasis, component anat
 | `dashboard` (home) | **Redesigned 2026-07-29.** Streak hero (mono numeral + serif unit), de-carded Today section, heatmap at 30dp cells with an 8-week default window. Remaining: the grid is centred at ~76% width, and at 200% font scale the month label truncates to one letter. | Answer "how am I doing" in one glance. The heatmap is the signature and must own the screen. |
 | `study_tracker` | **Redesigned 2026-07-29.** Rings deleted, timer on `ApexNumerals.hero`, de-carded history, chart spec'd with real axis labels. Remaining: the goal ring reads as a plain circle at 0 progress. | One dominant element (the stopwatch) plus controls. |
 | `budget_tracker` | Not started | Densest data in the app. Currently totals-card → pie-card → limits-card → trend-card → list, which is the exact banned shape. Blocked on the palette question in §8. |
-| `screen_time` | Not started | Per-app list + trend. Duration axis rules apply. |
+| `screen_time` | **Redesigned 2026-07-29.** Total on `ApexNumerals.hero` (was Instrument Serif in a tinted card), eyebrow section heads, de-carded device/app/history rows, chart on the shared duration-axis treatment. | Per-app list + trend. |
 | `notes` | Not started | Calm dense list. |
 | `reminders` | Not started | Calm dense list; the exact-alarm grant banner needs a real error-state treatment. |
 | `overview` | Not started | Aggregates; drill-in targets. |

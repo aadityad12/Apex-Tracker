@@ -540,7 +540,10 @@ fun StudyWeeklyChart(sessions: List<StudySession>, goalMinutes: Int) {
     val goalColor = cs.onSurfaceVariant
 
     Row(modifier = Modifier.fillMaxWidth()) {
-        // Max and zero only. A full grid would compete with the bars for attention.
+        // Three ticks via durationAxisLabels, which forces one shared unit across them — a
+        // sub-minute week used to collapse to three identical "0m"s (Issue #97). Fed the *rounded*
+        // maximum so the values read round rather than arbitrary. Both duration charts in the app
+        // (this and Screen Time's) use this same treatment.
         Column(
             // widthIn, not width: a fixed 44dp clipped "1h 30m" onto two lines at a large font
             // scale, where it collided with the plot.
@@ -548,12 +551,9 @@ fun StudyWeeklyChart(sessions: List<StudySession>, goalMinutes: Int) {
             verticalArrangement = Arrangement.SpaceBetween,
             horizontalAlignment = Alignment.End
         ) {
-            Text(
-                formatDurationCompact(maxMinutes * 60_000L),
-                style = ApexNumerals.small,
-                color = cs.onSurfaceVariant
-            )
-            Text("0", style = ApexNumerals.small, color = cs.onSurfaceVariant)
+            durationAxisLabels(maxMinutes * 60_000L).forEach { label ->
+                Text(label, style = ApexNumerals.small, color = cs.onSurfaceVariant)
+            }
         }
         Spacer(Modifier.width(ApexSpacing.s))
         Column(Modifier.weight(1f)) {

@@ -154,11 +154,11 @@
     <string name="cd_choose_subject">Choose study subject</string>
 
     <!-- Screen time -->
-    <string name="screen_time_title">Screen Time</string>
-    <string name="screen_device_breakdown">Device Breakdown</string>
-    <string name="screen_todays_apps">Today\'s Apps</string>
-    <string name="screen_daily_history">Daily History</string>
-    <string name="screen_trends_title">LAST 7 DAYS</string>
+    <string name="screen_time_title">SCREEN TIME</string>
+    <string name="screen_device_breakdown">Devices</string>
+    <string name="screen_todays_apps">Today\'s apps</string>
+    <string name="screen_daily_history">Daily history</string>
+    <string name="screen_trends_title">Last 7 days</string>
     <string name="screen_trends_empty">No screen time recorded yet</string>
     <string name="screen_show_all">Show all (%1$d)</string>
     <string name="screen_show_less">Show less</string>

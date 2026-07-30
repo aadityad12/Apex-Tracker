@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -25,10 +26,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.apextracker.ui.design.ApexChartFrame
+import com.example.apextracker.ui.design.ApexDivider
+import com.example.apextracker.ui.design.ApexEmptyState
+import com.example.apextracker.ui.design.ApexNumerals
+import com.example.apextracker.ui.design.ApexSectionHeader
+import com.example.apextracker.ui.design.ApexShapes
+import com.example.apextracker.ui.design.ApexSpacing
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -62,8 +71,13 @@ fun ScreenTimeTrackerView(onBackToMenu: () -> Unit, viewModel: ScreenTimeViewMod
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.screen_time_title)) },
+            CenterAlignedTopAppBar(
+                title = {
+                    Text(
+                        stringResource(R.string.screen_time_title),
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = if (showSettings) { { showSettings = false } } else onBackToMenu) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
@@ -75,7 +89,10 @@ fun ScreenTimeTrackerView(onBackToMenu: () -> Unit, viewModel: ScreenTimeViewMod
                             Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.cd_exclude_apps))
                         }
                     }
-                }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
             )
         }
     ) { innerPadding ->
@@ -83,7 +100,8 @@ fun ScreenTimeTrackerView(onBackToMenu: () -> Unit, viewModel: ScreenTimeViewMod
             modifier = Modifier
                 .padding(innerPadding)
                 .fillMaxSize()
-                .padding(horizontal = 16.dp)
+                .background(MaterialTheme.colorScheme.background)
+                .padding(horizontal = ApexSpacing.l)
         ) {
             if (!hasPermission) {
                 PermissionRequestCard(onGrantClick = { viewModel.openPermissionSettings() })
@@ -96,18 +114,15 @@ fun ScreenTimeTrackerView(onBackToMenu: () -> Unit, viewModel: ScreenTimeViewMod
                     verticalArrangement = Arrangement.spacedBy(24.dp)
                 ) {
                     item {
-                        TotalApexTimeCard(aggregatedUsage)
+                        TotalApexTime(aggregatedUsage)
                     }
 
                     if (aggregatedUsage.size > 1) {
                         item {
-                            Text(
-                                stringResource(R.string.screen_device_breakdown),
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                aggregatedUsage.forEach { usage ->
+                            ApexSectionHeader(stringResource(R.string.screen_device_breakdown))
+                            Column {
+                                aggregatedUsage.forEachIndexed { i, usage ->
+                                    if (i > 0) ApexDivider()
                                     DeviceBreakdownItem(usage)
                                 }
                             }
@@ -115,10 +130,7 @@ fun ScreenTimeTrackerView(onBackToMenu: () -> Unit, viewModel: ScreenTimeViewMod
                     }
 
                     item {
-                        Text(
-                            stringResource(R.string.screen_todays_apps),
-                            style = MaterialTheme.typography.titleMedium
-                        )
+                        ApexSectionHeader(stringResource(R.string.screen_todays_apps))
                     }
 
                     // apps is already sorted by usage descending in the ViewModel. Show the top 5
@@ -127,11 +139,7 @@ fun ScreenTimeTrackerView(onBackToMenu: () -> Unit, viewModel: ScreenTimeViewMod
                     // precomputed state and never re-triggers usage calculation.
                     val activeApps = apps.filter { it.usageTimeMillis > 0 && !it.isExcluded }
                     if (activeApps.isEmpty()) {
-                        item {
-                            Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                                Text(stringResource(R.string.screen_no_usage), color = MaterialTheme.colorScheme.outline)
-                            }
-                        }
+                        item { ApexEmptyState(message = stringResource(R.string.screen_no_usage)) }
                     } else {
                         val visibleApps = if (showAllApps) activeApps else activeApps.take(5)
                         items(visibleApps, key = { it.packageName }) { app ->
@@ -150,23 +158,21 @@ fun ScreenTimeTrackerView(onBackToMenu: () -> Unit, viewModel: ScreenTimeViewMod
                     }
 
                     item {
-                        Text(
-                            stringResource(R.string.screen_daily_history),
-                            style = MaterialTheme.typography.titleMedium
-                        )
+                        ApexChartFrame(title = stringResource(R.string.screen_trends_title)) {
+                            ScreenTimeTrendsChart(allSessions)
+                        }
                     }
 
                     item {
-                        ScreenTimeTrendsCard(allSessions)
+                        ApexSectionHeader(stringResource(R.string.screen_daily_history))
                     }
 
                     val history = allSessions.filter { it.date.isBefore(LocalDate.now()) }
                     if (history.isEmpty()) {
-                        item {
-                            Text(stringResource(R.string.screen_no_history), color = MaterialTheme.colorScheme.outline)
-                        }
+                        item { ApexEmptyState(message = stringResource(R.string.screen_no_history)) }
                     } else {
-                        items(history.take(7)) { session ->
+                        itemsIndexed(history.take(7)) { i, session ->
+                            if (i > 0) ApexDivider()
                             ScreenTimeHistoryItem(session)
                         }
                     }
@@ -176,113 +182,108 @@ fun ScreenTimeTrackerView(onBackToMenu: () -> Unit, viewModel: ScreenTimeViewMod
     }
 }
 
+/**
+ * The screen's headline figure: today's total across devices.
+ *
+ * Was a 28dp-rounded `primaryContainer` card with the value in `displayMedium` — which, after the
+ * theme swap, meant the number rendered in Instrument Serif with a synthetic Black weight. Same
+ * defect class as the study timer: a display serif standing in for a quantity. It is now
+ * [ApexNumerals.hero], the screen's single dominant number, with the label as a quiet eyebrow and
+ * no container at all.
+ */
 @Composable
-fun TotalApexTimeCard(devices: List<DeviceSession>) {
+fun TotalApexTime(devices: List<DeviceSession>) {
     val totalMillis = devices.sumOf { it.durationMillis }
-    
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f))
-    ) {
-        Column(
-            modifier = Modifier.padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        ApexSectionHeader(stringResource(R.string.screen_total_apex_time))
+        Spacer(modifier = Modifier.height(ApexSpacing.xs))
+        Text(
+            text = formatDurationCompact(totalMillis),
+            style = ApexNumerals.hero,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        if (devices.size > 1) {
             Text(
-                text = stringResource(R.string.screen_total_apex_time),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
+                text = stringResource(R.string.screen_connected_devices, devices.size),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Text(
-                text = formatDurationCompact(totalMillis),
-                style = MaterialTheme.typography.displayMedium,
-                fontWeight = FontWeight.Black,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-            if (devices.size > 1) {
-                Surface(
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.1f),
-                    shape = CircleShape,
-                    modifier = Modifier.padding(top = 8.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.screen_connected_devices, devices.size),
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-            }
         }
     }
 }
 
+/** One device's share of today's total. Was a tinted 16dp card; now a row on a hairline. */
 @Composable
 fun DeviceBreakdownItem(usage: DeviceSession) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-        shape = RoundedCornerShape(16.dp)
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = if (usage.deviceName.contains("Phone", true)) Icons.Default.Smartphone else Icons.Default.Devices,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-            Text(
-                text = usage.deviceName,
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = formatDurationCompact(usage.durationMillis),
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
+        Icon(
+            imageVector = if (usage.deviceName.contains("Phone", true)) Icons.Default.Smartphone else Icons.Default.Devices,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(ApexSpacing.m))
+        Text(
+            text = usage.deviceName,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Text(
+            text = formatDurationCompact(usage.durationMillis),
+            style = ApexNumerals.medium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
     }
 }
 
 @Composable
 fun AppUsageItem(app: AppUsageInfo, onClick: () -> Unit = {}) {
     Row(
-        modifier = Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 6.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .heightIn(min = 48.dp)
+            .padding(vertical = ApexSpacing.xs),
         verticalAlignment = Alignment.CenterVertically
     ) {
         app.icon?.let {
             Image(
                 bitmap = it.toBitmap().asImageBitmap(),
                 contentDescription = null,
-                modifier = Modifier.size(32.dp).clip(CircleShape)
+                modifier = Modifier.size(28.dp).clip(RoundedCornerShape(ApexShapes.control))
             )
+            Spacer(modifier = Modifier.width(ApexSpacing.m))
         }
-        Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(app.appName, maxLines = 1)
+            Text(
+                app.appName,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
             app.limitMinutes?.let { minutes ->
-                // Limit badge (Issue #124): "Limit: 30m" normally, "Over limit · 30m" in error red.
+                // The over-limit state is carried by the *word*, in Alarm. The duration itself stays
+                // in the normal ink: colouring both made the row shout twice, and a state that is
+                // spelled out does not also need the number recoloured.
                 Text(
-                    text = if (app.isOverLimit) {
-                        stringResource(R.string.screen_limit_over, minutes)
-                    } else {
-                        stringResource(R.string.screen_limit_set, minutes)
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (app.isOverLimit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                    text = if (app.isOverLimit) stringResource(R.string.screen_limit_over, minutes)
+                    else stringResource(R.string.screen_limit_set, minutes),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (app.isOverLimit) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
+        Spacer(modifier = Modifier.width(ApexSpacing.s))
         Text(
             formatDurationCompact(app.usageTimeMillis),
-            fontWeight = FontWeight.Bold,
-            color = if (app.isOverLimit) MaterialTheme.colorScheme.error else Color.Unspecified
+            style = ApexNumerals.medium,
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
 }
@@ -418,27 +419,30 @@ fun PermissionRequestCard(onGrantClick: () -> Unit) {
     }
 }
 
+/** One past day's total. Was a card per day, which stacked into a card run. */
 @Composable
 fun ScreenTimeHistoryItem(session: ScreenTimeSession) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Column(Modifier.weight(1f)) {
             Text(
-                text = session.date.format(DateTimeFormatter.ofPattern("MMM dd, yyyy")),
-                style = MaterialTheme.typography.bodyLarge
+                text = session.date.format(DateTimeFormatter.ofPattern("MMM d")),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = formatDurationCompact(session.durationMillis),
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Bold
+                text = session.date.format(DateTimeFormatter.ofPattern("EEEE")),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+        Text(
+            text = formatDurationCompact(session.durationMillis),
+            style = ApexNumerals.medium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
     }
 }
 
