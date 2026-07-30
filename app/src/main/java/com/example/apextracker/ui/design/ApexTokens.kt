@@ -84,11 +84,13 @@ object ApexMotion {
 /** Semantic colours Material's ColorScheme has no slot for. */
 data class ApexSemantics(
     val positive: Color,
+    /** Fill for non-current chart marks — see ChartMutedDark/Light on why it is not an alpha. */
+    val chartMuted: Color,
     val heatRamp: List<Color>
 )
 
 val LocalApexSemantics = staticCompositionLocalOf {
-    ApexSemantics(positive = SageDark, heatRamp = ApexHeatRampDark)
+    ApexSemantics(positive = SageDark, chartMuted = ChartMutedDark, heatRamp = ApexHeatRampDark)
 }
 
 /**
@@ -118,6 +120,7 @@ fun ApexTrackerTheme(
     val semantics = when (theme) {
         ApexTheme.EMBER -> ApexSemantics(
             positive = if (darkTheme) SageDark else SageLight,
+            chartMuted = if (darkTheme) ChartMutedDark else ChartMutedLight,
             heatRamp = if (darkTheme) ApexHeatRampDark else ApexHeatRampLight
         )
     }

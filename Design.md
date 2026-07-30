@@ -346,7 +346,7 @@ heatmap. No chart library (decision #6).
 | Baseline | 1dp `outline` hairline. No box, no card, no shadow. |
 | Bar radius | `ApexShapes.cell` (3dp) |
 | Bar fill — current period | `primary` |
-| Bar fill — other periods | `onSurface` at 14% |
+| Bar fill — other periods | `ApexSemantics.chartMuted` |
 | Line weight | 2dp |
 | Markers | ≥8dp |
 | Gap between adjacent fills | 2dp of surface |
@@ -356,10 +356,19 @@ That last one is a real bug being fixed, not a style preference:
 `BudgetTrends.kt` used `getDisplayName(SHORT, locale).take(1)`, which renders **J F M A M J J A S
 O N D** — three of six bars could be labelled "J".
 
+**Why `chartMuted` is an authored token and not `onSurface.copy(alpha = …)`:** a single alpha that
+reads correctly on the near-black substrate is almost invisible on paper. The Study chart's
+comparison bars looked right in dark and vanished in light until this was split per theme.
+
 ### Duration axes
 
 Duration labels go through `durationAxisLabels()` in `DurationFormat.kt`, which picks one unit
 (h m / m / s) from the maximum — so a sub-minute week doesn't render three "0m"s.
+
+The y-axis maximum comes from `niceAxisMaxMinutes()`, which rounds **up past** the peak (step
+widening with magnitude: 10 / 30 / 60 minutes). Strictly past, so the tallest bar and any target
+line are never flush with the top edge where they read as a border; and round, because scaling the
+peak by a factor produces maxima like "1h 6m", which tells the reader nothing.
 
 ### Empty states
 
@@ -437,8 +446,13 @@ migration, or accept the split. **Needs a decision before the Budget screen PR.*
 since the streak counts today inclusive. Pre-existing and deliberate, but now the hero of the home
 screen rather than a small caption, so it is much more visible. Worth reconsidering.
 
-**The bottom bar truncates at 200% font scale** ("Stud y", "Budg et"). `AppBottomBar`, not the
-Dashboard — its own PR.
+**The bottom bar truncates at 200% font scale** ("Stud y", "Budg et"). `AppBottomBar`, not any one
+screen — its own PR.
+
+**Dark mode does not survive a cold start for signed-out users.** `MainActivity` holds it in
+`rememberSaveable`, which a force-stop clears, so the app reopens dark regardless of the setting.
+Currency was moved to DataStore for exactly this reason (Issue #76); the theme flag never was.
+Pre-existing, unrelated to the redesign, but very visible now that light mode is worth using.
 
 **`graphics-shapes` has no use site yet.** Adopt it in the first screen that needs state morphing.
 
@@ -471,7 +485,7 @@ layer do not change. What changes per screen is layout, emphasis, component anat
 | Screen | State | Job / intent |
 |---|---|---|
 | `dashboard` (home) | **Redesigned 2026-07-29.** Streak hero (mono numeral + serif unit), de-carded Today section, heatmap at 30dp cells with an 8-week default window. Remaining: the grid is centred at ~76% width, and at 200% font scale the month label truncates to one letter. | Answer "how am I doing" in one glance. The heatmap is the signature and must own the screen. |
-| `study_tracker` | Not started | One dominant element (the stopwatch, `ApexNumerals.hero`) plus controls. **Delete the two counter-rotating rings.** |
+| `study_tracker` | **Redesigned 2026-07-29.** Rings deleted, timer on `ApexNumerals.hero`, de-carded history, chart spec'd with real axis labels. Remaining: the goal ring reads as a plain circle at 0 progress. | One dominant element (the stopwatch) plus controls. |
 | `budget_tracker` | Not started | Densest data in the app. Currently totals-card → pie-card → limits-card → trend-card → list, which is the exact banned shape. Blocked on the palette question in §8. |
 | `screen_time` | Not started | Per-app list + trend. Duration axis rules apply. |
 | `notes` | Not started | Calm dense list. |

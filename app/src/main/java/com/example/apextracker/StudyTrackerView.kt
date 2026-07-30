@@ -11,9 +11,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -48,6 +47,15 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.apextracker.ui.design.ApexChartFrame
+import com.example.apextracker.ui.design.ApexDivider
+import com.example.apextracker.ui.design.ApexEmptyState
+import com.example.apextracker.ui.design.ApexMotion
+import com.example.apextracker.ui.design.ApexNumerals
+import com.example.apextracker.ui.design.ApexSectionHeader
+import com.example.apextracker.ui.design.ApexShapes
+import com.example.apextracker.ui.design.ApexSpacing
+import com.example.apextracker.ui.design.LocalApexSemantics
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -172,170 +180,161 @@ fun StudyTrackerView(onBackToMenu: () -> Unit, viewModel: StudyViewModel = viewM
             )
         }
     ) { innerPadding ->
+        // One scrolling column with eyebrow-and-hairline sections. This replaced a 1.45f/1f weighted
+        // split whose lower half was a 32dp-rounded surfaceVariant panel — a card at half-screen
+        // scale, which also silently dimmed every value inside it. The weighted split additionally
+        // left the timer region mostly empty while clipping the chart's day labels, and it would have
+        // collapsed the same way the Dashboard's heatmap did at a large font scale.
         Column(
             modifier = Modifier
                 .padding(innerPadding)
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background),
+                .background(MaterialTheme.colorScheme.background)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = ApexSpacing.l),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Box(
-                modifier = Modifier
-                    .weight(1.45f)
-                    .fillMaxWidth(),
-                contentAlignment = Alignment.Center
+            Spacer(Modifier.height(ApexSpacing.l))
+
+            val goalSeconds = dailyGoalMinutes * 60L
+            StudyTimerDisplay(
+                seconds = timeSeconds,
+                isRunning = isRunning,
+                goalFraction = goalFraction(todayTotalSeconds, goalSeconds),
+                goalLabel = if (dailyGoalMinutes > 0) {
+                    stringResource(R.string.study_goal_progress, (todayTotalSeconds / 60L).toInt(), dailyGoalMinutes)
+                } else null
+            )
+
+            Spacer(Modifier.height(ApexSpacing.l))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(ApexSpacing.s)
             ) {
-                val goalSeconds = dailyGoalMinutes * 60L
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    StudyTimerDisplay(
-                        seconds = timeSeconds,
-                        isRunning = isRunning,
-                        goalFraction = goalFraction(todayTotalSeconds, goalSeconds),
-                        goalLabel = if (dailyGoalMinutes > 0) {
-                            stringResource(R.string.study_goal_progress, (todayTotalSeconds / 60L).toInt(), dailyGoalMinutes)
-                        } else null
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    // Streak + subject side by side (a Row, not stacked) so the goal ring above has
-                    // room — stacking them overflowed the centred timer box and hid the chips behind
-                    // the history card.
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        if (dailyGoalMinutes > 0 && studyStreak > 0) {
-                            StudyStreakChip(studyStreak)
-                        }
-                        SubjectSelectorChip(
-                            subject = currentSubject,
-                            onClick = { showSubjectPicker = true }
+                SubjectSelectorChip(
+                    subject = currentSubject,
+                    onClick = { showSubjectPicker = true }
+                )
+                if (dailyGoalMinutes > 0 && studyStreak > 0) {
+                    StudyStreakChip(studyStreak)
+                }
+            }
+
+            Spacer(Modifier.height(ApexSpacing.xl))
+
+            // Not full-width: a 64dp-tall edge-to-edge slab was the loudest thing on the screen,
+            // competing with the timer it is subordinate to.
+            val interactionSource = remember { MutableInteractionSource() }
+            val isPressed by interactionSource.collectIsPressedAsState()
+            val scale by animateFloatAsState(if (isPressed) 0.97f else 1f, animationSpec = ApexMotion.snap(), label = "press")
+            Button(
+                onClick = { viewModel.toggleTimer() },
+                modifier = Modifier.height(52.dp).widthIn(min = 200.dp).scale(scale),
+                interactionSource = interactionSource,
+                shape = RoundedCornerShape(ApexShapes.control),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isRunning) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primary,
+                    contentColor = if (isRunning) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimary
+                )
+            ) {
+                Icon(
+                    if (isRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(ApexSpacing.s))
+                Text(
+                    text = stringResource(if (isRunning) R.string.study_pause_session else R.string.study_start_studying),
+                    style = MaterialTheme.typography.labelLarge
+                )
+            }
+
+            Spacer(Modifier.height(ApexSpacing.xl))
+            ApexDivider()
+            Spacer(Modifier.height(ApexSpacing.l))
+
+            if (dailyGoalMinutes >= 0) {
+                ApexChartFrame(
+                    title = stringResource(R.string.study_this_week),
+                    trailing = {
+                        Text(
+                            formatDurationCompact(weeklyStudyMinutes(allSessions, 7, LocalDate.now())
+                                .sumOf { it.second } * 60_000L),
+                            style = ApexNumerals.small,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                ) {
+                    StudyWeeklyChart(sessions = allSessions, goalMinutes = dailyGoalMinutes)
+                }
+                Spacer(Modifier.height(ApexSpacing.xl))
+                ApexDivider()
+                Spacer(Modifier.height(ApexSpacing.l))
+            }
+
+            ApexSectionHeader(
+                stringResource(R.string.study_recent_history),
+                trailing = {
+                    IconButton(onClick = { manualEntry = ManualSessionSeed(LocalDate.now().minusDays(1), "", 0L) }) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = stringResource(R.string.study_log_past_session),
+                            tint = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
-            }
+            )
 
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-                    .padding(24.dp)
-            ) {
-                if (dailyGoalMinutes >= 0) {
-                    StudyWeeklyChart(sessions = allSessions, goalMinutes = dailyGoalMinutes)
-                    Spacer(modifier = Modifier.height(20.dp))
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = stringResource(R.string.study_recent_history),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = { manualEntry = ManualSessionSeed(LocalDate.now().minusDays(1), "", 0L) }) {
-                            Icon(
-                                Icons.Default.Add,
-                                contentDescription = stringResource(R.string.study_log_past_session),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                        Icon(Icons.Default.History, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                if (pastDays.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(stringResource(R.string.study_no_history), color = MaterialTheme.colorScheme.outline)
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(pastDays) { day ->
-                            DayStudyItem(day, onEditSubject = { subject, seconds ->
-                                manualEntry = ManualSessionSeed(day.date, subject, seconds)
-                            })
-                        }
-                    }
+            if (pastDays.isEmpty()) {
+                ApexEmptyState(
+                    message = stringResource(R.string.study_no_history),
+                    actionLabel = stringResource(R.string.study_log_past_session),
+                    onAction = { manualEntry = ManualSessionSeed(LocalDate.now().minusDays(1), "", 0L) }
+                )
+            } else {
+                // A plain Column, not a LazyColumn: the page scrolls now, and a nested lazy list
+                // inside a scrollable parent has no bounded height to work with.
+                pastDays.forEachIndexed { i, day ->
+                    if (i > 0) ApexDivider()
+                    DayStudyItem(day, onEditSubject = { subject, seconds ->
+                        manualEntry = ManualSessionSeed(day.date, subject, seconds)
+                    })
                 }
             }
 
-            // Bottom Action Button
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
-                color = Color.Transparent
-            ) {
-                val interactionSource = remember { MutableInteractionSource() }
-                val isPressed by interactionSource.collectIsPressedAsState()
-                val scale by animateFloatAsState(if (isPressed) 0.96f else 1f, label = "scale")
-
-                Button(
-                    onClick = { viewModel.toggleTimer() },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(64.dp)
-                        .scale(scale),
-                    interactionSource = interactionSource,
-                    shape = RoundedCornerShape(20.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isRunning) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primary,
-                        contentColor = if (isRunning) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimary
-                    )
-                ) {
-                    Icon(
-                        if (isRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = null
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = stringResource(if (isRunning) R.string.study_pause_session else R.string.study_start_studying),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black
-                    )
-                }
-            }
+            Spacer(Modifier.height(ApexSpacing.xxl))
         }
     }
 }
 
-/** The pill under the timer showing (and tapping to change) the subject time is attributed to. */
+/** Tappable label under the timer showing which subject time is being attributed to. */
 @Composable
 fun SubjectSelectorChip(subject: String, onClick: () -> Unit) {
     val chipDescription = stringResource(R.string.cd_choose_subject)
     Surface(
         onClick = onClick,
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+        // Was CircleShape. Also sets contentColor explicitly: Surface(color = surfaceVariant)
+        // otherwise dims everything inside it to onSurfaceVariant (Design.md §5).
+        shape = RoundedCornerShape(ApexShapes.control),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = MaterialTheme.colorScheme.onSurface,
         modifier = Modifier.semantics { contentDescription = chipDescription }
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+            modifier = Modifier.padding(horizontal = ApexSpacing.m, vertical = ApexSpacing.s),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
-                Text(
-                    text = stringResource(R.string.study_subject_label),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline,
-                    letterSpacing = 2.sp
-                )
-                Text(
-                    text = subject.ifBlank { stringResource(R.string.study_no_subject) },
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
+            Text(
+                text = stringResource(R.string.study_subject_label),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.width(ApexSpacing.s))
+            Text(
+                text = subject.ifBlank { stringResource(R.string.study_no_subject) },
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
         }
     }
 }
@@ -403,81 +402,56 @@ fun StudyTimerDisplay(
     goalFraction: Float = 0f,
     goalLabel: String? = null
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "timer")
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(4000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "rotation"
-    )
-
     val primaryColor = MaterialTheme.colorScheme.primary
 
     Box(contentAlignment = Alignment.Center) {
-        // Decorative Rings
-        Canvas(modifier = Modifier.size(250.dp).rotate(if (isRunning) rotation else 0f)) {
-            drawArc(
-                brush = Brush.sweepGradient(
-                    colors = listOf(
-                        Color.Transparent,
-                        primaryColor.copy(alpha = 0.1f),
-                        primaryColor,
-                        Color.Transparent
-                    )
-                ),
-                startAngle = 0f,
-                sweepAngle = 360f,
-                useCenter = false,
-                style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
-            )
-        }
-
-        Canvas(modifier = Modifier.size(214.dp).rotate(if (isRunning) -rotation * 0.5f else 0f)) {
-            drawCircle(
-                color = primaryColor.copy(alpha = 0.05f),
-                style = Stroke(width = 1.dp.toPx())
-            )
-        }
-
-        // Determinate goal-progress arc (Issue #42): a track plus a primary sweep = today's
-        // fraction of the daily goal, starting at 12 o'clock. Non-rotating so it reads as progress.
+        // There used to be two counter-rotating decorative rings behind this — a sweep-gradient arc
+        // spinning one way and a faint circle spinning the other, carrying no information whatsoever.
+        // They are the reference example of banned ambient motion in the design law. Deleted.
+        //
+        // What remains is the determinate goal arc, which does carry information: the track plus a
+        // sweep for today's fraction of the daily goal, starting at 12 o'clock and never rotating,
+        // so it reads as progress rather than decoration.
         if (goalLabel != null) {
-            val trackColor = primaryColor.copy(alpha = 0.12f)
+            val trackColor = MaterialTheme.colorScheme.outlineVariant
             Canvas(modifier = Modifier.size(232.dp)) {
-                val stroke = Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round)
+                val stroke = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
                 drawArc(color = trackColor, startAngle = -90f, sweepAngle = 360f, useCenter = false, style = stroke)
                 if (goalFraction > 0f) {
-                    drawArc(color = primaryColor, startAngle = -90f, sweepAngle = 360f * goalFraction, useCenter = false, style = stroke)
+                    drawArc(
+                        color = primaryColor,
+                        startAngle = -90f,
+                        sweepAngle = 360f * goalFraction.coerceAtMost(1f),
+                        useCenter = false,
+                        style = stroke
+                    )
                 }
             }
         }
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            // Geist Mono, tabular. This used to be displayLarge (now Instrument Serif) with
+            // FontWeight.Black and -2sp tracking, which was three violations at once: a proportional
+            // face on a value that changes every second (so the digits shifted as it counted), a
+            // synthetic bold on a face that ships exactly one weight, and a display serif used for a
+            // quantity. Mono figures are fixed-width, so the timer no longer moves while running.
             Text(
                 text = formatTime(seconds),
-                style = MaterialTheme.typography.displayLarge.copy(
-                    fontSize = 56.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = (-2).sp
-                ),
-                color = if (isRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                style = ApexNumerals.hero,
+                color = if (isRunning) primaryColor else MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = if (isRunning) stringResource(R.string.study_focusing) else stringResource(R.string.study_ready),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.outline,
-                letterSpacing = 4.sp
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             if (goalLabel != null) {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(ApexSpacing.s))
                 Text(
                     text = goalLabel,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = if (goalFraction >= 1f) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    style = ApexNumerals.small,
+                    color = if (goalFraction >= 1f) LocalApexSemantics.current.positive
+                    else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -488,25 +462,25 @@ fun StudyTimerDisplay(
 @Composable
 fun StudyStreakChip(streak: Int) {
     Surface(
-        shape = RoundedCornerShape(50),
-        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+        // Was RoundedCornerShape(50) — a pill. Pills are for filters and choices here, not labels.
+        shape = RoundedCornerShape(ApexShapes.control),
+        color = MaterialTheme.colorScheme.surfaceVariant
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = ApexSpacing.m, vertical = ApexSpacing.s),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 Icons.Default.LocalFireDepartment,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(16.dp)
             )
-            Spacer(modifier = Modifier.width(6.dp))
+            Spacer(modifier = Modifier.width(ApexSpacing.s))
             Text(
                 text = stringResource(R.string.study_streak, streak),
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
     }
@@ -541,119 +515,158 @@ fun StudyGoalDialog(currentMinutes: Int, onDismiss: () -> Unit, onSave: (Int) ->
 }
 
 /** 7-day bar chart of study minutes with the daily goal as a dashed line (Issue #42). */
+/**
+ * Minutes per day for the last seven days, per the chart spec in Design.md §6: axis labels are
+ * max-and-zero only, the baseline is a hairline, bars are 2dp, the current day takes the accent and
+ * the rest sit at 12% onSurface. Previously this drew bars with no axis labels at all — the reader
+ * had no idea whether a bar meant twenty minutes or four hours.
+ */
 @Composable
 fun StudyWeeklyChart(sessions: List<StudySession>, goalMinutes: Int) {
     val today = remember { LocalDate.now() }
     val bars = remember(sessions) { weeklyStudyMinutes(sessions, 7, today) }
-    val maxMinutes = (bars.maxOfOrNull { it.second } ?: 0).coerceAtLeast(goalMinutes).coerceAtLeast(1)
+    val peak = (bars.maxOfOrNull { it.second } ?: 0).coerceAtLeast(goalMinutes)
+    // Rounded up past the peak rather than scaled by a factor: scaling gave axis maxima like
+    // "1h 6m". See niceAxisMaxMinutes — it also guarantees the headroom that keeps the dashed
+    // target line off the top edge.
+    val maxMinutes = niceAxisMaxMinutes(peak)
+    val hasData = bars.any { it.second > 0 }
     val locale = LocalLocale.current.platformLocale
 
-    val primary = MaterialTheme.colorScheme.primary
-    val muted = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
-    val goalColor = MaterialTheme.colorScheme.outline
+    val cs = MaterialTheme.colorScheme
+    val accent = cs.primary
+    val muted = LocalApexSemantics.current.chartMuted
+    val line = cs.outline
+    val goalColor = cs.onSurfaceVariant
 
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Box(modifier = Modifier.fillMaxWidth().height(120.dp)) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val barCount = bars.size
-                val slot = size.width / barCount
-                val barWidth = slot * 0.5f
-                bars.forEachIndexed { i, (_, minutes) ->
-                    val h = size.height * (minutes.toFloat() / maxMinutes)
-                    val left = i * slot + (slot - barWidth) / 2
-                    drawRoundRect(
-                        color = if (i == barCount - 1) primary else muted,
-                        topLeft = androidx.compose.ui.geometry.Offset(left, size.height - h),
-                        size = androidx.compose.ui.geometry.Size(barWidth, h),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(6.dp.toPx())
+    Row(modifier = Modifier.fillMaxWidth()) {
+        // Max and zero only. A full grid would compete with the bars for attention.
+        Column(
+            // widthIn, not width: a fixed 44dp clipped "1h 30m" onto two lines at a large font
+            // scale, where it collided with the plot.
+            modifier = Modifier.height(120.dp).widthIn(min = 40.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+            horizontalAlignment = Alignment.End
+        ) {
+            Text(
+                formatDurationCompact(maxMinutes * 60_000L),
+                style = ApexNumerals.small,
+                color = cs.onSurfaceVariant
+            )
+            Text("0", style = ApexNumerals.small, color = cs.onSurfaceVariant)
+        }
+        Spacer(Modifier.width(ApexSpacing.s))
+        Column(Modifier.weight(1f)) {
+            Box(modifier = Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) {
+                if (!hasData) {
+                    Text(
+                        stringResource(R.string.study_week_empty),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = cs.onSurfaceVariant
                     )
                 }
-                // Goal line (dashed).
-                if (goalMinutes > 0) {
-                    val y = size.height * (1f - goalMinutes.toFloat() / maxMinutes)
-                    drawLine(
-                        color = goalColor,
-                        start = androidx.compose.ui.geometry.Offset(0f, y),
-                        end = androidx.compose.ui.geometry.Offset(size.width, y),
-                        strokeWidth = 2.dp.toPx(),
-                        pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(12f, 8f))
-                    )
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val slot = size.width / bars.size
+                    val barWidth = slot * 0.56f
+                    bars.forEachIndexed { i, (day, minutes) ->
+                        val h = size.height * (minutes.toFloat() / maxMinutes)
+                        val left = i * slot + (slot - barWidth) / 2
+                        drawRoundRect(
+                            color = if (day == today) accent else muted,
+                            topLeft = androidx.compose.ui.geometry.Offset(left, size.height - h),
+                            size = androidx.compose.ui.geometry.Size(barWidth, h),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx())
+                        )
+                    }
+                    // The daily target. Dashed because it is a reference line rather than data —
+                    // that distinction is the reason it stays dashed while everything else is solid.
+                    if (goalMinutes > 0) {
+                        val y = size.height * (1f - goalMinutes.toFloat() / maxMinutes)
+                        drawLine(
+                            color = goalColor,
+                            start = androidx.compose.ui.geometry.Offset(0f, y),
+                            end = androidx.compose.ui.geometry.Offset(size.width, y),
+                            strokeWidth = 1.dp.toPx(),
+                            pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 8f))
+                        )
+                    }
                 }
             }
-        }
-        Row(modifier = Modifier.fillMaxWidth()) {
-            bars.forEach { (day, _) ->
-                Text(
-                    text = day.dayOfWeek.getDisplayName(java.time.format.TextStyle.NARROW, locale),
-                    modifier = Modifier.weight(1f),
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (day == today) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
-                )
+            Canvas(Modifier.fillMaxWidth().height(1.dp)) { drawRect(color = line) }
+            Spacer(Modifier.height(ApexSpacing.xs))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                bars.forEach { (day, _) ->
+                    Text(
+                        text = day.dayOfWeek.getDisplayName(java.time.format.TextStyle.NARROW, locale),
+                        modifier = Modifier.weight(1f),
+                        textAlign = TextAlign.Center,
+                        style = ApexNumerals.small,
+                        color = if (day == today) accent else cs.onSurfaceVariant
+                    )
+                }
             }
         }
     }
 }
 
-/** One day's card: the date + grand total, with a per-subject breakdown beneath it. */
+/**
+ * One day of history: the date, its grand total, and a per-subject breakdown.
+ *
+ * Was a 16dp tinted card per day, which stacked into exactly the card-run this redesign removes.
+ * Now a heading row plus indented subject rows, all durations in Geist Mono so the column aligns.
+ */
 @Composable
 fun DayStudyItem(day: DayStudy, onEditSubject: (String, Long) -> Unit = { _, _ -> }) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = day.date.format(DateTimeFormatter.ofPattern("MMM dd")),
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        text = day.date.format(DateTimeFormatter.ofPattern("EEEE")),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.outline
-                    )
-                }
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = ApexSpacing.s)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
                 Text(
-                    text = formatDurationCompact(day.totalSeconds * 1000),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.primary
+                    text = day.date.format(DateTimeFormatter.ofPattern("MMM d")),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = day.date.format(DateTimeFormatter.ofPattern("EEEE")),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            Text(
+                text = formatDurationCompact(day.totalSeconds * 1000),
+                style = ApexNumerals.medium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
 
-            // Only surface the breakdown when there's something to differentiate — a single
-            // uncategorised bucket adds no information over the total already shown above.
-            val showBreakdown = day.subjects.size > 1 ||
-                (day.subjects.size == 1 && day.subjects.first().subject.isNotBlank())
-            if (showBreakdown) {
-                Spacer(modifier = Modifier.height(12.dp))
-                day.subjects.forEach { subjectTotal ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onEditSubject(subjectTotal.subject, subjectTotal.seconds) }
-                            .padding(vertical = 2.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = subjectTotal.subject.ifBlank { stringResource(R.string.study_no_subject) },
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = formatDurationCompact(subjectTotal.seconds * 1000),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+        // Only surface the breakdown when there's something to differentiate — a single
+        // uncategorised bucket adds no information over the total already shown above.
+        val showBreakdown = day.subjects.size > 1 ||
+            (day.subjects.size == 1 && day.subjects.first().subject.isNotBlank())
+        if (showBreakdown) {
+            Spacer(modifier = Modifier.height(ApexSpacing.s))
+            day.subjects.forEach { subjectTotal ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onEditSubject(subjectTotal.subject, subjectTotal.seconds) }
+                        .heightIn(min = 48.dp)
+                        .padding(start = ApexSpacing.l),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = subjectTotal.subject.ifBlank { stringResource(R.string.study_no_subject) },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = formatDurationCompact(subjectTotal.seconds * 1000),
+                        style = ApexNumerals.medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }
