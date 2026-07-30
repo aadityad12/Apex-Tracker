@@ -58,6 +58,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -386,16 +387,35 @@ fun AppNavigation(
 
 private val PRIMARY_ROUTES = setOf("dashboard", "study_tracker", "screen_time", "budget_tracker")
 
-private data class BottomDest(val route: String, val icon: ImageVector, @StringRes val label: Int)
+internal data class BottomDest(val route: String, val icon: ImageVector, @StringRes val label: Int)
+
+/**
+ * The font scale at or above which the bar drops its labels. Five slots share a phone-width row, so
+ * each label gets roughly a sixth of the width; past this point a single word like "Budget" is wider
+ * than its slot and Material breaks it mid-word ("Budg et"). See [labelsFitAtFontScale].
+ */
+private const val LABEL_DROP_FONT_SCALE = 1.5f
+
+/**
+ * Whether the bar can still render text labels at [fontScale]. Pure so the threshold is testable
+ * without composing anything — the interesting part is the boundary, not the layout.
+ */
+internal fun labelsFitAtFontScale(fontScale: Float): Boolean = fontScale < LABEL_DROP_FONT_SCALE
 
 /**
  * Study · Screen | **Dashboard** | Budget · More — the home surface sits in the middle as a raised
  * accent button rather than a flat left-most tab (Issue #129). Selection/navigation semantics are
  * unchanged: every slot still calls [onSelectPrimary] (which does the popUpTo("dashboard")
  * saveState dance) or [onMore].
+ *
+ * At large font scales the bar goes icon-only and each name moves from a [Text] label onto the
+ * icon's `contentDescription`. Material's own label-less [NavigationBarItem] is the platform
+ * fallback here, and the alternative is worse for everyone: the labels do not ellipsize, they wrap
+ * mid-word, so a sighted user at 200% reads "Stud y" and "Budg et". TalkBack is unaffected either
+ * way — it announces the same string, just sourced from the description instead of the label.
  */
 @Composable
-private fun AppBottomBar(
+internal fun AppBottomBar(
     currentRoute: String?,
     onSelectPrimary: (String) -> Unit,
     onMore: () -> Unit
@@ -406,8 +426,9 @@ private fun AppBottomBar(
             BottomDest("screen_time", Icons.Default.Monitor, R.string.module_screen)
         )
     }
+    val showLabels = labelsFitAtFontScale(LocalDensity.current.fontScale)
     NavigationBar(containerColor = MaterialTheme.colorScheme.background) {
-        left.forEach { dest -> FlatTab(dest, currentRoute, onSelectPrimary) }
+        left.forEach { dest -> FlatTab(dest, currentRoute, showLabels, onSelectPrimary) }
 
         // The center slot is a plain weighted Box, not a NavigationBarItem: it hosts the raised
         // button and must not get the item's own ripple/indicator on top of it.
@@ -441,13 +462,17 @@ private fun AppBottomBar(
         FlatTab(
             BottomDest("budget_tracker", Icons.Default.AccountBalanceWallet, R.string.module_budget),
             currentRoute,
+            showLabels,
             onSelectPrimary
         )
+        val more = stringResource(R.string.nav_more)
         NavigationBarItem(
             selected = false,
             onClick = onMore,
-            icon = { Icon(Icons.Default.MoreHoriz, contentDescription = null) },
-            label = { Text(stringResource(R.string.nav_more)) }
+            icon = { Icon(Icons.Default.MoreHoriz, contentDescription = if (showLabels) null else more) },
+            label = if (showLabels) {
+                { Text(more, maxLines = 1) }
+            } else null
         )
     }
 }
@@ -456,13 +481,19 @@ private fun AppBottomBar(
 private fun RowScope.FlatTab(
     dest: BottomDest,
     currentRoute: String?,
+    showLabel: Boolean,
     onSelectPrimary: (String) -> Unit
 ) {
+    val label = stringResource(dest.label)
     NavigationBarItem(
         selected = currentRoute == dest.route,
         onClick = { onSelectPrimary(dest.route) },
-        icon = { Icon(dest.icon, contentDescription = null) },
-        label = { Text(stringResource(dest.label)) }
+        // The name lives on exactly one of the two: as a label when it fits, otherwise as the
+        // icon's description. Never both, or TalkBack reads it twice.
+        icon = { Icon(dest.icon, contentDescription = if (showLabel) null else label) },
+        label = if (showLabel) {
+            { Text(label, maxLines = 1) }
+        } else null
     )
 }
 
