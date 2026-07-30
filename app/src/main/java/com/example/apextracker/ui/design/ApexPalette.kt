@@ -79,6 +79,12 @@ val ApexDarkColors: ColorScheme = darkColorScheme(
     onSecondaryContainer = Color(0xFFF0A98F),
     tertiary = BoneDim,
     onTertiary = InkBase,
+    // These were missing, and an undefined slot does not fall back to something neutral — it falls
+    // back to Material's *default* dark scheme, which is purple. The Overview's screen-time stat
+    // card was rendering in Material Purple because it asked for tertiaryContainer. Any slot the
+    // app touches has to be defined here.
+    tertiaryContainer = InkElevated,
+    onTertiaryContainer = Bone,
     background = InkBase,
     onBackground = Bone,
     surface = InkSurface,

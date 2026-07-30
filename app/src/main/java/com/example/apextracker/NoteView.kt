@@ -520,7 +520,7 @@ fun RecycleBinView(
     ) { innerPadding ->
         if (notes.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
-                Text(stringResource(R.string.notes_recycle_empty), color = MaterialTheme.colorScheme.outline)
+                Text(stringResource(R.string.notes_recycle_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
             LazyColumn(
@@ -578,7 +578,7 @@ fun NoteSettingsDialog(viewModel: NoteViewModel, onDismiss: () -> Unit) {
                 Text(
                     stringResource(R.string.notes_deleted_after, sliderValue.toInt()),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.outline
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Slider(

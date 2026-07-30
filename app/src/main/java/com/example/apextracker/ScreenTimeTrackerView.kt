@@ -297,7 +297,7 @@ fun AppLimitDialog(app: AppUsageInfo, onDismiss: () -> Unit, onSave: (Int?) -> U
         title = { Text(stringResource(R.string.screen_limit_dialog_title, app.appName)) },
         text = {
             Column {
-                Text(stringResource(R.string.screen_limit_dialog_desc), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
+                Text(stringResource(R.string.screen_limit_dialog_desc), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(12.dp))
                 OutlinedTextField(
                     value = text,
@@ -338,7 +338,7 @@ fun ExcludeAppsList(apps: List<AppUsageInfo>, onToggle: (AppUsageInfo) -> Unit) 
         Text(
             stringResource(R.string.screen_tracking_prefs_desc),
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.outline,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 16.dp)
         )
         

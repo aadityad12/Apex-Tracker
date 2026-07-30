@@ -147,7 +147,7 @@ of what makes the accent look chosen rather than dropped on.
 | `InkSurface` | `#1A1816` | Resting surface |
 | `InkRaised` | `#221F1C` | Grouped content, sheet body |
 | `InkElevated` | `#2B2724` | Menus, dialogs, pressed states |
-| `InkLine` | `#5A544F` | Hairline dividers, borders |
+| `InkLine` | `#5A544F` | Hairline dividers, borders — **never text** |
 | `InkLineFaint` | `#332E2B` | Separation inside a group |
 | `Bone` | `#EDE8E2` | Primary text — warm off-white, never pure white |
 | `BoneDim` | `#A09890` | Secondary text, axis labels |
@@ -160,7 +160,7 @@ of what makes the accent look chosen rather than dropped on.
 | `PaperSurface` | `#FFFDFA` | Resting surface |
 | `PaperRaised` | `#EBE6DE` | Grouped content |
 | `PaperElevated` | `#E2DCD2` | Menus, dialogs |
-| `PaperLine` | `#B3AA9A` | Hairlines |
+| `PaperLine` | `#B3AA9A` | Hairlines — **never text** |
 | `PaperLineFaint` | `#DCD5C9` | Separation inside a group |
 | `Sable` | `#1B1815` | Primary text |
 | `SableDim` | `#5F574E` | Secondary text |
@@ -200,6 +200,12 @@ prints these live.
 | Secondary text on background | **6.6:1** | **6.4:1** | ≥4.5 |
 | Accent on background | **5.1:1** | **4.6:1** | ≥4.5 |
 | Hairline on background | **2.5:1** | **2.1:1** | see below |
+
+**`outline` is for borders, dividers and strokes only — never for text or for a meaningful icon.**
+Raising it to hairline visibility made it a ~2.5:1 tone, and the app had 51 places using it as a text
+or tint colour, all of which silently became sub-4.5:1 body text. Secondary text is
+`onSurfaceVariant` (6.6:1 dark / 6.4:1 light). This is the one palette rule that regressed
+accessibility across eleven files at once, so it is worth stating twice.
 
 Hairlines started at 1.6:1 dark / 1.4:1 light — invisible. Since hairlines are what *replaces*
 cards in this design, that silently broke the whole structural strategy, so they were raised. They
@@ -462,6 +468,11 @@ Pre-existing, unrelated to the redesign, but very visible now that light mode is
 
 **`graphics-shapes` has no use site yet.** Adopt it in the first screen that needs state morphing.
 
+**Every `ColorScheme` slot the app touches must be defined in both schemes.** An undefined slot does
+not fall back to something neutral — it falls back to Material's *default* scheme. `tertiaryContainer`
+was missing from the dark scheme, so the Overview's screen-time stat card rendered in Material Purple.
+Worth an audit if a colour ever appears that is not in this document.
+
 ---
 
 ## 9. What the device changed
@@ -496,8 +507,8 @@ layer do not change. What changes per screen is layout, emphasis, component anat
 | `screen_time` | **Redesigned 2026-07-29.** Total on `ApexNumerals.hero` (was Instrument Serif in a tinted card), eyebrow section heads, de-carded device/app/history rows, chart on the shared duration-axis treatment. | Per-app list + trend. |
 | `notes` | **Redesigned 2026-07-29.** Eyebrow title, de-carded rows on hairlines, mono timestamps, delete demoted off Alarm. | Calm dense list. |
 | `reminders` | **Redesigned 2026-07-29.** De-carded rows, mono dates, overdue carried by icon + badge rather than repainting the row, exact-alarm banner given a real alert treatment. | Calm dense list. |
-| `overview` | Not started | Aggregates; drill-in targets. |
-| `goals` | Not started | Management surface, not a display surface. |
+| `overview` | **Redesigned 2026-07-29.** One surface tone for all three stat cards (they were three different container hues, and the third was rendering in Material Purple), mono values, serif date, de-carded task rows, status is a type not a string. | Aggregates; drill-in targets. |
+| `goals` | **Redesigned 2026-07-29.** Shared eyebrow headers, hairlines, 48dp row targets, real empty state. | Management surface, not a display surface. |
 | Settings sheets | Not started | Form/row design. |
 
 ---

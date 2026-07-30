@@ -120,7 +120,7 @@ private fun LimitRow(
                 stringResource(R.string.budget_limit_remaining, formatCurrency(remaining, LocalCurrencyCode.current))
             },
             style = MaterialTheme.typography.labelSmall,
-            color = if (isOver) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline
+            color = if (isOver) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }

@@ -256,7 +256,7 @@ private fun BackupRestoreControls() {
     }
     status?.let {
         Spacer(modifier = Modifier.height(8.dp))
-        Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+        Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 
     pendingRestoreJson?.let { json ->

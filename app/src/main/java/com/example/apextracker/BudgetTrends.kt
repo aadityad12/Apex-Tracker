@@ -57,7 +57,7 @@ fun BudgetTrendsCard(items: List<BudgetItem>, selectedMonth: YearMonth, onMonthS
 
             if (maxTotal == 0.0) {
                 Box(modifier = Modifier.fillMaxWidth().height(CHART_HEIGHT), contentAlignment = Alignment.Center) {
-                    Text(stringResource(R.string.budget_trends_empty), color = MaterialTheme.colorScheme.outline)
+                    Text(stringResource(R.string.budget_trends_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else {
                 Row {
@@ -67,9 +67,9 @@ fun BudgetTrendsCard(items: List<BudgetItem>, selectedMonth: YearMonth, onMonthS
                         horizontalAlignment = Alignment.End
                     ) {
                         val currencyCode = LocalCurrencyCode.current
-                        Text(formatCurrencyCompact(maxTotal, currencyCode), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                        Text(formatCurrencyCompact(maxTotal / 2, currencyCode), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                        Text(formatCurrencyCompact(0.0, currencyCode), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                        Text(formatCurrencyCompact(maxTotal, currencyCode), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(formatCurrencyCompact(maxTotal / 2, currencyCode), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(formatCurrencyCompact(0.0, currencyCode), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     val primaryColor = MaterialTheme.colorScheme.primary
@@ -111,7 +111,7 @@ fun BudgetTrendsCard(items: List<BudgetItem>, selectedMonth: YearMonth, onMonthS
                             modifier = Modifier.weight(1f).clickable { onMonthSelected(month) },
                             textAlign = TextAlign.Center,
                             style = MaterialTheme.typography.labelSmall,
-                            color = if (month == selectedMonth) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+                            color = if (month == selectedMonth) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
