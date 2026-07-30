@@ -38,6 +38,14 @@ import java.time.LocalTime
 
 private val fixedNow: LocalDateTime = LocalDateTime.of(2026, 7, 24, 1, 34)
 
+/**
+ * The "today" the reminder rows are rendered against. Pinned, not `LocalDate.now()`: one fixture row
+ * below is dated the same day so the "Today" label branch is covered, and if this followed the wall
+ * clock that row would render "Today" only on the day the baselines were recorded and "Jul 29" every
+ * day after — which is exactly how these three baselines broke the morning after they were committed.
+ */
+private val fixedToday: LocalDate = LocalDate.of(2026, 7, 29)
+
 private fun reminder(
     name: String,
     date: LocalDate,
@@ -60,20 +68,22 @@ private fun reminder(
 
 @Composable
 private fun ReminderRows() {
-    // A fixed "today" is passed via the isOverdue flag rather than LocalDate.now(), so these
-    // baselines do not rot overnight. The row itself still formats "Today" from the real date, so
-    // one row deliberately uses today's date to exercise that branch.
+    // Both clock-dependent inputs are injected — isOverdue and today — so nothing here reads the
+    // wall clock and these baselines are stable for good. The row dated fixedToday exercises the
+    // "Today" label branch.
     Column(Modifier.fillMaxWidth().padding(ApexSpacing.l)) {
         ApexSectionHeader("Active")
         ReminderItemModern(
             reminder = reminder("Renew library books", LocalDate.of(2026, 7, 27)),
             isOverdue = true,
+            today = fixedToday,
             onToggle = {}
         )
         ApexDivider()
         ReminderItemModern(
-            reminder = reminder("Submit physics lab report", LocalDate.of(2026, 7, 29), LocalTime.of(21, 0), "HIGH"),
+            reminder = reminder("Submit physics lab report", fixedToday, LocalTime.of(21, 0), "HIGH"),
             isOverdue = false,
+            today = fixedToday,
             onToggle = {}
         )
         ApexDivider()
@@ -86,12 +96,14 @@ private fun ReminderRows() {
                 )
             ),
             isOverdue = false,
+            today = fixedToday,
             onToggle = {}
         )
         ApexDivider()
         ReminderItemModern(
             reminder = reminder("Book dentist", LocalDate.of(2026, 7, 28), completed = true),
             isOverdue = false,
+            today = fixedToday,
             onToggle = {}
         )
     }

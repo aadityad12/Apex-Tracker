@@ -262,6 +262,7 @@ fun ReminderView(onBackToMenu: () -> Unit, viewModel: ReminderViewModel = viewMo
                     ReminderItemModern(
                         reminder = reminder,
                         isOverdue = reminder.isOverdue(now),
+                        today = now.toLocalDate(),
                         onToggle = { viewModel.toggleCompletion(reminder) },
                         onEdit = { reminderToEdit = reminder }
                     )
@@ -296,6 +297,7 @@ fun ReminderView(onBackToMenu: () -> Unit, viewModel: ReminderViewModel = viewMo
                         ReminderItemModern(
                             reminder = reminder,
                             isOverdue = false,
+                            today = now.toLocalDate(),
                             onToggle = { viewModel.toggleCompletion(reminder) },
                             onEdit = { /* No editing for completed */ },
                             isSelected = selectedCompletedIds.contains(reminder.id),
@@ -625,12 +627,20 @@ fun ReminderSettingsDialog(
  * now carried by the clock icon and the OVERDUE badge, both in Alarm, with the name left in normal
  * ink; the same split used for Screen Time's over-limit rows. Selection is the one state that still
  * tints the row, because selection is about the row as an object rather than about its content.
+ *
+ * [today] is passed in rather than read from `LocalDate.now()` here, for the same reason [isOverdue]
+ * is: the row renders what the caller says the date is, it does not ask the clock. Reading the clock
+ * inside the composable made the "Today" label depend on the wall date at render time, which silently
+ * rotted the screenshot baselines overnight — a preview recorded on the 29th rendered "Today" and
+ * then failed on the 30th. It is also simply wrong for a composable: a `now()` read during
+ * composition never recomposes, so a row left on screen past midnight kept a stale "Today".
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ReminderItemModern(
     reminder: Reminder,
     isOverdue: Boolean,
+    today: LocalDate,
     onToggle: () -> Unit,
     onEdit: () -> Unit = {},
     isSelected: Boolean = false,
@@ -711,7 +721,7 @@ fun ReminderItemModern(
                 // was a hardcoded English literal here, and the time was string-concatenated onto
                 // it with a bullet — both localization bugs.
                 Text(
-                    text = if (reminder.date == LocalDate.now()) stringResource(R.string.reminders_today)
+                    text = if (reminder.date == today) stringResource(R.string.reminders_today)
                     else reminder.date.format(DateTimeFormatter.ofPattern("MMM d")),
                     style = ApexNumerals.small,
                     color = cs.onSurfaceVariant
