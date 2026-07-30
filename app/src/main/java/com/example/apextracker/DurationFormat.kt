@@ -29,3 +29,23 @@ fun durationAxisLabels(maxMillis: Long): List<String> {
         else -> values.map { String.format(Locale.getDefault(), "%ds", Math.round(it / 1_000.0)) }
     }
 }
+
+/**
+ * The smallest "round" minute value strictly greater than [peakMinutes] — the top of a duration
+ * chart's y-axis.
+ *
+ * Strictly greater, so there is always headroom: an axis whose maximum equals the tallest bar puts
+ * that bar (and any target line at the same value) flush against the top edge, where it reads as a
+ * border rather than data. And *round*, because scaling the peak by a factor produces maxima like
+ * "1h 6m", which tells the reader nothing — the step widens with magnitude so the label stays
+ * readable at any range.
+ */
+fun niceAxisMaxMinutes(peakMinutes: Int): Int {
+    val peak = peakMinutes.coerceAtLeast(0)
+    val step = when {
+        peak < 60 -> 10
+        peak < 240 -> 30
+        else -> 60
+    }
+    return (peak / step + 1) * step
+}

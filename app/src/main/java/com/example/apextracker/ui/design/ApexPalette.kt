@@ -135,6 +135,17 @@ val ApexLightColors: ColorScheme = lightColorScheme(
  * Steps 1..5 walk from a dim ember toward full intensity, gaining chroma and lightness together
  * so they separate on an AMOLED panel at 20dp as well as they do in a swatch strip.
  */
+/**
+ * Fill for chart marks that are *not* the current period.
+ *
+ * Authored per theme rather than written as `onSurface.copy(alpha = …)`: a single alpha that reads
+ * correctly on the near-black substrate is almost invisible on paper, so the light theme's
+ * comparison bars disappeared while the dark theme's looked fine. Anything filled and non-accent in
+ * a chart uses this.
+ */
+val ChartMutedDark = Color(0xFF3A3531)
+val ChartMutedLight = Color(0xFFD3CABA)
+
 val ApexHeatRampDark = listOf(
     Color(0xFF211F1E), // -1  untracked — visible, cool neutral: the cell exists, nothing was asked of it
     Color(0xFF3B2C24), // 0   tracked, none met — visible and warm: on the ramp, at zero

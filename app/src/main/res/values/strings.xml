@@ -130,12 +130,14 @@
     <string name="study_title">STUDY SESSION</string>
     <string name="study_reset_confirm_title">Reset Timer?</string>
     <string name="study_reset_confirm_text">Reset today\'s time for this subject to 0:00? This can\'t be undone.</string>
-    <string name="study_recent_history">Recent History</string>
+    <string name="study_recent_history">History</string>
+    <string name="study_this_week">This week</string>
+    <string name="study_week_empty">No study time logged this week</string>
     <string name="study_no_history">No history yet</string>
     <string name="study_focusing">FOCUSING</string>
     <string name="study_ready">READY</string>
-    <string name="study_pause_session">PAUSE SESSION</string>
-    <string name="study_start_studying">START STUDYING</string>
+    <string name="study_pause_session">Pause</string>
+    <string name="study_start_studying">Start studying</string>
     <string name="study_goal_setting">Daily goal</string>
     <string name="study_goal_desc">A minutes-per-day study target. Set 0 to turn it off.</string>
     <string name="study_goal_minutes_label">Minutes per day</string>
