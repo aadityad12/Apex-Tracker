@@ -273,7 +273,7 @@ private fun GoalStatusRow(status: GoalStatus, onToggle: (Goal) -> Unit) {
             Icon(
                 if (status.satisfied) Icons.Default.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
                 contentDescription = null,
-                tint = if (status.satisfied) met else MaterialTheme.colorScheme.outline,
+                tint = if (status.satisfied) met else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = ApexSpacing.m).size(24.dp)
             )
         }
@@ -502,7 +502,7 @@ private fun HeatCell(
 @Composable
 private fun HeatmapLegend() {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-        Text(stringResource(R.string.dashboard_legend_less), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+        Text(stringResource(R.string.dashboard_legend_less), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.width(6.dp))
         val ramp = cellColorRamp()
         (0..4).forEach { bucket ->
@@ -515,7 +515,7 @@ private fun HeatmapLegend() {
             )
         }
         Spacer(Modifier.width(6.dp))
-        Text(stringResource(R.string.dashboard_legend_more), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+        Text(stringResource(R.string.dashboard_legend_more), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -538,7 +538,7 @@ private fun DayDetailSheet(
             )
             Spacer(Modifier.height(12.dp))
             if (statuses.isEmpty()) {
-                Text(stringResource(R.string.dashboard_day_no_goals), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
+                Text(stringResource(R.string.dashboard_day_no_goals), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 statuses.forEach { status -> GoalStatusRow(status, onToggle) }
             }

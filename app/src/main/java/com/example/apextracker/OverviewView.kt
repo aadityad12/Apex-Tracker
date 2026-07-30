@@ -24,6 +24,14 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import androidx.compose.ui.text.style.TextOverflow
+import com.example.apextracker.ui.design.ApexDivider
+import com.example.apextracker.ui.design.ApexEmptyState
+import com.example.apextracker.ui.design.ApexNumerals
+import com.example.apextracker.ui.design.ApexSectionHeader
+import com.example.apextracker.ui.design.ApexShapes
+import com.example.apextracker.ui.design.ApexSpacing
+import com.example.apextracker.ui.design.LocalApexSemantics
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,74 +99,72 @@ fun OverviewView(
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 20.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                            .padding(horizontal = ApexSpacing.l),
                         contentPadding = PaddingValues(bottom = 32.dp)
                     ) {
                         // Stats Row
                         item {
+                            // IntrinsicSize.Max + fillMaxHeight on each card so all three match the
+                            // tallest. Without it, a value that wraps at a large font scale (a
+                            // currency amount does, in a third of the width) made its own card
+                            // taller and left the row ragged.
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 8.dp),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    .height(IntrinsicSize.Max)
+                                    .padding(vertical = ApexSpacing.s),
+                                horizontalArrangement = Arrangement.spacedBy(ApexSpacing.m)
                             ) {
-                                StatCard(stringResource(R.string.overview_stat_spent), formatCurrency(data.totalSpent, LocalCurrencyCode.current), Icons.Default.AccountBalanceWallet, MaterialTheme.colorScheme.primaryContainer, Modifier.weight(1f), onClick = { onNavigate("budget_tracker") })
-                                StatCard(stringResource(R.string.overview_stat_study), formatDurationCompact(data.studyTimeMinutes * 60000), Icons.Default.Timer, MaterialTheme.colorScheme.secondaryContainer, Modifier.weight(1f), onClick = { onNavigate("study_tracker") })
-                                StatCard(stringResource(R.string.overview_stat_screen), formatDurationCompact(data.screenTimeMinutes * 60000), Icons.Default.Monitor, MaterialTheme.colorScheme.tertiaryContainer, Modifier.weight(1f), onClick = { onNavigate("screen_time") })
+                                // All three take the same surface tone. They used to be
+                                // primaryContainer / secondaryContainer / tertiaryContainer, i.e.
+                                // three different hues for three equivalent stats — colour spent on
+                                // decoration. The icon and label already say which is which.
+                                StatCard(stringResource(R.string.overview_stat_spent), formatCurrency(data.totalSpent, LocalCurrencyCode.current), Icons.Default.AccountBalanceWallet, Modifier.weight(1f).fillMaxHeight()) { onNavigate("budget_tracker") }
+                                StatCard(stringResource(R.string.overview_stat_study), formatDurationCompact(data.studyTimeMinutes * 60000), Icons.Default.Timer, Modifier.weight(1f).fillMaxHeight()) { onNavigate("study_tracker") }
+                                StatCard(stringResource(R.string.overview_stat_screen), formatDurationCompact(data.screenTimeMinutes * 60000), Icons.Default.Monitor, Modifier.weight(1f).fillMaxHeight()) { onNavigate("screen_time") }
                             }
                         }
 
                         // Reminders Section — the header doubles as a "see all" jump to the Reminders screen.
                         item {
                             Spacer(modifier = Modifier.height(8.dp))
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { onNavigate("reminders") }
-                                    .padding(vertical = 4.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(stringResource(R.string.overview_tasks), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                                Icon(
-                                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                    contentDescription = stringResource(R.string.cd_overview_see_all_tasks),
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
+                            ApexSectionHeader(
+                                stringResource(R.string.overview_tasks),
+                                modifier = Modifier.clickable { onNavigate("reminders") },
+                                trailing = {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                        contentDescription = stringResource(R.string.cd_overview_see_all_tasks),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            )
                         }
                         
                         if (data.missedReminders.isNotEmpty()) {
                             items(data.missedReminders) { reminder ->
-                                ReminderSummaryCard(reminder, status = "Missed", onToggle = { reminderViewModel.toggleCompletion(it) })
+                                ApexDivider()
+                                ReminderSummaryCard(reminder, OverviewReminderStatus.MISSED) { reminderViewModel.toggleCompletion(it) }
                             }
                         }
                         
                         if (data.pendingReminders.isNotEmpty()) {
                             items(data.pendingReminders) { reminder ->
-                                ReminderSummaryCard(reminder, status = "Pending", onToggle = { reminderViewModel.toggleCompletion(it) })
+                                ApexDivider()
+                                ReminderSummaryCard(reminder, OverviewReminderStatus.PENDING) { reminderViewModel.toggleCompletion(it) }
                             }
                         }
 
                         if (data.completedReminders.isNotEmpty()) {
                             items(data.completedReminders) { reminder ->
-                                ReminderSummaryCard(reminder, status = "Completed", onToggle = { reminderViewModel.toggleCompletion(it) })
+                                ApexDivider()
+                                ReminderSummaryCard(reminder, OverviewReminderStatus.COMPLETED) { reminderViewModel.toggleCompletion(it) }
                             }
                         }
 
                         if (data.pendingReminders.isEmpty() && data.completedReminders.isEmpty() && data.missedReminders.isEmpty()) {
-                            item { 
-                                Surface(
-                                    modifier = Modifier.fillMaxWidth().height(100.dp),
-                                    shape = RoundedCornerShape(16.dp),
-                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Text(stringResource(R.string.overview_all_clear), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
-                                    }
-                                }
-                            }
+                            item { ApexEmptyState(message = stringResource(R.string.overview_all_clear)) }
                         }
                     }
                 }
@@ -167,112 +173,131 @@ fun OverviewView(
     }
 }
 
+/** Day stepper. Was a tinted 16dp card; now a plain row — it is chrome, not content. */
 @Composable
 fun CompactDateNavigator(selectedDate: LocalDate, onDateSelected: (LocalDate) -> Unit) {
-    Surface(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = ApexSpacing.s, vertical = ApexSpacing.s),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.padding(8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = { onDateSelected(selectedDate.minusDays(1)) }) {
-                Icon(Icons.Default.ChevronLeft, contentDescription = stringResource(R.string.cd_prev))
-            }
-            
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = selectedDate.format(DateTimeFormatter.ofPattern("EEEE")),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = selectedDate.format(DateTimeFormatter.ofPattern("MMMM dd")),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.ExtraBold
-                )
-            }
-
-            IconButton(onClick = { onDateSelected(selectedDate.plusDays(1)) }) {
-                Icon(Icons.Default.ChevronRight, contentDescription = stringResource(R.string.cd_next))
-            }
+        IconButton(onClick = { onDateSelected(selectedDate.minusDays(1)) }) {
+            Icon(Icons.Default.ChevronLeft, contentDescription = stringResource(R.string.cd_prev))
         }
-    }
-}
-
-@Composable
-fun StatCard(label: String, value: String, icon: ImageVector, containerColor: Color, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
-    Surface(
-        modifier = if (onClick != null) modifier.height(110.dp).clickable(onClick = onClick) else modifier.height(110.dp),
-        shape = RoundedCornerShape(20.dp),
-        color = containerColor.copy(alpha = 0.8f)
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                // Chevron hints the card is tappable; decorative, so no contentDescription.
-                if (onClick != null) {
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f))
-                }
-            }
-            Column {
-                Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f))
-            }
-        }
-    }
-}
-
-@Composable
-fun ReminderSummaryCard(reminder: Reminder, status: String, onToggle: (Reminder) -> Unit) {
-    val (statusColor, statusBg) = when(status) {
-        "Missed" -> MaterialTheme.colorScheme.error to MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
-        "Completed" -> MaterialTheme.colorScheme.outline to MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-        else -> MaterialTheme.colorScheme.primary to MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-    }
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = statusBg,
-        border = if (status == "Pending") androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)) else null
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Checkbox(
-                checked = reminder.isCompleted, 
-                onCheckedChange = { onToggle(reminder) },
-                colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = selectedDate.format(DateTimeFormatter.ofPattern("EEEE")).uppercase(),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = reminder.name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = if (reminder.isCompleted) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(12.dp), tint = statusColor)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = reminder.time?.format(DateTimeFormatter.ofPattern("HH:mm")) ?: stringResource(R.string.overview_no_time),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = statusColor
-                    )
+            // The date is the screen's subject, so it takes the display face — the one place a
+            // serif belongs on this screen.
+            Text(
+                text = selectedDate.format(DateTimeFormatter.ofPattern("MMMM d")),
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        }
+        IconButton(onClick = { onDateSelected(selectedDate.plusDays(1)) }) {
+            Icon(Icons.Default.ChevronRight, contentDescription = stringResource(R.string.cd_next))
+        }
+    }
+}
+
+/**
+ * A tappable drill-in to one module's number for the selected day.
+ *
+ * A card is justified here — each one is a discrete tappable unit, which is the bar Design.md §5
+ * sets. What is not justified is three different container hues for three equivalent stats; they
+ * now share one surface tone and the value carries the weight, in mono.
+ */
+@Composable
+fun StatCard(
+    label: String,
+    value: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null
+) {
+    Surface(
+        modifier = if (onClick != null) modifier.clickable(onClick = onClick) else modifier,
+        shape = RoundedCornerShape(ApexShapes.container),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = MaterialTheme.colorScheme.onSurface
+    ) {
+        Column(modifier = Modifier.fillMaxHeight().padding(ApexSpacing.m)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (onClick != null) {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null,
+                        modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            if (status == "Missed") {
-                Text(stringResource(R.string.overview_missed), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.error)
+            Spacer(modifier = Modifier.weight(1f))
+            Text(value, style = ApexNumerals.large, color = MaterialTheme.colorScheme.onSurface)
+            Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/**
+ * How a reminder stands on the selected day.
+ *
+ * A type, not a string. This used to be a `String` that was both the display label and the value
+ * switched on (`when (status) { "Missed" -> … }`), which is why the call sites carried hardcoded
+ * English literals — untranslatable, and a typo would have silently fallen through to the else.
+ */
+enum class OverviewReminderStatus { MISSED, PENDING, COMPLETED }
+
+/** One reminder on the selected day. Was a per-status tinted card; now a row on a hairline. */
+@Composable
+fun ReminderSummaryCard(
+    reminder: Reminder,
+    status: OverviewReminderStatus,
+    onToggle: (Reminder) -> Unit
+) {
+    val cs = MaterialTheme.colorScheme
+    // Only a missed reminder gets a colour, and it is the icon plus the badge — not the row.
+    val accentForStatus = if (status == OverviewReminderStatus.MISSED) cs.error else cs.onSurfaceVariant
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(vertical = ApexSpacing.xs),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Checkbox(
+            checked = reminder.isCompleted,
+            onCheckedChange = { onToggle(reminder) },
+            colors = CheckboxDefaults.colors(checkedColor = LocalApexSemantics.current.positive)
+        )
+        Spacer(modifier = Modifier.width(ApexSpacing.s))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = reminder.name,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (reminder.isCompleted) cs.onSurfaceVariant else cs.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.AccessTime, contentDescription = null,
+                    modifier = Modifier.size(12.dp), tint = accentForStatus)
+                Spacer(modifier = Modifier.width(ApexSpacing.xs))
+                Text(
+                    text = reminder.time?.format(DateTimeFormatter.ofPattern("HH:mm"))
+                        ?: stringResource(R.string.overview_no_time),
+                    style = ApexNumerals.small,
+                    color = cs.onSurfaceVariant
+                )
             }
+        }
+        if (status == OverviewReminderStatus.MISSED) {
+            Text(
+                stringResource(R.string.overview_missed).uppercase(),
+                style = MaterialTheme.typography.titleSmall,
+                color = cs.error,
+                maxLines = 1,
+                softWrap = false
+            )
         }
     }
 }
@@ -300,7 +325,7 @@ fun CalendarGrid(selectedDate: LocalDate, onDateSelected: (LocalDate) -> Unit) {
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center, 
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.outline
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

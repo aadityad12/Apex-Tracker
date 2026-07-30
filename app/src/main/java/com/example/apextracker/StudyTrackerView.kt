@@ -495,7 +495,7 @@ fun StudyGoalDialog(currentMinutes: Int, onDismiss: () -> Unit, onSave: (Int) ->
         title = { Text(stringResource(R.string.study_goal_setting)) },
         text = {
             Column {
-                Text(stringResource(R.string.study_goal_desc), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
+                Text(stringResource(R.string.study_goal_desc), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(12.dp))
                 OutlinedTextField(
                     value = text,

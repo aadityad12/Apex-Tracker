@@ -22,6 +22,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.lazy.itemsIndexed
+import com.example.apextracker.ui.design.ApexDivider
+import com.example.apextracker.ui.design.ApexEmptyState
+import com.example.apextracker.ui.design.ApexSectionHeader
+import com.example.apextracker.ui.design.ApexSpacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,18 +62,22 @@ fun GoalsView(
         }
     ) { innerPadding ->
         if (state.loaded && active.isEmpty() && archived.isEmpty()) {
-            Box(Modifier.padding(innerPadding).fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
-                Text(stringResource(R.string.dashboard_no_goals), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
+            Box(Modifier.padding(innerPadding).fillMaxSize(), contentAlignment = Alignment.Center) {
+                ApexEmptyState(
+                    message = stringResource(R.string.dashboard_no_goals),
+                    actionLabel = stringResource(R.string.dashboard_add_goal),
+                    onAction = { editorTarget = EditorTarget.New }
+                )
             }
         } else {
             LazyColumn(
                 modifier = Modifier.padding(innerPadding).fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                contentPadding = PaddingValues(horizontal = ApexSpacing.l, vertical = ApexSpacing.s)
             ) {
                 if (active.isNotEmpty()) {
                     item { GoalsSectionHeader(stringResource(R.string.goals_active)) }
-                    items(active, key = { it.id }) { goal ->
+                    itemsIndexed(active, key = { _, g -> g.id }) { i, goal ->
+                        if (i > 0) ApexDivider()
                         GoalRow(
                             goal = goal,
                             onEdit = { editorTarget = EditorTarget.Edit(goal) },
@@ -78,7 +87,8 @@ fun GoalsView(
                 }
                 if (archived.isNotEmpty()) {
                     item { GoalsSectionHeader(stringResource(R.string.goals_archived)) }
-                    items(archived, key = { it.id }) { goal ->
+                    itemsIndexed(archived, key = { _, g -> g.id }) { i, goal ->
+                        if (i > 0) ApexDivider()
                         ArchivedGoalRow(
                             goal = goal,
                             onUnarchive = { viewModel.unarchiveGoal(goal) },
@@ -114,40 +124,40 @@ private sealed interface EditorTarget {
 
 @Composable
 private fun GoalsSectionHeader(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.primary,
-        letterSpacing = 1.5.sp,
-        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
-    )
+    ApexSectionHeader(text, modifier = Modifier.padding(top = ApexSpacing.l, bottom = ApexSpacing.xs))
 }
 
 @Composable
 private fun GoalRow(goal: Goal, onEdit: () -> Unit, onArchive: () -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(vertical = ApexSpacing.xs),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         GoalLabel(goal, Modifier.weight(1f))
         IconButton(onClick = onEdit) {
-            Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.goal_edit), tint = MaterialTheme.colorScheme.outline)
+            Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.goal_edit), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         IconButton(onClick = onArchive) {
-            Icon(Icons.Default.Archive, contentDescription = stringResource(R.string.goal_archive), tint = MaterialTheme.colorScheme.outline)
+            Icon(Icons.Default.Archive, contentDescription = stringResource(R.string.goal_archive), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
 @Composable
 private fun ArchivedGoalRow(goal: Goal, onUnarchive: () -> Unit, onDelete: () -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(vertical = ApexSpacing.xs),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Column(Modifier.weight(1f)) {
-            Text(goal.name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
+            Text(goal.name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             val rule = goalRuleText(goal)
             if (rule.isNotEmpty()) {
-                Text(rule, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline.copy(alpha = 0.7f))
+                Text(rule, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         IconButton(onClick = onUnarchive) {
-            Icon(Icons.Default.Unarchive, contentDescription = stringResource(R.string.goal_unarchive), tint = MaterialTheme.colorScheme.outline)
+            Icon(Icons.Default.Unarchive, contentDescription = stringResource(R.string.goal_unarchive), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         IconButton(onClick = onDelete) {
             Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.dashboard_delete_goal), tint = MaterialTheme.colorScheme.error)
@@ -158,12 +168,12 @@ private fun ArchivedGoalRow(goal: Goal, onUnarchive: () -> Unit, onDelete: () ->
 @Composable
 private fun GoalLabel(goal: Goal, modifier: Modifier) {
     Column(modifier) {
-        Text(goal.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+        Text(goal.name, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
         val rule = goalRuleText(goal)
         Text(
             text = rule.ifEmpty { stringResource(R.string.goal_type_manual) },
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.outline
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }

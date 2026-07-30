@@ -332,7 +332,7 @@ fun BudgetOverview(
                             } else {
                                 stringResource(R.string.budget_no_data)
                             },
-                            color = MaterialTheme.colorScheme.outline
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }

@@ -177,10 +177,10 @@ fun BudgetSettingsItem(label: String, value: String? = null, onClick: () -> Unit
             Text(label, style = MaterialTheme.typography.bodyLarge)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (value != null) {
-                    Text(value, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
+                    Text(value, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.width(8.dp))
                 }
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.outline)
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -263,7 +263,7 @@ fun CategoryItem(category: Category, onEdit: () -> Unit) {
                             stringResource(R.string.budget_limit_none)
                         },
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.outline
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -437,7 +437,7 @@ fun SubscriptionItem(subscription: Subscription, onTogglePause: () -> Unit, onCl
                     subscription.name,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Bold,
-                    color = if (subscription.isPaused) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface
+                    color = if (subscription.isPaused) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = if (subscription.isPaused) {
@@ -446,13 +446,13 @@ fun SubscriptionItem(subscription: Subscription, onTogglePause: () -> Unit, onCl
                         stringResource(R.string.budget_renews_prefix, subscription.renewalDate.format(DateTimeFormatter.ofPattern("MMM dd")))
                     },
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (subscription.isPaused) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurfaceVariant
+                    color = if (subscription.isPaused) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             Text(
                 formatCurrency(subscription.amount, LocalCurrencyCode.current),
                 style = MaterialTheme.typography.bodyMedium,
-                color = if (subscription.isPaused) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary
+                color = if (subscription.isPaused) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary
             )
             IconButton(onClick = onTogglePause) {
                 Icon(
@@ -542,7 +542,7 @@ fun OverallLimitDialog(current: Double?, onDismiss: () -> Unit, onSave: (Double?
                 Text(
                     stringResource(R.string.budget_limit_hint),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         },
