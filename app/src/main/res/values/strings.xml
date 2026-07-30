@@ -215,6 +215,7 @@
     <string name="reminders_recurrence_prefix">Recurrence: %1$s</string>
     <string name="reminders_recurrence_none">None</string>
     <string name="reminders_remove_recurrence">Remove Recurrence</string>
+    <string name="reminders_today">Today</string>
     <string name="reminders_overdue">OVERDUE</string>
     <string name="reminders_settings_title">Reminder Settings</string>
     <string name="reminders_enable_notifications">Enable Notifications</string>
@@ -238,7 +239,7 @@
     <string name="recurrence_end_after_occurrences">After a number of times</string>
 
     <!-- Notes -->
-    <string name="notes_title">Notes</string>
+    <string name="notes_title">NOTES</string>
     <string name="notes_empty">No notes yet</string>
     <string name="notes_placeholder_title">Title</string>
     <string name="notes_placeholder_content">Start typing...</string>

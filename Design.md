@@ -494,8 +494,8 @@ layer do not change. What changes per screen is layout, emphasis, component anat
 | `study_tracker` | **Redesigned 2026-07-29.** Rings deleted, timer on `ApexNumerals.hero`, de-carded history, chart spec'd with real axis labels. Remaining: the goal ring reads as a plain circle at 0 progress. | One dominant element (the stopwatch) plus controls. |
 | `budget_tracker` | Not started | Densest data in the app. Currently totals-card → pie-card → limits-card → trend-card → list, which is the exact banned shape. Blocked on the palette question in §8. |
 | `screen_time` | **Redesigned 2026-07-29.** Total on `ApexNumerals.hero` (was Instrument Serif in a tinted card), eyebrow section heads, de-carded device/app/history rows, chart on the shared duration-axis treatment. | Per-app list + trend. |
-| `notes` | Not started | Calm dense list. |
-| `reminders` | Not started | Calm dense list; the exact-alarm grant banner needs a real error-state treatment. |
+| `notes` | **Redesigned 2026-07-29.** Eyebrow title, de-carded rows on hairlines, mono timestamps, delete demoted off Alarm. | Calm dense list. |
+| `reminders` | **Redesigned 2026-07-29.** De-carded rows, mono dates, overdue carried by icon + badge rather than repainting the row, exact-alarm banner given a real alert treatment. | Calm dense list. |
 | `overview` | Not started | Aggregates; drill-in targets. |
 | `goals` | Not started | Management surface, not a display surface. |
 | Settings sheets | Not started | Form/row design. |
@@ -523,5 +523,17 @@ parameters **orphans** its baseline rather than updating it — delete the stale
 **Per screen, before calling it done:** both themes, 200% font scale, TalkBack pass
 (`adb shell uiautomator dump` and grep for `content-desc`), and a look at it on the real device.
 Layoutlib is not a phone.
+
+**Prefer a screenshot preview over an emulator screenshot for theme coverage.** Driving the in-app
+dark-mode toggle on the `Medium_Phone` AVD means tapping through a settings sheet on a CPU-starved
+device; it is slow, it strays near real data, and it produces a one-off artefact. A `@PreviewTest`
+pair for the same composable is deterministic, host-side, and stays as a regression net — the
+Notes/Reminders row baselines exist for exactly this reason. Reserve the emulator for what only a
+real runtime can show: scrolling, insets, navigation, live data.
+
+**Do not poll `uiautomator dump` in a wait loop on this AVD.** It is expensive enough that a 2-second
+poll during first composition will itself trigger an ANR dialog, which then looks like an app defect.
+Use one generous sleep instead, and launch straight to a route with
+`am start … --es navigate_to <route>` rather than tapping through the bottom bar.
 
 **Then remove one thing.** Cut the least load-bearing element before shipping.

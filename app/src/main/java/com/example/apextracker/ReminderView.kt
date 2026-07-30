@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -37,6 +38,15 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.icons.filled.WarningAmber
+import com.example.apextracker.ui.design.ApexDivider
+import com.example.apextracker.ui.design.ApexEmptyState
+import com.example.apextracker.ui.design.ApexNumerals
+import com.example.apextracker.ui.design.ApexSectionHeader
+import com.example.apextracker.ui.design.ApexShapes
+import com.example.apextracker.ui.design.ApexSpacing
+import com.example.apextracker.ui.design.LocalApexSemantics
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -164,7 +174,7 @@ fun ReminderView(onBackToMenu: () -> Unit, viewModel: ReminderViewModel = viewMo
                     onClick = { showAddDialog = true },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
-                    shape = RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(ApexShapes.control)
                 ) {
                     Icon(Icons.Default.Add, contentDescription = stringResource(R.string.cd_add_reminder))
                 }
@@ -176,38 +186,54 @@ fun ReminderView(onBackToMenu: () -> Unit, viewModel: ReminderViewModel = viewMo
                 .padding(innerPadding)
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
-                .padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+                .padding(horizontal = ApexSpacing.l),
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
             if (notificationsEnabled && !canScheduleExact) {
                 item {
                     Spacer(modifier = Modifier.height(8.dp))
+                    // A real alert treatment rather than a soft tinted blob (Design.md §10 flagged
+                    // this). The outline plus the Alarm-coloured icon say "something is wrong";
+                    // the action stays Ember because Ember is emphasis — the thing to press — and
+                    // Alarm is the diagnosis. Separating those two roles is the whole point of the
+                    // semantic pair.
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f)
+                        shape = RoundedCornerShape(ApexShapes.container),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            modifier = Modifier.padding(ApexSpacing.l),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            Icon(
+                                Icons.Default.WarningAmber,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(ApexSpacing.m))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     stringResource(R.string.reminders_late_banner_title),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold
+                                    style = MaterialTheme.typography.titleMedium
                                 )
                                 Text(
                                     stringResource(R.string.reminders_late_banner_text),
-                                    style = MaterialTheme.typography.labelSmall,
+                                    style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            TextButton(onClick = {
-                                ReminderScheduler.requestExactAlarmIntent(context)?.let { context.startActivity(it) }
-                            }) {
-                                Text(stringResource(R.string.reminders_allow), fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.width(ApexSpacing.s))
+                            TextButton(
+                                onClick = {
+                                    ReminderScheduler.requestExactAlarmIntent(context)?.let { context.startActivity(it) }
+                                },
+                                shape = RoundedCornerShape(ApexShapes.control)
+                            ) {
+                                Text(stringResource(R.string.reminders_allow), style = MaterialTheme.typography.labelLarge)
                             }
                         }
                     }
@@ -215,33 +241,24 @@ fun ReminderView(onBackToMenu: () -> Unit, viewModel: ReminderViewModel = viewMo
             }
 
             item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(stringResource(R.string.reminders_active), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.height(ApexSpacing.l))
+                ApexSectionHeader(stringResource(R.string.reminders_active))
             }
 
             if (sortedActiveReminders.isEmpty()) {
                 item {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth().height(100.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            // Distinguish "nothing left to do" from "nothing matched the search".
-                            Text(
-                                if (searchQuery.isNotBlank() && allActiveReminders.isNotEmpty()) {
-                                    stringResource(R.string.reminders_search_no_results, searchQuery)
-                                } else {
-                                    stringResource(R.string.reminders_all_done)
-                                },
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.outline
-                            )
+                    // Distinguish "nothing left to do" from "nothing matched the search".
+                    ApexEmptyState(
+                        message = if (searchQuery.isNotBlank() && allActiveReminders.isNotEmpty()) {
+                            stringResource(R.string.reminders_search_no_results, searchQuery)
+                        } else {
+                            stringResource(R.string.reminders_all_done)
                         }
-                    }
+                    )
                 }
             } else {
-                items(sortedActiveReminders) { reminder ->
+                itemsIndexed(sortedActiveReminders) { i, reminder ->
+                    if (i > 0) ApexDivider()
                     ReminderItemModern(
                         reminder = reminder,
                         isOverdue = reminder.isOverdue(now),
@@ -259,7 +276,11 @@ fun ReminderView(onBackToMenu: () -> Unit, viewModel: ReminderViewModel = viewMo
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(stringResource(R.string.reminders_completed), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.outline)
+                        Text(
+                            stringResource(R.string.reminders_completed).uppercase(),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                         
                         TextButton(
                             onClick = { showCompletedReminders = !showCompletedReminders },
@@ -596,6 +617,15 @@ fun ReminderSettingsDialog(
     )
 }
 
+/**
+ * One reminder row. No container: rows are separated by hairlines like every other list in the app.
+ *
+ * The overdue state used to repaint the whole row — errorContainer background, an error border, an
+ * error-tinted checkbox *and* an error-coloured name. That is four channels saying one thing. It is
+ * now carried by the clock icon and the OVERDUE badge, both in Alarm, with the name left in normal
+ * ink; the same split used for Screen Time's over-limit rows. Selection is the one state that still
+ * tints the row, because selection is about the row as an object rather than about its content.
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ReminderItemModern(
@@ -608,119 +638,110 @@ fun ReminderItemModern(
     onLongClick: () -> Unit = {},
     onClick: () -> Unit = {}
 ) {
-    val containerColor = when {
-        isSelected -> MaterialTheme.colorScheme.primaryContainer
-        reminder.isCompleted -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-        isOverdue -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
-        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-    }
-
-    Surface(
+    val cs = MaterialTheme.colorScheme
+    val overdueNow = isOverdue && !reminder.isCompleted
+    Row(
         modifier = Modifier
             .fillMaxWidth()
+            .background(if (isSelected) cs.primaryContainer else Color.Transparent)
             .combinedClickable(
-                onClick = { 
-                    if (isSelectionMode) onClick() 
-                    else if (!reminder.isCompleted) onEdit() 
+                onClick = {
+                    if (isSelectionMode) onClick()
+                    else if (!reminder.isCompleted) onEdit()
                 },
                 onLongClick = { if (reminder.isCompleted) onLongClick() }
-            ),
-        shape = RoundedCornerShape(16.dp),
-        color = containerColor,
-        border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) 
-                 else if (isOverdue && !reminder.isCompleted) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.2f))
-                 else null
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Checkbox(
-                checked = reminder.isCompleted,
-                onCheckedChange = { if (!isSelectionMode) onToggle() else onClick() },
-                colors = if (isOverdue && !reminder.isCompleted) 
-                    CheckboxDefaults.colors(uncheckedColor = MaterialTheme.colorScheme.error)
-                    else CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
             )
-            
-            Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = reminder.name,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Bold,
-                        textDecoration = if (reminder.isCompleted) TextDecoration.LineThrough else null,
-                        color = when {
-                            reminder.isCompleted -> MaterialTheme.colorScheme.outline
-                            isOverdue -> MaterialTheme.colorScheme.error
-                            else -> MaterialTheme.colorScheme.onSurface
-                        }
-                    )
-                    if (reminder.recurrence != null) {
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = stringResource(R.string.cd_recurring),
-                            modifier = Modifier.size(14.dp),
-                            tint = MaterialTheme.colorScheme.outline
-                        )
-                    }
-                    // Only non-default importance is marked — NORMAL is the vast majority and a
-                    // badge on every row would be noise (Issue #126).
-                    val priority = parseReminderPriority(reminder.priority)
-                    if (priority != ReminderPriority.NORMAL && !reminder.isCompleted) {
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = stringResource(reminderPriorityLabelRes(priority)).uppercase(),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Black,
-                            color = if (priority == ReminderPriority.HIGH) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.outline
-                        )
-                    }
-                }
-                
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
+            .heightIn(min = 48.dp)
+            .padding(vertical = ApexSpacing.s),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Checkbox(
+            checked = reminder.isCompleted,
+            onCheckedChange = { if (!isSelectionMode) onToggle() else onClick() },
+            colors = CheckboxDefaults.colors(checkedColor = LocalApexSemantics.current.positive)
+        )
+
+        Column(modifier = Modifier.weight(1f).padding(start = ApexSpacing.s)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = reminder.name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    textDecoration = if (reminder.isCompleted) TextDecoration.LineThrough else null,
+                    color = if (reminder.isCompleted) cs.onSurfaceVariant else cs.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    // weight(fill = false) so the name yields space to the badges beside it rather
+                    // than claiming the row. Without it, at a large font scale the name took the
+                    // width and the priority badge was squeezed into a one-character-per-line column.
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                if (reminder.recurrence != null) {
+                    Spacer(modifier = Modifier.width(ApexSpacing.xs))
                     Icon(
-                        imageVector = Icons.Default.AccessTime,
-                        contentDescription = null,
-                        modifier = Modifier.size(12.dp),
-                        tint = if (isOverdue && !reminder.isCompleted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = stringResource(R.string.cd_recurring),
+                        modifier = Modifier.size(14.dp),
+                        tint = cs.onSurfaceVariant
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = if (reminder.date == LocalDate.now()) "Today" else reminder.date.format(DateTimeFormatter.ofPattern("MMM dd")),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.outline
-                    )
-                    reminder.time?.let { time ->
-                        Text(
-                            text = " • ${time.format(DateTimeFormatter.ofPattern("HH:mm"))}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.outline
-                        )
-                    }
-                    if (isOverdue && !reminder.isCompleted) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = stringResource(R.string.reminders_overdue),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
                 }
-            }
-            
-            if (!reminder.isCompleted && !isSelectionMode) {
-                IconButton(onClick = onEdit, modifier = Modifier.size(24.dp)) {
-                    Icon(
-                        imageVector = Icons.Default.ChevronRight, 
-                        contentDescription = stringResource(R.string.cd_edit),
-                        tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                // Only non-default importance is marked — NORMAL is the vast majority and a badge on
+                // every row would be noise (Issue #126).
+                val priority = parseReminderPriority(reminder.priority)
+                if (priority != ReminderPriority.NORMAL && !reminder.isCompleted) {
+                    Spacer(modifier = Modifier.width(ApexSpacing.s))
+                    Text(
+                        text = stringResource(reminderPriorityLabelRes(priority)).uppercase(),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = if (priority == ReminderPriority.HIGH) cs.primary else cs.onSurfaceVariant,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
             }
+
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
+                Icon(
+                    imageVector = Icons.Default.AccessTime,
+                    contentDescription = null,
+                    modifier = Modifier.size(12.dp),
+                    tint = if (overdueNow) cs.error else cs.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.width(ApexSpacing.xs))
+                // Dates and times are quantities: mono, so a column of rows stays aligned. "Today"
+                // was a hardcoded English literal here, and the time was string-concatenated onto
+                // it with a bullet — both localization bugs.
+                Text(
+                    text = if (reminder.date == LocalDate.now()) stringResource(R.string.reminders_today)
+                    else reminder.date.format(DateTimeFormatter.ofPattern("MMM d")),
+                    style = ApexNumerals.small,
+                    color = cs.onSurfaceVariant
+                )
+                reminder.time?.let { time ->
+                    Spacer(modifier = Modifier.width(ApexSpacing.s))
+                    Text(
+                        text = time.format(DateTimeFormatter.ofPattern("HH:mm")),
+                        style = ApexNumerals.small,
+                        color = cs.onSurfaceVariant
+                    )
+                }
+                if (overdueNow) {
+                    Spacer(modifier = Modifier.width(ApexSpacing.s))
+                    Text(
+                        text = stringResource(R.string.reminders_overdue).uppercase(),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = cs.error
+                    )
+                }
+            }
+        }
+
+        if (!reminder.isCompleted && !isSelectionMode) {
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = cs.onSurfaceVariant,
+                modifier = Modifier.size(18.dp)
+            )
         }
     }
 }
