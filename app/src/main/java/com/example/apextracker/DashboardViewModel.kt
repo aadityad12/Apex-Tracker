@@ -41,7 +41,8 @@ data class DashboardUiState(
     val completions: List<GoalCompletion> = emptyList(),
     val studyByDate: Map<LocalDate, Map<String, Long>> = emptyMap(),
     val screenByDate: Map<LocalDate, Long> = emptyMap(),
-    val spendByDate: Map<LocalDate, Double> = emptyMap()
+    val spendByDate: Map<LocalDate, Double> = emptyMap(),
+    val papersByDate: Map<LocalDate, Int> = emptyMap()
 ) {
     companion object {
         val EMPTY = DashboardUiState(emptyList(), emptyList(), 0, LocalDate.now(), loaded = false)
@@ -52,7 +53,8 @@ data class DashboardUiState(
 fun DashboardUiState.metricsFor(date: LocalDate): DayMetrics = DayMetrics(
     studyBySubject = studyByDate[date] ?: emptyMap(),
     screenMillis = screenByDate[date] ?: 0L,
-    spend = spendByDate[date] ?: 0.0
+    spend = spendByDate[date] ?: 0.0,
+    papersRead = papersByDate[date] ?: 0
 )
 
 /** One heatmap cell for [date], computed from the same snapshot the day sheet uses. */
@@ -77,17 +79,19 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val studyDao = db.studySessionDao()
     private val screenDao = db.screenTimeSessionDao()
     private val budgetDao = db.budgetDao()
+    private val paperDao = db.paperDao()
     // Fire-and-forget cloud sync (Room is source of truth); mirrors the other ViewModels.
     private val firebaseManager = FirebaseManager(application)
 
+    // combine's typed overloads stop at five flows, so goals+completions ride as a pair.
     val uiState: StateFlow<DashboardUiState> = combine(
-        goalDao.getAllGoals(),
-        completionDao.getAllCompletions(),
+        combine(goalDao.getAllGoals(), completionDao.getAllCompletions()) { g, c -> g to c },
         studyDao.getAllSessions(),
         screenDao.getAllSessions(),
-        budgetDao.getAllItems()
-    ) { goals, completions, study, screen, budget ->
-        buildState(goals, completions, study, screen, budget)
+        budgetDao.getAllItems(),
+        paperDao.getAllPapers()
+    ) { (goals, completions), study, screen, budget, papers ->
+        buildState(goals, completions, study, screen, budget, papers)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardUiState.EMPTY)
 
     private fun buildState(
@@ -95,7 +99,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         completions: List<GoalCompletion>,
         study: List<StudySession>,
         screen: List<ScreenTimeSession>,
-        budget: List<BudgetItem>
+        budget: List<BudgetItem>,
+        papers: List<Paper>
     ): DashboardUiState {
         val today = LocalDate.now()
 
@@ -105,12 +110,14 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         val screenByDate: Map<LocalDate, Long> = screen.associate { it.date to it.durationMillis }
         val spendByDate: Map<LocalDate, Double> =
             budget.groupBy { it.date }.mapValues { (_, rows) -> rows.sumOf { it.amount } }
+        val papersByDate: Map<LocalDate, Int> = papersReadByDate(papers)
 
         val metricsFor: (LocalDate) -> DayMetrics = { d ->
             DayMetrics(
                 studyBySubject = studyByDate[d] ?: emptyMap(),
                 screenMillis = screenByDate[d] ?: 0L,
-                spend = spendByDate[d] ?: 0.0
+                spend = spendByDate[d] ?: 0.0,
+                papersRead = papersByDate[d] ?: 0
             )
         }
 
@@ -129,7 +136,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             completions = completions,
             studyByDate = studyByDate,
             screenByDate = screenByDate,
-            spendByDate = spendByDate
+            spendByDate = spendByDate,
+            papersByDate = papersByDate
         )
     }
 

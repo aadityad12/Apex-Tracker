@@ -101,6 +101,9 @@ dependencies {
     implementation(libs.coil.compose)
 
     testImplementation(libs.junit)
+    // android.jar's org.json is a stub in JVM unit tests; the real artifact lets the pure
+    // Semantic Scholar parsing functions be tested without Robolectric.
+    testImplementation("org.json:json:20240303")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

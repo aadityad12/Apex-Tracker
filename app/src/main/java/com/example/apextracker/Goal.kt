@@ -15,6 +15,7 @@ object GoalMetric {
     const val SCREEN_TIME = "SCREEN_TIME" // threshold in hours, evaluated against ScreenTimeSession.durationMillis
     const val STUDY = "STUDY"             // threshold in hours, evaluated against summed StudySession.durationSeconds
     const val SPEND = "SPEND"             // threshold in currency units, evaluated against summed BudgetItem.amount
+    const val PAPERS = "PAPERS"           // threshold in papers, evaluated against Paper rows read that day
 }
 
 /** Goal.comparator values (AUTO goals only). */

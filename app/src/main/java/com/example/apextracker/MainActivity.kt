@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Check
@@ -345,6 +346,9 @@ fun AppNavigation(
         composable("reminders") {
             ReminderView(onBackToMenu = { navController.popBackStack() })
         }
+        composable("papers") {
+            PapersView(onBack = { navController.popBackStack() })
+        }
         composable("notes") {
             LockGate(
                 route = "notes",
@@ -510,6 +514,7 @@ private fun MoreSheet(onDismiss: () -> Unit, onSelect: (String) -> Unit) {
             MoreRow(Icons.Default.GridView, R.string.module_overview, "overview", onSelect)
             MoreRow(Icons.Default.Notifications, R.string.module_tasks, "reminders", onSelect)
             MoreRow(Icons.AutoMirrored.Filled.Notes, R.string.module_notes, "notes", onSelect)
+            MoreRow(Icons.AutoMirrored.Filled.MenuBook, R.string.module_papers, "papers", onSelect)
         }
     }
 }
