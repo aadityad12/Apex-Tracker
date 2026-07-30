@@ -458,8 +458,17 @@ migration, or accept the split. **Needs a decision before the Budget screen PR.*
 since the streak counts today inclusive. Pre-existing and deliberate, but now the hero of the home
 screen rather than a small caption, so it is much more visible. Worth reconsidering.
 
-**The bottom bar truncates at 200% font scale** ("Stud y", "Budg et"). `AppBottomBar`, not any one
-screen — its own PR.
+**~~The bottom bar truncates at 200% font scale~~ — fixed 2026-07-29.** At or above font scale
+**1.5** `AppBottomBar` drops its text labels and moves each name onto the icon's
+`contentDescription`; below it, the labels render and the descriptions are null, so TalkBack never
+announces a name twice. The threshold is `labelsFitAtFontScale()`, and the boundary is pinned by
+baselines at 1.4 (labels, unwrapped) and 1.5 (icon-only). Material's label-less `NavigationBarItem`
+is the platform fallback here; the alternative was worse for everyone, since those labels do not
+ellipsize, they break mid-word.
+
+The general rule this is an instance of: **a five-slot row of single words cannot survive 200% font
+scale on a phone.** Whenever a fixed number of text slots has to share a screen width, the large-
+scale plan is dropping to icons, not shrinking or clipping the text.
 
 **Dark mode does not survive a cold start for signed-out users.** `MainActivity` holds it in
 `rememberSaveable`, which a force-stop clears, so the app reopens dark regardless of the setting.
@@ -515,7 +524,9 @@ layer do not change. What changes per screen is layout, emphasis, component anat
 
 ## 11. Verification
 
-**Screenshot tests** are the regression net. 8 baselines across dark, light, and dark-at-200%-font.
+**Screenshot tests** are the regression net. 21 baselines across dark, light, and large-font
+configurations. Run `find app/src/screenshotTestDebug/reference -name '*.png' | wc -l` rather than
+trusting that number — it has already gone stale once.
 
 ```bash
 JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew validateDebugScreenshotTest
