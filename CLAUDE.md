@@ -87,10 +87,10 @@ Settings dialogs for each module live in `*Settings.kt` files (e.g., `BudgetSett
 ### Theming
 - **The `ui/theme/` package no longer exists.** `Color.kt`, `Theme.kt` and `Type.kt` were deleted in the 2026-07-29 redesign foundation; everything moved to `ui/design/`. There is one theme entry point, not two.
 - `ui/design/ApexPalette.kt` — hand-authored dark and light `ColorScheme`s plus the heatmap ramp. `shiftColorForLightMode()` is **gone**: light mode is authored, not HSV-derived from dark.
-- `ui/design/ApexType.kt` — `ApexTypography` (Instrument Serif display / Geist UI) and `ApexNumerals` (Geist Mono, for every user-facing quantity). Fonts are bundled in `res/font/`, OFL text in `assets/licenses/`.
+- `ui/design/ApexType.kt` — `ApexTypography` (**Martian Mono** display+headline / Geist UI) and `ApexNumerals` (**Martian Mono**, for every user-facing quantity). Fonts are bundled in `res/font/`, OFL text in `assets/licenses/`. (As of the 2026-07-30 Graphite pass, Instrument Serif and Geist Mono are **retired** — the display voice and the numerals are one mono. See "2026-07-30 Graphite identity" below.)
 - `ui/design/ApexTokens.kt` — `ApexSpacing`, `ApexShapes`, `ApexMotion`, `ApexSemantics`/`LocalApexSemantics`, the `ApexTheme` enum, and `ApexTrackerTheme`.
 - `ui/design/ApexComponents.kt` — the shared component vocabulary (`ApexSectionHeader`, `ApexDivider`, `ApexStatRow`, `ApexChartFrame`, `ApexGroup`, `ApexEmptyState`).
-- **`ApexTheme` has one entry (`EMBER`)**, down from four accents. The enum survives so a second identity is a drop-in; the settings accent picker is gone. `FirebaseManager` still round-trips the field by name and legacy values fail `valueOf` and fall back, which is correct.
+- **`ApexTheme` has one entry (`GRAPHITE`)** — the cold-monochrome identity (2026-07-30), down from four accents then the single warm `EMBER`. The enum survives so a second identity is a drop-in; the settings accent picker is gone. `FirebaseManager` still round-trips the field by name and legacy values (`EMBER`/`EMERALD`/…) fail `valueOf` and fall back, which is correct.
 - **Sage (the positive semantic) is deliberately NOT in the `ColorScheme`** — it lives only in `ApexSemantics.positive`. It used to be `secondary`/`secondaryContainer`, which made every M3 component defaulting to secondary render "goal met" green.
 - **`Design.md` at the repo root is the authority** for all values, measured contrast ratios, the chart spec and the screen inventory. `.claude/skills/android-product-design/SKILL.md` carries the enforcing rules. Don't restate values here — that's how this file drifted before.
 
@@ -112,7 +112,7 @@ Settings dialogs for each module live in `*Settings.kt` files (e.g., `BudgetSett
 - Firebase sync is fire-and-forget inside `viewModelScope.launch` via `safeCloudCall()`; local Room is always updated first. As of 2026-07-09 (Issue #4) this convention is actually implemented across all ViewModels — see "Authentication & Cloud Sync" above.
 - Light/dark mode detection in Composables uses the extension `Color.isLight()` defined at the bottom of `MainActivity.kt`.
 - The `BudgetViewModel` auto-creates `BudgetItem` entries for due subscriptions on init and on any subscription change (`checkAndAddSubscriptions()`), which back-fills one `BudgetItem` per elapsed month if a subscription's renewal date is far in the past.
-- "Xh Ym" duration formatting goes through the shared `formatDurationCompact(millis)` in `DurationFormat.kt` (consolidated 2026-07-09; `StudyTrackerView.formatTime` remains separate — it's the HH:MM:SS stopwatch display, a different format). Periodic 30s polling loops go through `CoroutineScope.launchPeriodic()` in `PeriodicRefresh.kt`. Currency rendering goes through `formatCurrency(amount, currencyCode)` in `CurrencyFormat.kt` — the code comes from the user's stored setting (`CurrencySettings` DataStore, surfaced by `AppSettingsSheet`'s `CurrencyDropdown` and synced to Firestore; Issue #76). USD is only the fallback `parseCurrencySafe()`/`defaultCurrencyCode()` land on, not a hardcoded default. Duration axis labels for the trend charts go through `durationAxisLabels()` in the same file as `formatDurationCompact` (Issue #97). **Every user-facing quantity renders in `ApexNumerals` (Geist Mono, tabular)** — currency, durations, the stopwatch, percentages, counts, axis labels. Proportional figures make a running timer jitter and a currency column ragged. Layout values come from `ApexSpacing`/`ApexShapes` and animations from `ApexMotion`; a raw `.dp`, hex, `spring()` or `tween()` at a call site is a bug. User-facing UI strings live in `res/values/strings.xml` via `stringResource()` (Issue #36) — add new UI strings there, keyed by screen (`budget_*`, `reminders_*`, shared `action_*`). contentDescriptions were extracted too (Issue #53, PR #54): every one is now either `stringResource(R.string.cd_*)` or `null` for decorative icons — keep it that way.
+- "Xh Ym" duration formatting goes through the shared `formatDurationCompact(millis)` in `DurationFormat.kt` (consolidated 2026-07-09; `StudyTrackerView.formatTime` remains separate — it's the HH:MM:SS stopwatch display, a different format). Periodic 30s polling loops go through `CoroutineScope.launchPeriodic()` in `PeriodicRefresh.kt`. Currency rendering goes through `formatCurrency(amount, currencyCode)` in `CurrencyFormat.kt` — the code comes from the user's stored setting (`CurrencySettings` DataStore, surfaced by `AppSettingsSheet`'s `CurrencyDropdown` and synced to Firestore; Issue #76). USD is only the fallback `parseCurrencySafe()`/`defaultCurrencyCode()` land on, not a hardcoded default. Duration axis labels for the trend charts go through `durationAxisLabels()` in the same file as `formatDurationCompact` (Issue #97). **Every user-facing quantity renders in `ApexNumerals` (Martian Mono, tabular)** — currency, durations, the stopwatch, percentages, counts, axis labels. Proportional figures make a running timer jitter and a currency column ragged. Layout values come from `ApexSpacing`/`ApexShapes` and animations from `ApexMotion`; a raw `.dp`, hex, `spring()` or `tween()` at a call site is a bug. User-facing UI strings live in `res/values/strings.xml` via `stringResource()` (Issue #36) — add new UI strings there, keyed by screen (`budget_*`, `reminders_*`, shared `action_*`). contentDescriptions were extracted too (Issue #53, PR #54): every one is now either `stringResource(R.string.cd_*)` or `null` for decorative icons — keep it that way.
 
 ## Known Issues (as of 2026-07-07 audit)
 
@@ -220,7 +220,7 @@ New home surface: a GitHub-contribution-style heatmap scoring each day by the fr
 
 - **Model** — `Goal` is `MANUAL` (a `GoalCompletion` check-off per day) or `AUTO` (a `metric` ∈ {`SCREEN_TIME`,`STUDY`,`SPEND`} + `comparator` ∈ {`UNDER`,`OVER`} + hour/currency `threshold`, optional study `subject`). AUTO goals store nothing per day — they're evaluated on read from the existing `ScreenTimeSession`/`StudySession`/`BudgetItem` tables. Each goal has a `startDate` (counts from) and nullable `archivedDate` (stops counting on/after), so editing goals never rewrites past days. `GoalCompletion` is keyed `(goalCloudId, date)` so its Firestore doc id is device-stable.
 - **Pure scoring** — `DashboardScoring.kt` (`activeGoalsOn`, `evaluateAutoGoal`, `dayFraction`, `intensityBucket`, `perfectDayStreak`, `goalStreak`), unit-tested in `DashboardScoringTest`. `OVER` is met at-or-above the threshold, `UNDER` at-or-below; a day with no active goals is a `null` fraction (empty cell, ≠ a 0.0 missed day); only a perfect day hits intensity 4.
-- **UI** — `DashboardViewModel` `combine`s goals/completions/study/screen/budget flows (mirrors `OverviewViewModel`). `DashboardView` draws the heatmap by hand (vertical weeks-as-rows, **newest week on top**, today outlined, theme-accent ramp) with a Today checklist; tapping any cell opens a day-detail `ModalBottomSheet` that backfills MANUAL goals for that date. `GoalsView` (route `goals`) manages goals (add/edit/archive/unarchive/delete) via a shared `GoalEditDialog`.
+- **UI** — `DashboardViewModel` `combine`s goals/completions/study/screen/budget/**papers** flows (mirrors `OverviewViewModel`). `DashboardView` draws the heatmap by hand (vertical weeks-as-rows, **newest week on top**, today outlined; as of the 2026-07-30 Graphite pass the cells are **fill-height bars**, not colour-ramp squares — intensity is bar height) with a Today checklist; tapping any cell opens a day-detail `ModalBottomSheet` that backfills MANUAL goals for that date. `GoalsView` (route `goals`) manages goals (add/edit/archive/unarchive/delete) via a shared `GoalEditDialog`.
 - **Nav** — Phase 4 made the Dashboard the home behind the bottom nav bar and retired `MainMenu` (see Navigation above).
 - **Sync** — see Cloud Sync above. **On-device round-trip is signed-in-only and was not automatable** (Google sign-in needs real user interaction, which the safety rules bar the agent from completing); build/unit-tests/lint pass and the signed-out path is a verified no-op. A signed-in two-session round-trip (create a goal → confirm `users/{uid}/goals` in the Firestore console → reinstall+sign-in pulls it back) is the one check owed before fully closing this out. Note the `firestore-api-disabled` memory: if goal pushes log `PERMISSION_DENIED`, Firestore isn't enabled/deployed for the project.
 - **Known behavior**: the perfect-day streak reads "No streak yet" each morning until today's goals are ticked (streak counts today inclusive) — deliberate, trivially changed. A primary bottom-bar destination (e.g. Budget) still shows its own top-bar back arrow alongside the bar — minor redundancy, left to avoid touching each module's Scaffold.
@@ -299,6 +299,32 @@ unit-tested in `SemanticScholarTest` — note the unauthenticated S2 pool rate-l
 `GoalMetric.PAPERS` (`DayMetrics.papersRead`); papers ride the full-dataset backup
 (`BackupData.papers`). **No Firestore sync yet** — rows carry cloudId/modifiedAt, sync is
 issue #151; daily topic fetch and recommendations are #149/#150.
+
+## 2026-07-30 Graphite identity (Plan.md Phase 2, branch `redesign/graphite`)
+
+The Ember identity (2026-07-29) was **replaced** by GRAPHITE — a cold monochrome, no accent hue,
+with a mono display voice. Owner's driver: Ember's warm-dark + terracotta + Instrument Serif read
+as Claude's surfaces. **`Design.md` §0 is the authoritative value set**; the rest of that file
+still describes Ember and is marked superseded (full table rewrite deferred). The enforcing skill
+(`.claude/skills/android-product-design/SKILL.md`) is fully rewritten to graphite.
+
+- **Type** (`ui/design/ApexType.kt`) — Instrument Serif + Geist Mono **retired**; **Martian Mono**
+  (bundled `res/font/`, OFL in `assets/licenses/`) is now both the display/headline voice and
+  every `ApexNumerals` figure. Geist stays for body/labels. Martian is *wide*: display sizes are
+  smaller + negative-tracked vs. the old serif scale.
+- **Colour** (`ui/design/ApexPalette.kt`) — cold graphite, both themes hand-authored. **No accent**:
+  `primary` is ink (Frost `#E9EBEE` dark / Char `#191C20` light), so filled buttons/FAB/nav are
+  inverse blocks. Only hues are `Sage` (positive) and `Crimson` (`error`). Values + measured
+  contrasts in Design.md §0.
+- **Heatmap reshaped** (`DashboardView.HeatCell`) — **fill-height bars, not colour squares**: bar
+  height = fraction of the day's goals met, bottom-anchored in a fixed slot; perfect = solid ink
+  fill. This is the signature and is what stops it reading as GitHub's grid. `ApexSemantics` gained
+  `heatInk`/`heatSlot`; the gray `heatRamp` survives only for the Glance widgets.
+- **`ApexTheme.EMBER` → `GRAPHITE`**. Glance widgets carry a hand-kept mirror of the graphite dark
+  hexes (a met goal keeps Sage). Screenshot baselines (`app/src/screenshotTestDebug/reference/`)
+  re-recorded. Verified on the SM-S931U1 in both themes + 200% font; no screen's hierarchy needed
+  per-screen rescue (ink primary + mono headlines carry it). The debug `StylePlateActivity` renders
+  the graphite system on-device.
 
 ## Developer's own TODO list (from notes.txt, still current)
 - Budget: "Extract from receipt" (OCR/receipt-parsing) — not started.

@@ -49,12 +49,13 @@ class GoalsWidget : GlanceAppWidget() {
 }
 
 // Glance cannot read the Compose ColorScheme, so the widget palette is a hand-kept mirror of
-// ApexPalette's dark scheme. These used to be a fifth green (#34C77B) that matched none of the
-// four old accent themes. If ApexPalette changes, change these too — nothing enforces it.
-private val accent = ColorProvider(Color(0xFFD9613C))
-private val onBg = ColorProvider(Color(0xFFEDE8E2))
-private val muted = ColorProvider(Color(0xFFA09890))
-private val bg = ColorProvider(Color(0xFF131210))
+// ApexPalette's GRAPHITE dark scheme. If ApexPalette changes, change these too — nothing enforces
+// it. A met goal takes Sage (the positive semantic), matching the app's "Met" — the one place a
+// hue is allowed; everything else is ink on graphite.
+private val met = ColorProvider(Color(0xFF6FA88C))
+private val onBg = ColorProvider(Color(0xFFE9EBEE))
+private val muted = ColorProvider(Color(0xFF9AA1A9))
+private val bg = ColorProvider(Color(0xFF0E0F11))
 
 @Composable
 private fun GoalsWidgetContent(goals: List<GoalStatus>, context: Context) {
@@ -67,7 +68,7 @@ private fun GoalsWidgetContent(goals: List<GoalStatus>, context: Context) {
     ) {
         Text(
             text = context.getString(R.string.widget_goals_title),
-            style = TextStyle(color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            style = TextStyle(color = onBg, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         )
         if (goals.isEmpty()) {
             Text(
@@ -93,7 +94,7 @@ private fun GoalRow(status: GoalStatus) {
     ) {
         Text(
             text = if (status.satisfied) "✓" else "○",
-            style = TextStyle(color = if (status.satisfied) accent else muted, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            style = TextStyle(color = if (status.satisfied) met else muted, fontSize = 15.sp, fontWeight = FontWeight.Bold)
         )
         Text(
             text = "  " + status.goal.name,

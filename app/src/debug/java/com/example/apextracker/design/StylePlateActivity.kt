@@ -65,7 +65,7 @@ private fun StylePlate(dark: Boolean, onToggleTheme: () -> Unit) {
             Column(Modifier.weight(1f)) {
                 Text("Style plate", style = MaterialTheme.typography.displayMedium)
                 Text(
-                    if (dark) "Dark · Ember" else "Light · Ember",
+                    if (dark) "Dark · Graphite" else "Light · Graphite",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -91,7 +91,7 @@ private fun StylePlate(dark: Boolean, onToggleTheme: () -> Unit) {
 @Composable
 private fun TypeSection() = PlateSection("Type") {
     val t = MaterialTheme.typography
-    Text("Instrument Serif", style = t.displayLarge)
+    Text("Martian Mono", style = t.displayLarge)
     Text("Budget flow", style = t.displayMedium)
     Text("Screen time this week", style = t.displaySmall)
     Text("Study subjects", style = t.headlineMedium)

@@ -129,7 +129,7 @@ class MainActivity : FragmentActivity() {
             val authViewModel: AuthViewModel = viewModel()
             val user by authViewModel.user.collectAsState()
             
-            var currentTheme by rememberSaveable { mutableStateOf(ApexTheme.EMBER) }
+            var currentTheme by rememberSaveable { mutableStateOf(ApexTheme.GRAPHITE) }
             var isDarkMode by rememberSaveable { mutableStateOf(true) }
 
             // Currency lives in DataStore rather than rememberSaveable — unlike theme, it must

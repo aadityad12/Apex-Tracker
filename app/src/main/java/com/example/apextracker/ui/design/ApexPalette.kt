@@ -6,94 +6,78 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 
 /**
- * Two hand-authored palettes. Neither is derived from the other — the old
- * `shiftColorForLightMode()` HSV multiply is exactly the shortcut this replaces.
+ * The GRAPHITE identity (Plan.md Phase 2, superseding issue #139's warm grayscale): a cold
+ * monochrome. Colour appears only where it carries meaning — Sage for met/positive, Crimson for
+ * over/error — everything else is a neutral ramp. There is deliberately no accent hue: emphasis
+ * is carried by ink (near-white in dark, near-black in light), size, and weight.
  *
- * The darks are deliberately *warm* near-blacks rather than the conventional cool #121212.
- * A cool grey under a warm terracotta accent reads as two unrelated decisions; warming the
- * substrate is most of what makes the accent look chosen rather than dropped on.
+ * The temperature is the point. The previous Ember identity's warm near-blacks + terracotta +
+ * serif sat squarely in Claude's visual territory; cool graphite is the single biggest move away
+ * from it. Values were judged on a real AMOLED panel via the debug style plate (2026-07-30) —
+ * both hairlines were bumped after measuring 2.8:1 (dark) and 2.2:1 (light) against the 3:1
+ * floor; the plate now reads 3.2/3.1.
  */
 
 // ── Dark ───────────────────────────────────────────────────────────────────────────────
-val InkBase      = Color(0xFF131210) // app background
-val InkSurface   = Color(0xFF1A1816) // resting surface
-val InkRaised    = Color(0xFF221F1C) // grouped content, sheet body
-val InkElevated  = Color(0xFF2B2724) // menus, dialogs, pressed states
-// Measured on device: the first pass at #3D3835 came out at 1.6:1 on InkBase — invisible.
-// Hairlines are load-bearing here (they are what replaces cards), so they are pushed up to
-// where they actually read rather than left at a decorative weight.
-val InkLine      = Color(0xFF5A544F) // hairline dividers, borders
-val InkLineFaint = Color(0xFF332E2B) // barely-there separation inside a group
-val Bone         = Color(0xFFEDE8E2) // primary text — warm off-white, never pure white
-val BoneDim      = Color(0xFFA09890) // secondary text, axis labels
+val GraphiteBase     = Color(0xFF0E0F11) // app background
+val GraphiteSurface  = Color(0xFF16181B) // resting surface
+val GraphiteRaised   = Color(0xFF1D2024) // grouped content, sheet body, heatmap slots
+val GraphiteElevated = Color(0xFF262A2F) // menus, dialogs, pressed states
+val GraphiteLine     = Color(0xFF5E656E) // hairline dividers, borders (≥3:1 on base — load-bearing)
+val GraphiteLineFaint = Color(0xFF2C3036) // barely-there separation inside a group
+val Frost            = Color(0xFFE9EBEE) // primary text AND the dark theme's ink/primary
+val FrostDim         = Color(0xFF9AA1A9) // secondary text, axis labels
 
 // ── Light ──────────────────────────────────────────────────────────────────────────────
-val PaperBase      = Color(0xFFF5F2ED)
-val PaperSurface   = Color(0xFFFFFDFA)
-val PaperRaised    = Color(0xFFEBE6DE)
-val PaperElevated  = Color(0xFFE2DCD2)
-val PaperLine      = Color(0xFFB3AA9A) // was #D8D1C6 — measured 1.4:1 on PaperBase, invisible
-val PaperLineFaint = Color(0xFFDCD5C9)
-val Sable          = Color(0xFF1B1815)
-val SableDim       = Color(0xFF5F574E)
-
-// ── Accent ─────────────────────────────────────────────────────────────────────────────
-/** The one brand colour. Carries emphasis and attention — never "good" and never "bad". */
-val EmberDark  = Color(0xFFD9613C)
-val EmberLight = Color(0xFFB84A28)
+val PaperBase      = Color(0xFFF3F4F6) // cold paper — not cream; warmth is the old identity's
+val PaperSurface   = Color(0xFFFFFFFF)
+val PaperRaised    = Color(0xFFE9EBEE)
+val PaperElevated  = Color(0xFFDFE2E6)
+val PaperLine      = Color(0xFF848B95)
+val PaperLineFaint = Color(0xFFD9DDE2)
+val Char           = Color(0xFF191C20) // primary text AND the light theme's ink/primary
+val CharDim        = Color(0xFF575E66)
 
 /**
- * Semantic pair. These exist because Ember is an orange-red, so a conventional error red sits
- * ~15° away from it and the two are not reliably distinguishable — least of all for a
- * red-weak viewer. [Sage] is far enough around the wheel to survive that, and negative states
- * are additionally always carried by an icon or a word, never by hue alone.
- *
- * Judge these three side by side on the style plate before trusting them.
+ * Semantic pair — the only hues in the app, which is exactly why they survive: on a neutral
+ * field they read louder than they did next to Ember (measured on the plate: Sage 7.0:1 dark /
+ * 4.6:1 light, Crimson 4.4:1 / 6.3:1). Negative states are additionally always carried by an
+ * icon or a word, never by hue alone.
  */
-val SageDark      = Color(0xFF6FA88C)
-val SageLight     = Color(0xFF3F7A62)
-/**
- * Crimson, not the conventional red. The first pass used #E0574E, ~15° from Ember: on device
- * "Missed" and "12 days" were marginal in dark and literally the same colour in light. Crimson
- * separates on hue *and* value, which is what makes it survive both themes.
- *
- * Do not warm this toward Ember. If a future change makes Alarm more orange, the two stop
- * being distinguishable and every over-budget and missed-goal state in the app degrades at
- * once — silently, because nothing crashes.
- */
+val SageDark  = Color(0xFF6FA88C)
+val SageLight = Color(0xFF3F7A62)
 val AlarmDark  = Color(0xFFDC3D57)
 val AlarmLight = Color(0xFFAE1F38)
 
 val ApexDarkColors: ColorScheme = darkColorScheme(
-    primary = EmberDark,
-    onPrimary = Color(0xFF14100E),
-    primaryContainer = Color(0xFF3A211A),
-    onPrimaryContainer = Color(0xFFF0A98F),
-    // Secondary is a *desaturated Ember*, not Sage. Sage lives only in ApexSemantics.positive.
-    // Putting it in the ColorScheme meant every M3 component that defaults to secondary —
-    // FilterChip's selected state most visibly — rendered "goal met" green for things that had
-    // nothing to do with goals. One accent means secondary is a variant of it, not a new hue.
-    secondary = Color(0xFFB5745C),
-    onSecondary = Color(0xFF14100E),
-    secondaryContainer = Color(0xFF3A211A),
-    onSecondaryContainer = Color(0xFFF0A98F),
-    tertiary = BoneDim,
-    onTertiary = InkBase,
-    // These were missing, and an undefined slot does not fall back to something neutral — it falls
-    // back to Material's *default* dark scheme, which is purple. The Overview's screen-time stat
-    // card was rendering in Material Purple because it asked for tertiaryContainer. Any slot the
-    // app touches has to be defined here.
-    tertiaryContainer = InkElevated,
-    onTertiaryContainer = Bone,
-    background = InkBase,
-    onBackground = Bone,
-    surface = InkSurface,
-    onSurface = Bone,
-    surfaceVariant = InkRaised,
-    onSurfaceVariant = BoneDim,
-    surfaceContainerHighest = InkElevated,
-    outline = InkLine,
-    outlineVariant = InkLineFaint,
+    // Monochrome's emphasis is light itself: primary is ink, and a filled button is an
+    // inverse (near-white) block. If a screen doesn't read with an ink primary, its hierarchy
+    // is broken and colour was carrying it — fix the hierarchy, don't add a hue.
+    primary = Frost,
+    onPrimary = Color(0xFF111316),
+    primaryContainer = Color(0xFF2A2F35),
+    onPrimaryContainer = Frost,
+    // Secondary is a dimmer ink, never a second hue. (Sage lives only in ApexSemantics.positive
+    // — see the pre-graphite note about FilterChips rendering "goal met" green.)
+    secondary = Color(0xFFA6ADB6),
+    onSecondary = Color(0xFF111316),
+    secondaryContainer = GraphiteElevated,
+    onSecondaryContainer = Frost,
+    tertiary = FrostDim,
+    onTertiary = GraphiteBase,
+    // Every slot the app touches must be defined in BOTH schemes — an undefined slot falls back
+    // to Material's default scheme (purple), not to something neutral.
+    tertiaryContainer = GraphiteElevated,
+    onTertiaryContainer = Frost,
+    background = GraphiteBase,
+    onBackground = Frost,
+    surface = GraphiteSurface,
+    onSurface = Frost,
+    surfaceVariant = GraphiteRaised,
+    onSurfaceVariant = FrostDim,
+    surfaceContainerHighest = GraphiteElevated,
+    outline = GraphiteLine,
+    outlineVariant = GraphiteLineFaint,
     error = AlarmDark,
     onError = Color(0xFF1A0E0D),
     errorContainer = Color(0xFF3D1F1C),
@@ -101,23 +85,24 @@ val ApexDarkColors: ColorScheme = darkColorScheme(
 )
 
 val ApexLightColors: ColorScheme = lightColorScheme(
-    primary = EmberLight,
+    primary = Char,
     onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFF7DED3),
-    onPrimaryContainer = Color(0xFF5C220F),
-    // See the dark scheme's note: secondary is a desaturated Ember, never Sage.
-    secondary = Color(0xFF94553B),
+    primaryContainer = PaperElevated,
+    onPrimaryContainer = Char,
+    secondary = Color(0xFF454C55),
     onSecondary = Color(0xFFFFFFFF),
-    secondaryContainer = Color(0xFFF7DED3),
-    onSecondaryContainer = Color(0xFF5C220F),
-    tertiary = SableDim,
+    secondaryContainer = Color(0xFFE4E7EB),
+    onSecondaryContainer = Char,
+    tertiary = CharDim,
     onTertiary = PaperSurface,
+    tertiaryContainer = PaperElevated,
+    onTertiaryContainer = Char,
     background = PaperBase,
-    onBackground = Sable,
+    onBackground = Char,
     surface = PaperSurface,
-    onSurface = Sable,
+    onSurface = Char,
     surfaceVariant = PaperRaised,
-    onSurfaceVariant = SableDim,
+    onSurfaceVariant = CharDim,
     surfaceContainerHighest = PaperElevated,
     outline = PaperLine,
     outlineVariant = PaperLineFaint,
@@ -128,44 +113,38 @@ val ApexLightColors: ColorScheme = lightColorScheme(
 )
 
 /**
- * The heatmap ramp — the app's signature surface, so it gets an explicit six-step scale
- * rather than alpha-modulating the accent at the call site (which is what produces a ramp
- * whose middle steps are indistinguishable).
- *
- * Index 0 is "no goals active that day". It separates from index 1 ("tracked, none met") by
- * *hue*, not by visibility: untracked is a cool neutral, tracked-but-empty is warm. An earlier
- * pass made untracked near-background so it couldn't be mistaken for a failed day, which
- * overcorrected — it erased the grid's structure, so a user with little history saw a blank
- * panel instead of the shape of their year. Both must be visible; only their temperature differs.
- *
- * Steps 1..5 walk from a dim ember toward full intensity, gaining chroma and lightness together
- * so they separate on an AMOLED panel at 20dp as well as they do in a swatch strip.
+ * Fill for chart marks that are *not* the current period. Authored per theme rather than an
+ * onSurface alpha — a single alpha that reads on near-black is invisible on paper.
  */
-/**
- * Fill for chart marks that are *not* the current period.
- *
- * Authored per theme rather than written as `onSurface.copy(alpha = …)`: a single alpha that reads
- * correctly on the near-black substrate is almost invisible on paper, so the light theme's
- * comparison bars disappeared while the dark theme's looked fine. Anything filled and non-accent in
- * a chart uses this.
- */
-val ChartMutedDark = Color(0xFF3A3531)
-val ChartMutedLight = Color(0xFFD3CABA)
+val ChartMutedDark = Color(0xFF33383E)
+val ChartMutedLight = Color(0xFFD3D7DC)
 
+/**
+ * The gray intensity ramp, kept for surfaces that still need a fill-per-bucket scale (the Glance
+ * widgets, the day legend fallback). The heatmap itself no longer uses it: with hue gone, a gray
+ * ramp has less resolution than ember had, so the in-app heatmap switched to *fill-height bars*
+ * (see ApexSemantics.heatInk/heatSlot and DashboardView.HeatCell) — intensity is carried by
+ * geometry, which is also what stops the grid pattern-matching GitHub.
+ */
 val ApexHeatRampDark = listOf(
-    Color(0xFF211F1E), // -1  untracked — visible, cool neutral: the cell exists, nothing was asked of it
-    Color(0xFF3B2C24), // 0   tracked, none met — visible and warm: on the ramp, at zero
-    Color(0xFF6B3524), // 1
-    Color(0xFF9A462A), // 2
-    Color(0xFFC05733), // 3
-    Color(0xFFEE7A4E)  // 4   perfect day — brighter than the accent itself, so it reads as a peak
+    Color(0xFF17191C), // -1 untracked
+    Color(0xFF24272C), // 0 tracked, none met
+    Color(0xFF3A4046), // 1
+    Color(0xFF565E67), // 2
+    Color(0xFF7C8791), // 3
+    Color(0xFFC2CAD3)  // 4 perfect
 )
 
 val ApexHeatRampLight = listOf(
-    Color(0xFFE7E4DF), // -1  untracked — visible, cool neutral
-    Color(0xFFDCCCBD), // 0   tracked, none met — visible and warm
-    Color(0xFFEFC0A6), // 1
-    Color(0xFFE29370), // 2
-    Color(0xFFC96844), // 3
-    Color(0xFFA33C1C)  // 4   perfect day
+    Color(0xFFECEEF1), // -1 untracked
+    Color(0xFFDDE0E5), // 0
+    Color(0xFFBEC4CC), // 1
+    Color(0xFF99A1AB), // 2
+    Color(0xFF6E7883), // 3
+    Color(0xFF30353C)  // 4 perfect
 )
+
+/** Bar ink for the heatmap's fill-height cells; partial days modulate its alpha, perfect days
+ *  snap to full onSurface. Judged against slots ([GraphiteRaised]/[PaperRaised]) on the plate. */
+val HeatInkDark = Color(0xFFC2CAD3)
+val HeatInkLight = Color(0xFF30353C)

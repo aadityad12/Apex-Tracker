@@ -86,42 +86,54 @@ data class ApexSemantics(
     val positive: Color,
     /** Fill for non-current chart marks — see ChartMutedDark/Light on why it is not an alpha. */
     val chartMuted: Color,
-    val heatRamp: List<Color>
+    /** Gray fill-per-bucket ramp; still used by the legend fallback and the Glance widgets. */
+    val heatRamp: List<Color>,
+    /** Bar ink for the heatmap's fill-height cells (partial = alpha, perfect = full). */
+    val heatInk: Color,
+    /** The empty cell a heatmap bar grows inside — the grid's structure with no data. */
+    val heatSlot: Color
 )
 
 val LocalApexSemantics = staticCompositionLocalOf {
-    ApexSemantics(positive = SageDark, chartMuted = ChartMutedDark, heatRamp = ApexHeatRampDark)
+    ApexSemantics(
+        positive = SageDark,
+        chartMuted = ChartMutedDark,
+        heatRamp = ApexHeatRampDark,
+        heatInk = HeatInkDark,
+        heatSlot = GraphiteRaised
+    )
 }
 
 /**
- * The app's accent identity.
+ * The app's visual identity.
  *
  * One entry, deliberately. The app used to ship four interchangeable accents
- * (EMERALD/OCEAN/MAGMA/ROYAL), which is customisation theatre: four accents means no identity.
- * The enum survives rather than being inlined so a *second, fully-authored* identity is a
- * drop-in — a monochrome + semantic-only theme is the planned next one. A single entry also
- * means the settings picker disappears on its own, with no dead code left behind.
+ * (EMERALD/OCEAN/MAGMA/ROYAL), then a single warm terracotta (EMBER). Both are gone: GRAPHITE is
+ * the cold-monochrome identity (Plan.md Phase 2). The enum survives rather than being inlined so
+ * a *second, fully-authored* identity stays a drop-in.
  *
- * `FirebaseManager` still round-trips this by name. Legacy values ("EMERALD" etc.) written by
- * older builds fail `valueOf` and are swallowed at the call site in `MainActivity`, which is
- * the correct behaviour — an unknown identity falls back to the default.
+ * `FirebaseManager` still round-trips this by name. Legacy values ("EMBER"/"EMERALD" etc.)
+ * written by older builds fail `valueOf` and are swallowed at the call site in `MainActivity`,
+ * which is the correct behaviour — an unknown identity falls back to the default.
  */
-enum class ApexTheme { EMBER }
+enum class ApexTheme { GRAPHITE }
 
 @Composable
 fun ApexTrackerTheme(
-    theme: ApexTheme = ApexTheme.EMBER,
+    theme: ApexTheme = ApexTheme.GRAPHITE,
     darkTheme: Boolean = true,
     content: @Composable () -> Unit
 ) {
     val colors = when (theme) {
-        ApexTheme.EMBER -> if (darkTheme) ApexDarkColors else ApexLightColors
+        ApexTheme.GRAPHITE -> if (darkTheme) ApexDarkColors else ApexLightColors
     }
     val semantics = when (theme) {
-        ApexTheme.EMBER -> ApexSemantics(
+        ApexTheme.GRAPHITE -> ApexSemantics(
             positive = if (darkTheme) SageDark else SageLight,
             chartMuted = if (darkTheme) ChartMutedDark else ChartMutedLight,
-            heatRamp = if (darkTheme) ApexHeatRampDark else ApexHeatRampLight
+            heatRamp = if (darkTheme) ApexHeatRampDark else ApexHeatRampLight,
+            heatInk = if (darkTheme) HeatInkDark else HeatInkLight,
+            heatSlot = if (darkTheme) GraphiteRaised else PaperRaised
         )
     }
     CompositionLocalProvider(LocalApexSemantics provides semantics) {
