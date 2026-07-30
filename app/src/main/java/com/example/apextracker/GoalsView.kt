@@ -195,6 +195,8 @@ internal fun goalRuleText(goal: Goal): String {
             val amount = formatCurrency(t, LocalCurrencyCode.current)
             if (under) stringResource(R.string.goal_rule_spend_under, amount) else stringResource(R.string.goal_rule_spend_over, amount)
         }
+        GoalMetric.PAPERS ->
+            if (under) stringResource(R.string.goal_rule_papers_under, tStr) else stringResource(R.string.goal_rule_papers_over, tStr)
         else -> ""
     }
 }
@@ -251,10 +253,15 @@ internal fun GoalEditDialog(
                     FilterChip(selected = isAuto, onClick = { type = GoalType.AUTO }, label = { Text(stringResource(R.string.goal_type_auto)) })
                 }
                 if (isAuto) {
+                    // Four chips exceed the dialog width in one Row (the fourth clips off-screen),
+                    // so the metric picker wraps onto two rows.
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(selected = metric == GoalMetric.SCREEN_TIME, onClick = { metric = GoalMetric.SCREEN_TIME }, label = { Text(stringResource(R.string.goal_metric_screen)) })
                         FilterChip(selected = metric == GoalMetric.STUDY, onClick = { metric = GoalMetric.STUDY }, label = { Text(stringResource(R.string.goal_metric_study)) })
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(selected = metric == GoalMetric.SPEND, onClick = { metric = GoalMetric.SPEND }, label = { Text(stringResource(R.string.goal_metric_spend)) })
+                        FilterChip(selected = metric == GoalMetric.PAPERS, onClick = { metric = GoalMetric.PAPERS }, label = { Text(stringResource(R.string.goal_metric_papers)) })
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(selected = comparator == GoalComparator.UNDER, onClick = { comparator = GoalComparator.UNDER }, label = { Text(stringResource(R.string.goal_dir_under)) })
@@ -263,7 +270,17 @@ internal fun GoalEditDialog(
                     OutlinedTextField(
                         value = thresholdText,
                         onValueChange = { thresholdText = it },
-                        label = { Text(stringResource(if (metric == GoalMetric.SPEND) R.string.goal_threshold_amount else R.string.goal_threshold_hours)) },
+                        label = {
+                            Text(
+                                stringResource(
+                                    when (metric) {
+                                        GoalMetric.SPEND -> R.string.goal_threshold_amount
+                                        GoalMetric.PAPERS -> R.string.goal_threshold_papers
+                                        else -> R.string.goal_threshold_hours
+                                    }
+                                )
+                            )
+                        },
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()

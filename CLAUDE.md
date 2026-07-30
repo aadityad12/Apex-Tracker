@@ -63,13 +63,14 @@ Note: unit tests cover the pure logic extracted during the fix passes — run `f
 | `screen_time` | `ScreenTimeTrackerView.kt` | `ScreenTimeViewModel.kt` | `ScreenTimeSession`, `ExcludedApp` |
 | `reminders` | `ReminderView.kt` | `ReminderViewModel.kt` | `Reminder` |
 | `notes` | `NoteView.kt` | `NoteViewModel.kt` | `Note` |
+| `papers` | `PapersView.kt` | `PapersViewModel.kt` | `Paper` |
 
 Settings dialogs for each module live in `*Settings.kt` files (e.g., `BudgetSettings.kt`, `ReminderSettings.kt`).
 
 `BudgetCalendar.kt`'s `BudgetCalendarView` is reachable as of 2026-07-11 (Issue #32): a list/calendar `IconButton` toggle in the Budget top bar, with the selected month hoisted into `BudgetTrackerApp` and shared between both views.
 
 ### Database
-- `AppDatabase.kt` — Room singleton (`budget_database`), **version 15**, `exportSchema = true`. Contains all 10 DAOs: `budgetDao`, `categoryDao`, `subscriptionDao`, `studySessionDao`, `screenTimeSessionDao`, `excludedAppDao`, `reminderDao`, `noteDao`, `goalDao`, `goalCompletionDao`.
+- `AppDatabase.kt` — Room singleton (`budget_database`), `exportSchema = true`. **Don't trust a version number written here** — this line has gone stale twice (it said v15 while the code was at v19); read the `@Database` annotation in `AppDatabase.kt` for the current version and DAO roster. As of 2026-07-30 it's **v20** (v19→v20 added the `papers` table).
 - **Migration policy**: the builder is `.addMigrations(MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15).fallbackToDestructiveMigration()`. `MIGRATION_14_15` (Dashboard feature) is a **purely additive** migration — two `CREATE TABLE IF NOT EXISTS` for `goals` + `goal_completions`, no data copy — and the simplest pattern to copy for a new table (its DDL was diffed against the exported `app/schemas/…/15.json` and verified on a real populated v14→v15 upgrade on-device). `MIGRATION_11_12` (Issue #40's `isPinned` column on `notes`), `MIGRATION_12_13` (Issue #75's `monthlyLimit` column on `categories`), and `MIGRATION_13_14` (Issue #78's per-subject study sessions) are real hand-written `Migration`s and the pattern to follow — **add** a new `Migration(n, n+1)` to the `addMigrations(...)` chain for every schema change. `MIGRATION_13_14` is the one to copy for a **primary-key** change: `study_sessions` moved from PK `(date)` to PK `(date, subject)`, which SQLite can't do in place, so it does the create-new / copy / drop / rename dance and copies every old daily total into the `subject = ''` ("No subject") bucket for its date — no study data lost. Note no SQL `DEFAULT` on `subject` (the entity declares only a Kotlin default, which Room does not emit as a column default; adding one would make TableInfo mismatch at runtime). The `fallbackToDestructiveMigration()` behind the chain is the backstop for versions with no migration path, and it **drops every table** — see the MIGRATION POLICY comment at the top of `AppDatabase.kt` (Issue #17).
 - `Converters.kt` — Type converters for `LocalDate`/`LocalDateTime`/`Recurrence` and other non-primitive types. This is the **only** `@TypeConverters` class registered on `AppDatabase`.
 - `Recurrence.kt` — Data model for recurring reminders (frequency, end condition, custom days). Persisted via `Converters.kt` (Gson round-trip).
@@ -283,6 +284,21 @@ Features added in the same pass:
   whose heatmap takes the remaining height and sizes cells with `BoxWithConstraints`. **Keep month
   labels on a fixed-height row** — letting them set the row height inflates twelve rows and pushes
   the year off screen.
+
+## 2026-07-30 Papers feature (Plan.md Phase 1, branch `feature/papers`)
+
+A reading log for academic papers — the app owns the knowledge layer (queue, one rotating
+daily pick, structured memos: status/`what I learned`/1–5 signal) and opens the PDF externally
+(`ACTION_VIEW`); it is deliberately **not** a PDF reader. **`Plan.md` at the repo root holds
+the thirteen settled decisions** (identity, this feature, README) — read it before touching
+any of the three workstreams. Key pieces: `Paper`/`PaperDao` (DB v20, `MIGRATION_19_20`),
+`SemanticScholar.kt` (S2 Graph API client; pure `normalizePaperIdInput`/`parseS2PaperJson`,
+unit-tested in `SemanticScholarTest` — note the unauthenticated S2 pool rate-limits hard),
+`PapersLogic.kt` (pure queue/daily-pick/read-counts, `PapersLogicTest`), `PaperSeeds.kt`
+(offline starter list), route `papers` (More sheet). Reading feeds the heatmap via
+`GoalMetric.PAPERS` (`DayMetrics.papersRead`); papers ride the full-dataset backup
+(`BackupData.papers`). **No Firestore sync yet** — rows carry cloudId/modifiedAt, sync is
+issue #151; daily topic fetch and recommendations are #149/#150.
 
 ## Developer's own TODO list (from notes.txt, still current)
 - Budget: "Extract from receipt" (OCR/receipt-parsing) — not started.

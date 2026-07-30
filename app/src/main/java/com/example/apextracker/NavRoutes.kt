@@ -12,7 +12,8 @@ val APP_ROUTES = setOf(
     "study_tracker",
     "screen_time",
     "reminders",
-    "notes"
+    "notes",
+    "papers"
 )
 
 /**

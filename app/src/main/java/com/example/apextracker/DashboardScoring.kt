@@ -14,7 +14,9 @@ data class DayMetrics(
     /** subject -> seconds studied that day; empty string is the "No subject" bucket. */
     val studyBySubject: Map<String, Long> = emptyMap(),
     val screenMillis: Long = 0L,
-    val spend: Double = 0.0
+    val spend: Double = 0.0,
+    /** Papers marked read with that readDate — the PAPERS metric's input. */
+    val papersRead: Int = 0
 )
 
 private const val MILLIS_PER_HOUR = 3_600_000.0
@@ -45,6 +47,7 @@ fun evaluateAutoGoal(goal: Goal, metrics: DayMetrics): Boolean {
             seconds / SECONDS_PER_HOUR
         }
         GoalMetric.SPEND -> metrics.spend
+        GoalMetric.PAPERS -> metrics.papersRead.toDouble()
         else -> return false
     }
     return when (goal.comparator) {

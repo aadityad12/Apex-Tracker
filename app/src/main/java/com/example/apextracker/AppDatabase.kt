@@ -102,7 +102,23 @@ val MIGRATION_18_19 = object : Migration(18, 19) {
     }
 }
 
-@Database(entities = [BudgetItem::class, Category::class, Subscription::class, StudySession::class, ScreenTimeSession::class, ExcludedApp::class, Reminder::class, Note::class, Goal::class, GoalCompletion::class, AppUsageLimit::class], version = 19, exportSchema = true)
+// Papers feature (Plan.md Phase 1): the reading log. New table, additive — mirrors
+// MIGRATION_14_15. DDL diffed against Room's exported app/schemas/…/20.json.
+val MIGRATION_19_20 = object : Migration(19, 20) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `papers` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`s2Id` TEXT NOT NULL, `title` TEXT NOT NULL, `authors` TEXT NOT NULL, " +
+                "`year` INTEGER, `venue` TEXT NOT NULL, `abstractText` TEXT NOT NULL, " +
+                "`tldr` TEXT NOT NULL, `url` TEXT NOT NULL, `pdfUrl` TEXT NOT NULL, " +
+                "`source` TEXT NOT NULL, `status` TEXT NOT NULL, `addedDate` TEXT NOT NULL, " +
+                "`readDate` TEXT, `memo` TEXT NOT NULL, `signal` INTEGER, " +
+                "`cloudId` TEXT NOT NULL, `modifiedAt` INTEGER NOT NULL)"
+        )
+    }
+}
+
+@Database(entities = [BudgetItem::class, Category::class, Subscription::class, StudySession::class, ScreenTimeSession::class, ExcludedApp::class, Reminder::class, Note::class, Goal::class, GoalCompletion::class, AppUsageLimit::class, Paper::class], version = 20, exportSchema = true)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun budgetDao(): BudgetDao
@@ -116,6 +132,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun goalDao(): GoalDao
     abstract fun goalCompletionDao(): GoalCompletionDao
     abstract fun appUsageLimitDao(): AppUsageLimitDao
+    abstract fun paperDao(): PaperDao
 
     companion object {
         @Volatile
@@ -128,7 +145,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "budget_database"
                 )
-                .addMigrations(MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19)
+                .addMigrations(MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20)
                 .fallbackToDestructiveMigration()
                 .build()
                 INSTANCE = instance
