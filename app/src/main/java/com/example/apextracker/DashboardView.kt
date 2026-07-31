@@ -345,8 +345,15 @@ private fun HeatmapSection(
         action = stringResource(R.string.cd_dashboard_day_action)
     )
     val interactionSource = remember { MutableInteractionSource() }
-    // Resolve the ramp once, not once per cell — ~371 MaterialTheme reads was part of the ANR.
-    val ramp = cellColorRamp()
+    // Resolve heatmap colours once, not once per cell — ~371 MaterialTheme reads was part of the ANR.
+    val semantics = LocalApexSemantics.current
+    val heatColors = HeatCellColors(
+        slot = semantics.heatSlot,
+        ink = semantics.heatInk,
+        perfect = MaterialTheme.colorScheme.onSurface,
+        baseline = MaterialTheme.colorScheme.outline,
+        today = MaterialTheme.colorScheme.primary
+    )
 
     Column(modifier.fillMaxWidth()) {
         // The chips are too wide to live in the header's trailing slot — as one they squeezed
@@ -399,7 +406,7 @@ private fun HeatmapSection(
                                 }
                             }
                             week.forEach { cell ->
-                                HeatCell(cell, today, labels, ramp, interactionSource, Modifier.size(cellSize), onDayClick)
+                                HeatCell(cell, today, labels, heatColors, interactionSource, Modifier.size(cellSize), onDayClick)
                             }
                         }
                     }
@@ -452,12 +459,30 @@ private data class HeatCellLabels(
     val action: String
 )
 
+/** Pre-resolved cell colours, so ~371 cells don't each read MaterialTheme (part of the ANR). */
+private data class HeatCellColors(
+    val slot: Color,     // the empty cell a bar grows inside — the grid's structure
+    val ink: Color,      // a partial bar's fill (alpha-modulated by the day's fraction)
+    val perfect: Color,  // a perfect day: full-height bar, full ink — the peak
+    val baseline: Color, // a tracked-but-nothing-met day: a thin baseline stub
+    val today: Color     // the outline marking today
+)
+
+/**
+ * One heatmap cell, drawn as a **fill-height bar** rather than a coloured square (Plan.md
+ * Phase 2). With the accent gone, a gray intensity ramp has too little resolution to be the
+ * signature; geometry carries it instead — the bar's height *is* the fraction of goals met, and
+ * a grid of varying-height bars is what stops this reading as GitHub's contribution graph.
+ *
+ * States, bottom-anchored: untracked = empty slot; tracked-but-none-met = a baseline stub;
+ * partial = a bar of proportional height and opacity; perfect = the slot filled solid.
+ */
 @Composable
 private fun HeatCell(
     cell: DayCell?,
     today: LocalDate,
     labels: HeatCellLabels,
-    ramp: List<Color>,
+    colors: HeatCellColors,
     interactionSource: MutableInteractionSource,
     modifier: Modifier,
     onDayClick: (LocalDate) -> Unit
@@ -477,16 +502,14 @@ private fun HeatCell(
             ?: labels.untracked
         String.format(labels.dayFormat, if (isToday) String.format(labels.todayFormat, dateText) else dateText, state)
     }
-    val borderColor = MaterialTheme.colorScheme.primary
-    // One Box per cell (padding folded in via a smaller inset), not two — halves the grid's node
-    // count. Ramp colours are pre-resolved by the caller.
+    val cellShape = RoundedCornerShape(ApexShapes.cell)
     Box(
         modifier
             .padding(1.dp)
-            .clip(RoundedCornerShape(4.dp))
-            .background(rampColor(ramp, cell.bucket))
+            .clip(cellShape)
+            .background(colors.slot)
             .then(
-                if (isToday) Modifier.border(1.5.dp, borderColor, RoundedCornerShape(4.dp))
+                if (isToday) Modifier.border(1.5.dp, colors.today, cellShape)
                 else Modifier
             )
             // No indication: a ripple instance per cell is part of what made this grid expensive.
@@ -494,25 +517,67 @@ private fun HeatCell(
                 interactionSource = interactionSource,
                 indication = null,
                 onClickLabel = labels.action
-            ) { onDayClick(cell.date) }
-            .semantics { contentDescription = label }
-    )
+            ) { onDayClick(cell.date) },
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        val frac = cell.fraction
+        when {
+            // untracked: the slot alone. The cell exists; nothing was asked of it.
+            frac == null -> {}
+            // tracked, none met: a thin baseline so a zero day still reads as "on the grid, at 0".
+            frac <= 0.0 -> Box(Modifier.fillMaxWidth().height(2.dp).background(colors.baseline))
+            else -> {
+                val f = frac.toFloat().coerceIn(0f, 1f)
+                // Floor the height so even a small fraction shows a bar taller than the baseline;
+                // opacity rises with height too, so intensity is double-encoded (survives an
+                // AMOLED panel at ~20dp better than either channel alone).
+                val fill = if (f >= 1f) colors.perfect else colors.ink.copy(alpha = 0.55f + 0.45f * f)
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight((0.2f + 0.8f * f).coerceAtMost(1f))
+                        .clip(RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp))
+                        .background(fill)
+                )
+            }
+        }
+        // Semantics on the whole cell, not the bar, so the label doesn't move with the fill.
+        Box(
+            Modifier
+                .matchParentSize()
+                .semantics { contentDescription = label }
+        )
+    }
 }
 
 @Composable
 private fun HeatmapLegend() {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+    val semantics = LocalApexSemantics.current
+    val slot = semantics.heatSlot
+    val ink = semantics.heatInk
+    val perfect = MaterialTheme.colorScheme.onSurface
+    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
         Text(stringResource(R.string.dashboard_legend_less), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.width(6.dp))
-        val ramp = cellColorRamp()
-        (0..4).forEach { bucket ->
+        // Mini bars at rising heights teach the new encoding: taller = more of the day's goals met.
+        listOf(0.15f, 0.4f, 0.65f, 0.85f, 1f).forEach { f ->
+            val fill = if (f >= 1f) perfect else ink.copy(alpha = 0.55f + 0.45f * f)
             Box(
                 Modifier
                     .padding(horizontal = 2.dp)
-                    .size(12.dp)
-                    .clip(RoundedCornerShape(3.dp))
-                    .background(rampColor(ramp, bucket))
-            )
+                    .size(14.dp)
+                    .clip(RoundedCornerShape(ApexShapes.cell))
+                    .background(slot),
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight((0.2f + 0.8f * f).coerceAtMost(1f))
+                        .clip(RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp))
+                        .background(fill)
+                )
+            }
         }
         Spacer(Modifier.width(6.dp))
         Text(stringResource(R.string.dashboard_legend_more), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -546,17 +611,3 @@ private fun DayDetailSheet(
     }
 }
 
-/**
- * The heatmap intensity ramp, indexed by bucket+1 (index 0 = the -1 "no goals" neutral, then 0..4
- * deepening toward a perfect day). Resolved once per heatmap render — see [rampColor] — rather than
- * reading MaterialTheme inside every one of ~371 cells.
- *
- * This used to alpha-modulate `colorScheme.primary` at 10/35/55/78/100%. Two problems, both
- * confirmed on device: alpha-over-a-dark-background compresses the low end so hard that the whole
- * grid nearly disappeared, and the middle steps did not separate from each other. The ramp is now
- * an explicit six-step scale in ApexPalette that gains chroma and lightness together.
- */
-@Composable
-private fun cellColorRamp(): List<Color> = LocalApexSemantics.current.heatRamp
-
-private fun rampColor(ramp: List<Color>, bucket: Int): Color = ramp[(bucket + 1).coerceIn(0, 5)]

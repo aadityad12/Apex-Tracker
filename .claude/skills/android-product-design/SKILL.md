@@ -25,28 +25,36 @@ CLAUDE.md).
 ## The identity (locked - do not renegotiate per screen)
 
 **Axis.** Structure from Spotify: dark-first, dense, tight vertical rhythm, motion
-present everywhere. Typography from Claude: editorial display face, real scale contrast,
-severe color restraint. When they conflict, density wins on data screens and restraint
-wins on chrome.
+present everywhere. The identity is GRAPHITE — a cold monochrome instrument. Emphasis and
+distinctiveness come from a mono voice, tabular figures, and density, NOT from a colour.
+When density and restraint conflict, density wins on data screens and restraint wins on
+chrome.
 
-**Type.** Three faces, three jobs, no exceptions:
-- `Instrument Serif` - display only, >=20sp. One weight exists; never fake bold, never
-  use it below 20sp, never use it for a control label.
-- `Geist` - all UI text, labels, body.
-- `Geist Mono` - **every number a user reads as a quantity**: currency, durations, the
-  stopwatch, percentages, counts, axis labels, dates in tabular contexts. Tabular figures
+**Type.** Two faces, two jobs, no exceptions (the previous serif-led trio is retired):
+- `MartianMono` - the voice. Display and headline slots (`displayLarge`…`headlineSmall`)
+  AND every number a user reads as a quantity (`ApexNumerals`): currency, durations, the
+  stopwatch, percentages, counts, axis labels, dates in tabular contexts. One mono speaking
+  in both headlines and figures is what makes the app read as an instrument. Tabular figures
   are the point - numbers must not reflow when they change.
+- `Geist` - everything conversational: titles, body, labels, controls. Paragraphs must
+  never read as a terminal, so the mono stays out of running text.
 
-Read type from `ApexType`/`MaterialTheme.typography`. An inline `fontWeight =`, `fontSize
-=`, or `letterSpacing =` at a call site is a bug unless it is a documented one-off with a
-comment saying why.
+Read type from `ApexType`/`MaterialTheme.typography`/`ApexNumerals`. An inline `fontWeight
+=`, `fontSize =`, or `letterSpacing =` at a call site is a bug unless it is a documented
+one-off with a comment saying why. Martian is a *wide* mono — display sizes are smaller and
+more tightly tracked than a proportional face would be; do not "fix" that by enlarging them.
 
-**Color.** One accent: Ember `#D9613C` (dark) / `#B84A28` (light). It carries state and
-emphasis and nothing else. There is no second brand color. Categorical color exists only
-in data visualisation and is governed by the chart palette, not by taste at the call site.
+**Color.** No accent hue. Emphasis is carried by INK — `primary` is near-white (`Frost
+#E9EBEE`) in dark, near-black (`Char #191C20`) in light — so a filled button is an inverse
+block, not a coloured one. The ONLY hues in the app are the two semantics: `Sage` for
+met/positive, `Crimson` (`error`) for over/failed — and a negative state always also carries
+an icon or a word, never hue alone. Third-party app icons keep their own brand colours (they
+are content, not chrome). Categorical colour exists only in data-vis, governed by the chart
+palette. If a screen's hierarchy only works once you add a colour, the hierarchy is broken —
+fix it with weight/size/position, do not add a hue.
 
-Hand-authored dark and light palettes. **No Dynamic Color** - the wallpaper does not get
-to repaint this app. No `Color(0xFF...)` outside `ui/theme/`.
+Hand-authored cold-graphite dark and light palettes. **No Dynamic Color** - the wallpaper
+does not get to repaint this app. No `Color(0xFF...)` outside `ui/design/`.
 
 **Motion.** Every animation references a named `ApexMotion` token. No raw `spring()` or
 `tween()` at a call site. Motion must carry information - state change, spatial
@@ -86,7 +94,7 @@ Refuse these even if asked casually, and say why:
 
 - Gradients as decoration. (A data-encoding ramp is not a gradient.)
 - Glassmorphism, blur-behind, frosted surfaces. Explicitly rejected for this app.
-- Drop shadows on dark surfaces. They are invisible on `#121417`; `shadowElevation` there
+- Drop shadows on dark surfaces. They are invisible on `#0E0F11`; `shadowElevation` there
   is cargo cult. Use surface-tone layering.
 - The stacked-rounded-card template: a vertical run of `Card`s each with a small colored
   label at the top. This is the single most recognisable generated-dashboard shape and it
@@ -96,30 +104,35 @@ Refuse these even if asked casually, and say why:
 - Pills and chips as decoration. A chip is a filter or a choice; it is not a label.
 - Emoji in UI chrome.
 - Icon-only controls without a label or a tooltip, outside the top bar.
-- More than one accent color on screen.
+- Any hue that isn't a semantic (Sage/Crimson). There is no accent to "add" — introducing
+  a coloured highlight, a tinted card, or a branded button reintroduces the thing this
+  identity removed. Emphasis is ink, size, weight, and position.
 
 ## Anti-generic constraint (read this before every screen)
 
-This app's palette - near-black plus a warm terracotta accent, with a serif display and a
-warm cream light mode - is close to two of the three looks that AI-generated design
-currently defaults to. That was an informed choice, and the palette is not up for
-renegotiation. The consequence is that **the palette cannot be what makes this app
-distinctive.** Distinctiveness has to come from the axes the default look does not
-occupy:
+This app is a cold monochrome — cool near-black dark, cold paper-white light, no accent hue,
+a mono display voice. That deliberately sidesteps the warm-ink-and-serif look AI-generated
+design (and Claude's own surfaces) default to. But monochrome has its own generic failure
+mode: flat, feature-less gray. Distinctiveness has to be actively built from the axes the
+default look does not occupy:
 
-- **Tabular mono numerals as a primary visual element.** The default look is all serif and
-  sans. Numbers here are set in mono, aligned, and given real size - a tracker is mostly
-  numbers, so let them carry the page.
+- **Mono as the voice, not just the numerals.** Display headlines AND figures are Martian
+  Mono. The default look is serif + sans; here one instrument face carries the page. A
+  tracker is mostly numbers — set them in mono, aligned, at real size, and let them lead.
 - **Density.** The default look is airy and editorial. This app is dense and instrumental.
-  Resist whitespace as a solution.
-- **The heatmap is the signature.** It is the one place to spend boldness. It must not
-  read as GitHub's contribution graph - not green, not square-cornered-uniform, not
-  bottom-anchored-left-to-right. Everything around it stays quiet.
+  Resist whitespace as a solution; monochrome makes empty space read as *unfinished*, so
+  fill screens with structure (hairlines, eyebrows, rhythm), not padding.
+- **The heatmap is the signature, and it is fill-height BARS, not coloured squares.** With
+  hue gone, intensity is geometry: each cell is a bar whose height is the fraction of goals
+  met, bottom-anchored in a fixed slot, perfect days snapping to a solid fill. It must never
+  regress to a gray-square GitHub grid — the varying heights are the whole point. Everything
+  around it stays quiet.
 - **Shape language.** `androidx.graphics:graphics-shapes` morphing is available and the
   default look has no shape vocabulary at all. Use it for state transitions.
 
-Before shipping a screen, ask: if the accent were swapped to any other hue, would this
-still be recognisably ApexTracker? If the answer is no, the design is resting on color.
+Before shipping a screen, ask: strip it to grayscale (it already is) — does it still read as
+a deliberate instrument, or as an un-styled wireframe? If the latter, the hierarchy is doing
+too little work. Add weight and structure, never a colour.
 
 ## Process
 

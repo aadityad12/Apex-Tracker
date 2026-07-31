@@ -3,11 +3,70 @@
 The specification for how this app looks and behaves visually: the token values, the
 measurements behind them, and the reasoning that is not recoverable from the code.
 
-**Status.** Foundation plus **all eight screens** shipped 2026-07-29. The bottom bar's large-font
-behaviour and the category palette — the two things §8 was holding open — are both resolved. What
-remains untouched: the settings sheets, `CalendarGrid`, and the dialogs/editors, left out of the
-per-screen PRs deliberately to keep diffs reviewable. Per-screen state is tracked in
-[Screen inventory](#screen-inventory).
+> **⚠️ IDENTITY CHANGE — GRAPHITE (2026-07-30).** The Ember identity below (warm near-black +
+> terracotta accent + Instrument Serif) has been **replaced** by GRAPHITE: a cold monochrome
+> with a mono display voice and no accent hue (Plan.md Phase 2, superseding issue #139). The
+> current authoritative values are in **[§0. Graphite](#0-graphite-current-identity)** immediately
+> below. The rest of this document — decision log, type tables, palette tables, chart spec — still
+> describes Ember and is retained for the reasoning and the trail; where §0 and a later section
+> disagree on a value, **§0 wins**. Decisions 1–12 are annotated with what §0 supersedes. A full
+> table-by-table rewrite is deferred (a deliberately un-run task, not an oversight — see the
+> doc-drift warning above; the code in `ui/design/` is the tiebreaker of last resort).
+
+## 0. Graphite (current identity)
+
+The cold-monochrome identity. Settled in a grill session (Plan.md, thirteen decisions) and built
++ verified on a real Samsung SM-S931U1 in both themes and at 200% font, 2026-07-30.
+
+**Why.** The owner's verdict on Ember: warm-dark + terracotta + serif reads as Claude's own
+surfaces. Warmth is Claude's territory, so the move away is *cold* graphite; the serif screamed
+loudest, so the display voice becomes a mono. With no accent, the app can only rest on the axes a
+generic look doesn't occupy — the mono voice, density, and the heatmap.
+
+**Type — `ui/design/ApexType.kt`.** Two faces (the serif trio is retired):
+- **Martian Mono** (Regular, Medium) — the voice: all display + headline slots AND every
+  `ApexNumerals` figure. Chosen over IBM Plex Mono and Space Mono on the style plate; it is the
+  only one of the three drawn as a display face and no major consumer app owns it. It is *wide*,
+  so display sizes run smaller/tighter than the old serif scale: display 33/27/22, headline
+  20/17/16 sp, all negative-tracked. Numerals: hero 42, large 23, medium 13, small 10.
+- **Geist** (Regular/Medium/SemiBold) — titles, body, labels, all running text.
+
+**Colour — `ui/design/ApexPalette.kt`.** No accent. `primary` is ink (dark `Frost #E9EBEE`,
+light `Char #191C20`) — filled buttons/FAB/nav are inverse blocks. Only hues are the semantics:
+`Sage` (dark `#6FA88C` / light `#3F7A62`, met/positive) and `Crimson` (`error`; dark `#DC3D57` /
+light `#AE1F38`, over/failed), and a negative state always also carries an icon or word.
+- Dark surfaces: base `#0E0F11`, surface `#16181B`, raised `#1D2024`, elevated `#262A2F`,
+  hairline `#5E656E`, faint `#2C3036`, text `#E9EBEE` / dim `#9AA1A9`.
+- Light surfaces: base `#F3F4F6`, surface `#FFFFFF`, raised `#E9EBEE`, elevated `#DFE2E6`,
+  hairline `#848B95`, faint `#D9DDE2`, text `#191C20` / dim `#575E66`.
+- Measured on the plate (both bumped to clear the 3:1 floor): body-on-bg 16.1:1 dark, hairline
+  3.2:1 dark / 3.1:1 light; Sage 7.0:1 dark / 4.6:1 light, Crimson 4.4:1 / 6.3:1.
+
+**The heatmap is now fill-height BARS, not coloured squares** (`DashboardView.HeatCell`). A gray
+ramp has less resolution than ember had, so intensity is carried by *geometry*: each cell is a
+bar bottom-anchored in a fixed slot whose height = the fraction of the day's goals met; untracked
+= empty slot, tracked-none-met = a 2px baseline stub, perfect = the slot filled solid in ink.
+Opacity rises with height too (double-encoding for AMOLED at ~20dp). This is the signature and the
+thing that stops the grid reading as GitHub's. The gray `heatRamp` survives in `ApexSemantics`
+only for the Glance widgets. `ApexSemantics` gained `heatInk`/`heatSlot` for the bars.
+
+**`ApexTheme` enum entry is now `GRAPHITE`** (was `EMBER`). Legacy persisted names fail `valueOf`
+and fall back to default, which is correct. The Glance widgets (`GoalsWidget`/`StreakWidget`)
+carry a hand-kept mirror of the graphite dark hexes — a met goal keeps Sage, everything else is
+ink on graphite.
+
+**Status.** Foundation (palette/type/tokens/heatmap/widgets) swapped globally and audited
+on-device across all primary screens — no screen's hierarchy collapsed without the accent, so no
+per-screen rescue work was needed (the ink primary + mono headlines carry it). Screenshot
+baselines re-recorded. `Design.md`'s Ember tables (§2 onward) are the deferred rewrite.
+
+---
+
+**Status (Ember-era, retained).** Foundation plus **all eight screens** shipped 2026-07-29. The
+bottom bar's large-font behaviour and the category palette — the two things §8 was holding open —
+are both resolved. What remains untouched: the settings sheets, `CalendarGrid`, and the
+dialogs/editors, left out of the per-screen PRs deliberately to keep diffs reviewable. Per-screen
+state is tracked in [Screen inventory](#screen-inventory).
 
 **Relationship to the skill.** `.claude/skills/android-product-design/SKILL.md` is the *enforcing*
 document — the rules and bans an agent applies while building. This file is the *reference* — the
@@ -26,7 +85,10 @@ a hex editor and wrong on an AMOLED screen.
 ## 1. Decision log
 
 Twelve decisions, settled deliberately. They are recorded here so they don't get
-re-litigated by whoever (or whatever) touches this next.
+re-litigated by whoever (or whatever) touches this next. **Decisions 1–3, 12 are superseded by
+§0 (Graphite, 2026-07-30)** — the rest still hold (motion tokens, hand-drawn charts, token
+objects, IA frozen, one-screen-per-PR, style-plate-first, shapes deferred all carried over
+unchanged). Kept for the reasoning trail, not as current law.
 
 | # | Decision | Why |
 |---|---|---|
@@ -45,6 +107,11 @@ re-litigated by whoever (or whatever) touches this next.
 
 ### The constraint that matters most
 
+*(Superseded by §0 — the Ember framing below is inverted under Graphite and kept only for the
+reasoning. Under Graphite there is no accent to rest on, so the constraint is sharper, not softer:
+strip the screen to grayscale — it already is — and if it reads as an un-styled wireframe rather
+than a deliberate instrument, the hierarchy is doing too little work.)*
+
 This palette — warm near-black, a terracotta accent, a high-contrast serif display, a warm cream
 light mode — sits on top of **two of the three looks AI-generated design currently defaults to**
 (see `frontend-design`, which names them). That was an informed choice and the palette is not up
@@ -55,14 +122,12 @@ for renegotiation. The consequence is non-negotiable though:
 Distinctiveness has to come from the axes that default look does not occupy:
 
 - **Tabular mono numerals as a primary visual element.** The default look is serif + sans. A
-  tracker is mostly numbers; here they are monospaced, aligned, and given real size.
+  tracker is mostly numbers; here they are monospaced, aligned, and given real size. *(Graphite
+  goes further: the display voice is mono too, not just the numerals.)*
 - **Density.** The default look is airy and editorial. This is dense and instrumental.
 - **The heatmap is the signature** — the one place to spend boldness, and it must not read as
-  GitHub's contribution graph.
+  GitHub's contribution graph. *(Graphite makes it fill-height bars — see §0.)*
 - **Shape language.** The default look has no shape vocabulary at all.
-
-The test before shipping any screen: *if the accent were swapped to any other hue, would this
-still be recognisably ApexTracker?* If no, the design is resting on colour.
 
 ---
 

@@ -132,5 +132,31 @@ CLAUDE.md's "v15" was already stale; the DB was at v19), seed import, mark-read 
 signal, history rendering, and the PAPERS goal metric evaluating "Met" on the Dashboard from a
 real read. S2 API verified live (the unauthenticated pool 429s readily — v2 must back off).
 Deferred to issues: #149 (daily topic fetch), #150 (recommendations), #151 (Firestore sync).
-Uncommitted on `feature/papers` pending owner review. Next: Phase 2 (graphite identity), which
-also restyles this feature for free.
+**Merged as PR #152.**
+
+**Phase 2 complete (2026-07-30, branch `redesign/graphite`, PR #153):** the Ember identity was
+replaced by GRAPHITE — cold monochrome, no accent, Martian Mono display+numerals (Instrument
+Serif and Geist Mono retired), Sage/Crimson the only hues. The heatmap was reshaped from
+colour-ramp squares to fill-height bars (intensity = bar height), which is what stops it reading
+as GitHub's grid. Style plate settled the display face (Martian over IBM Plex / Space Mono) and
+the graphite ramps against the 3:1 hairline floor before any screen was touched. Verified on the
+SM-S931U1 in both themes + 200% font. Decision 11's "fix the flat screens" step turned out to
+need only **one** per-screen fix: the wider Martian Mono wrapped the value in Overview's narrow
+stat cards ("$0.00" → "$0.0"/"0"), fixed by auto-sizing the figure to one line (`StatCard`,
+`TextAutoSize`). Every other screen's hierarchy held on the ink primary + mono headlines. (The
+Overview stat cards are still the skill's banned "stacked-card" template — a pre-existing gap
+from before the redesign reached that screen, out of scope for the identity swap.) Glance widgets got a hand-kept graphite mirror; 27 screenshot baselines re-recorded;
+`SKILL.md` rewritten and `Design.md` §0 made authoritative (old Ember tables marked superseded, a
+full table rewrite left as a flagged deferred task).
+
+**Phase 3 complete (2026-07-30, same PR #153):** the graphite "after" shots of the five README
+screens were captured while the build was live on the SM-S931U1 (`docs/screenshots/graphite/`,
+matching `ember/`), and `README.md` was rewritten in the owner's first-person voice — the story
+(habit-building exercise → daily one-stop organiser → minimise phone *need* / maximise phone
+*value* → a vehicle for learning Android) with Ember→Graphite before/after pairs of four screens.
+Bundled into PR #153 rather than a separate PR because the README's "after" images depend on the
+graphite branch. **It is a draft for the owner to edit until it sounds like him** — that final
+pass is the one piece left, and it is deliberately the owner's, not the agent's.
+
+**All three workstreams are delivered.** Remaining open work is only the deferred issues
+(#149/#150/#151 for Papers) and the flagged Design.md full-table rewrite.

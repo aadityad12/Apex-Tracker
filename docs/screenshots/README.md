@@ -1,15 +1,15 @@
-Drop screenshots and GIFs here for the main [README.md](../../README.md) to embed.
+Screenshots embedded by the root [README.md](../../README.md).
 
-Expected filenames (referenced from the root README):
+Organised as before/after pairs of the visual redesign:
 
-- `hero.png` — a wide banner image / cover shot
-- `splash-to-menu.gif` — splash screen transitioning into the main menu
-- `overview.png`
-- `budget-tracker.png`
-- `study-tracker.png`
-- `screen-time.png`
-- `reminders.png`
-- `notes.png`
-- `theme-switch.gif` — switching between light/dark and between color themes
+- `ember/` — the previous **Ember** identity (warm near-black + terracotta accent + serif
+  display), captured 2026-07-30 before the redesign landed.
+- `graphite/` — the current **Graphite** identity (cold monochrome, mono display, fill-height
+  heatmap), captured 2026-07-30.
 
-Rename or remove entries in the root README if you use different filenames.
+Each folder holds the same five screens: `dashboard.png`, `study_tracker.png`,
+`screen_time.png`, `budget_tracker.png`, `overview.png`.
+
+Capture recipe (so a re-shoot matches): install the debug build, put the status bar into
+SystemUI demo mode to hide personal icons, then for each screen `am force-stop` the app and
+cold-launch it with `--es navigate_to <route>` before `screencap`.

@@ -83,7 +83,7 @@ private fun PaletteSpecimen() {
                 Box(Modifier.size(40.dp).clip(RoundedCornerShape(ApexShapes.cell)).background(it))
             }
         }
-        ApexSectionHeader("Semantics — Ember / Sage / Alarm must be mutually distinct")
+        ApexSectionHeader("Semantics — Ink / Sage / Crimson must be mutually distinct")
         Row(horizontalArrangement = Arrangement.spacedBy(ApexSpacing.s)) {
             listOf(cs.primary, positive, cs.error).forEach {
                 Box(Modifier.size(40.dp).clip(RoundedCornerShape(ApexShapes.cell)).background(it))

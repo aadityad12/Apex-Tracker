@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.ui.text.style.TextOverflow
 import com.example.apextracker.ui.design.ApexDivider
 import com.example.apextracker.ui.design.ApexEmptyState
@@ -235,7 +236,16 @@ fun StatCard(
                 }
             }
             Spacer(modifier = Modifier.weight(1f))
-            Text(value, style = ApexNumerals.large, color = MaterialTheme.colorScheme.onSurface)
+            // Martian Mono is wide, so a long value ($1,284.50 / 4h 43m) overflows a third-width
+            // card at the full large size. Auto-size down to fit on one line rather than wrap the
+            // figure — a wrapped quantity reads as broken.
+            Text(
+                value,
+                style = ApexNumerals.large,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                autoSize = TextAutoSize.StepBased(minFontSize = 13.sp, maxFontSize = 23.sp, stepSize = 1.sp)
+            )
             Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
