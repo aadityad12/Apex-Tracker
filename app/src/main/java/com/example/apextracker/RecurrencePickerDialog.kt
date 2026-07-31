@@ -12,6 +12,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.example.apextracker.ui.design.apexMenuBorder
 import java.time.DayOfWeek
 import java.time.format.TextStyle
 
@@ -45,7 +46,11 @@ fun RecurrencePickerDialog(
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = frequencyExpanded) },
                         modifier = Modifier.menuAnchor()
                     )
-                    ExposedDropdownMenu(expanded = frequencyExpanded, onDismissRequest = { frequencyExpanded = false }) {
+                    ExposedDropdownMenu(
+                        expanded = frequencyExpanded,
+                        onDismissRequest = { frequencyExpanded = false },
+                        border = apexMenuBorder()
+                    ) {
                         RecurrenceFrequency.values().forEach { freq ->
                             DropdownMenuItem(
                                 text = { Text(stringResource(frequencyLabelRes(freq))) },
@@ -92,7 +97,11 @@ fun RecurrencePickerDialog(
                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = endTypeExpanded) },
                        modifier = Modifier.menuAnchor()
                    )
-                    ExposedDropdownMenu(expanded = endTypeExpanded, onDismissRequest = { endTypeExpanded = false }) {
+                    ExposedDropdownMenu(
+                        expanded = endTypeExpanded,
+                        onDismissRequest = { endTypeExpanded = false },
+                        border = apexMenuBorder()
+                    ) {
                         RecurrenceEndType.values().forEach { type ->
                             DropdownMenuItem(
                                 text = { Text(stringResource(endTypeLabelRes(type))) },

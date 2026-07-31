@@ -1,5 +1,6 @@
 package com.example.apextracker.ui.design
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -72,6 +73,21 @@ fun ApexSectionHeader(
 fun ApexDivider(modifier: Modifier = Modifier) {
     HorizontalDivider(modifier = modifier, color = MaterialTheme.colorScheme.outlineVariant)
 }
+
+/**
+ * The edge that separates a popup menu from whatever it opens on top of.
+ *
+ * `surfaceContainer` (menus) and `surfaceContainerHigh` (dialogs) intentionally share one tone —
+ * Design.md §3 assigns `GraphiteElevated`/`PaperElevated` to "menus, dialogs" as a single role —
+ * so a menu opened inside a dialog has no tonal edge at all. This is that edge, and it uses the
+ * design's own device rather than inventing a fifth tone. `outline`, not `outlineVariant`: the
+ * faint hairline disappears against the elevated tone it has to sit on.
+ *
+ * Pass this to every `ExposedDropdownMenu`/`DropdownMenu`. See the audit note in `ApexPalette.kt`.
+ */
+@Composable
+fun apexMenuBorder(): BorderStroke =
+    BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
 
 /**
  * A label/value row — the workhorse of every list in this app.

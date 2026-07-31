@@ -72,6 +72,7 @@ import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
 import com.example.apextracker.ui.design.ApexTheme
 import com.example.apextracker.ui.design.ApexTrackerTheme
+import com.example.apextracker.ui.design.apexMenuBorder
 import kotlinx.coroutines.launch
 
 // FragmentActivity (not ComponentActivity) because androidx.biometric's BiometricPrompt requires
@@ -571,7 +572,11 @@ fun CurrencyDropdown(currencyCode: String, onCurrencySelected: (String) -> Unit)
             modifier = Modifier.menuAnchor().fillMaxWidth(),
             shape = MaterialTheme.shapes.medium
         )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            border = apexMenuBorder()
+        ) {
             codes.forEach { code ->
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.menu_currency_option, code, currencySymbol(code))) },
