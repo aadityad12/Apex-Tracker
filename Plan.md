@@ -140,9 +140,12 @@ Serif and Geist Mono retired), Sage/Crimson the only hues. The heatmap was resha
 colour-ramp squares to fill-height bars (intensity = bar height), which is what stops it reading
 as GitHub's grid. Style plate settled the display face (Martian over IBM Plex / Space Mono) and
 the graphite ramps against the 3:1 hairline floor before any screen was touched. Verified on the
-SM-S931U1 in both themes + 200% font: decision 11's "fix the flat screens" step needed **no**
-per-screen work — the ink primary + mono headlines carried every screen, so the global swap was
-the whole job. Glance widgets got a hand-kept graphite mirror; 27 screenshot baselines re-recorded;
+SM-S931U1 in both themes + 200% font. Decision 11's "fix the flat screens" step turned out to
+need only **one** per-screen fix: the wider Martian Mono wrapped the value in Overview's narrow
+stat cards ("$0.00" → "$0.0"/"0"), fixed by auto-sizing the figure to one line (`StatCard`,
+`TextAutoSize`). Every other screen's hierarchy held on the ink primary + mono headlines. (The
+Overview stat cards are still the skill's banned "stacked-card" template — a pre-existing gap
+from before the redesign reached that screen, out of scope for the identity swap.) Glance widgets got a hand-kept graphite mirror; 27 screenshot baselines re-recorded;
 `SKILL.md` rewritten and `Design.md` §0 made authoritative (old Ember tables marked superseded, a
 full table rewrite left as a flagged deferred task). **Next: Phase 3 (personal README with
 before/after pairs).** The Ember "before" shots are in `docs/screenshots/ember/`; capture the
