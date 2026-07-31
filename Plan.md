@@ -147,7 +147,16 @@ stat cards ("$0.00" → "$0.0"/"0"), fixed by auto-sizing the figure to one line
 Overview stat cards are still the skill's banned "stacked-card" template — a pre-existing gap
 from before the redesign reached that screen, out of scope for the identity swap.) Glance widgets got a hand-kept graphite mirror; 27 screenshot baselines re-recorded;
 `SKILL.md` rewritten and `Design.md` §0 made authoritative (old Ember tables marked superseded, a
-full table rewrite left as a flagged deferred task). **Next: Phase 3 (personal README with
-before/after pairs).** The Ember "before" shots are in `docs/screenshots/ember/`; capture the
-graphite "after" pair of the same five screens (dashboard/study/screen_time/budget/overview) via
-the same `am force-stop` + SystemUI-demo-mode recipe before writing the README.
+full table rewrite left as a flagged deferred task).
+
+**Phase 3 complete (2026-07-30, same PR #153):** the graphite "after" shots of the five README
+screens were captured while the build was live on the SM-S931U1 (`docs/screenshots/graphite/`,
+matching `ember/`), and `README.md` was rewritten in the owner's first-person voice — the story
+(habit-building exercise → daily one-stop organiser → minimise phone *need* / maximise phone
+*value* → a vehicle for learning Android) with Ember→Graphite before/after pairs of four screens.
+Bundled into PR #153 rather than a separate PR because the README's "after" images depend on the
+graphite branch. **It is a draft for the owner to edit until it sounds like him** — that final
+pass is the one piece left, and it is deliberately the owner's, not the agent's.
+
+**All three workstreams are delivered.** Remaining open work is only the deferred issues
+(#149/#150/#151 for Papers) and the flagged Design.md full-table rewrite.
