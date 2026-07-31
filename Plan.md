@@ -132,5 +132,19 @@ CLAUDE.md's "v15" was already stale; the DB was at v19), seed import, mark-read 
 signal, history rendering, and the PAPERS goal metric evaluating "Met" on the Dashboard from a
 real read. S2 API verified live (the unauthenticated pool 429s readily — v2 must back off).
 Deferred to issues: #149 (daily topic fetch), #150 (recommendations), #151 (Firestore sync).
-Uncommitted on `feature/papers` pending owner review. Next: Phase 2 (graphite identity), which
-also restyles this feature for free.
+**Merged as PR #152.**
+
+**Phase 2 complete (2026-07-30, branch `redesign/graphite`, PR #153):** the Ember identity was
+replaced by GRAPHITE — cold monochrome, no accent, Martian Mono display+numerals (Instrument
+Serif and Geist Mono retired), Sage/Crimson the only hues. The heatmap was reshaped from
+colour-ramp squares to fill-height bars (intensity = bar height), which is what stops it reading
+as GitHub's grid. Style plate settled the display face (Martian over IBM Plex / Space Mono) and
+the graphite ramps against the 3:1 hairline floor before any screen was touched. Verified on the
+SM-S931U1 in both themes + 200% font: decision 11's "fix the flat screens" step needed **no**
+per-screen work — the ink primary + mono headlines carried every screen, so the global swap was
+the whole job. Glance widgets got a hand-kept graphite mirror; 27 screenshot baselines re-recorded;
+`SKILL.md` rewritten and `Design.md` §0 made authoritative (old Ember tables marked superseded, a
+full table rewrite left as a flagged deferred task). **Next: Phase 3 (personal README with
+before/after pairs).** The Ember "before" shots are in `docs/screenshots/ember/`; capture the
+graphite "after" pair of the same five screens (dashboard/study/screen_time/budget/overview) via
+the same `am force-stop` + SystemUI-demo-mode recipe before writing the README.
