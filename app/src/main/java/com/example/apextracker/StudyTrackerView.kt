@@ -392,7 +392,6 @@ private fun StudyIdleContent(
         val goalSeconds = dailyGoalMinutes * 60L
         StudyTimerDisplay(
             seconds = seconds,
-            isRunning = false,
             goalFraction = goalFraction(todayTotalSeconds, goalSeconds),
             goalLabel = if (dailyGoalMinutes > 0) {
                 stringResource(R.string.study_goal_progress, (todayTotalSeconds / 60L).toInt(), dailyGoalMinutes)
@@ -561,7 +560,6 @@ fun SubjectPickerDialog(
 @Composable
 fun StudyTimerDisplay(
     seconds: () -> Long,
-    isRunning: Boolean,
     goalFraction: Float = 0f,
     goalLabel: String? = null
 ) {
@@ -576,13 +574,17 @@ fun StudyTimerDisplay(
     // fraction of the daily goal — is now the hairline meter below, which reads as progress for the
     // same reason the arc did (it starts at one end and never loops) and reads better at a wide
     // aspect ratio.
+    //
+    // No isRunning parameter: this is StudyIdleContent's clock only, always paused. A running
+    // session is StudyFocusContent's own ApexFlipClock(active = true) with no READY/FOCUSING
+    // caption at all — see that composable.
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         FlipClockFitToWidth {
-            ApexFlipClock(seconds = seconds, active = isRunning)
+            ApexFlipClock(seconds = seconds, active = false)
         }
         Spacer(Modifier.height(ApexSpacing.m))
         Text(
-            text = if (isRunning) stringResource(R.string.study_focusing) else stringResource(R.string.study_ready),
+            text = stringResource(R.string.study_ready),
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
