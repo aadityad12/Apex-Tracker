@@ -60,6 +60,76 @@ on-device across all primary screens — no screen's hierarchy collapsed without
 per-screen rescue work was needed (the ink primary + mono headlines carry it). Screenshot
 baselines re-recorded. `Design.md`'s Ember tables (§2 onward) are the deferred rewrite.
 
+### The container ladder — which M3 slot gets which tone
+
+M3 has five container steps and an inverse trio; this design has four tones. They are mapped by
+**role**, not by stretching four tones across five slots, so several steps deliberately share a
+value. Both schemes define all of them (see below — this is where the 2026-07-30 audit landed).
+
+| M3 slot | Reached by | Dark | Light |
+|---|---|---|---|
+| `surfaceContainerLowest` | — | `GraphiteBase` | `PaperBase` |
+| `surfaceContainerLow` | `ModalBottomSheet` | `GraphiteSurface` | `PaperSurface` |
+| `surfaceContainer` | `DropdownMenu`, scrolled `TopAppBar`, `NavigationBar` | `GraphiteElevated` | `PaperElevated` |
+| `surfaceContainerHigh` | `AlertDialog`, `DatePickerDialog`, `TimePicker` | `GraphiteElevated` | `PaperElevated` |
+| `surfaceContainerHighest` | `Card` | `GraphiteElevated` | `PaperElevated` |
+| `surfaceDim` / `surfaceBright` | — | `GraphiteBase` / `GraphiteElevated` | `PaperRaised` / `PaperSurface` |
+| `scrim` | `ModalBottomSheet` | `GraphiteBase` | `GraphiteBase` |
+| `inverseSurface` | `Snackbar` container | `PaperRaised` | `GraphiteRaised` |
+| `inverseOnSurface` | `Snackbar` text | `Char` | `Frost` |
+| `inversePrimary` | `Snackbar` action label | `Char` | `Frost` |
+
+Three of these are load-bearing:
+
+**`surfaceTint` is `Color.Transparent`.** M3 composites it over `surface` at elevation, so any
+non-transparent value drifts every raised surface toward ink. This design layers with authored
+tones and hairlines instead, so the tint must contribute nothing.
+
+**The snackbar is the app's only inverted surface.** The dark theme's snackbar is a *light*
+surface (paper tones); the light theme's is a *dark* one (graphite tones). Left undefined, its
+action label rendered Material's `Primary40` — purple. Because graphite has no accent, `primary`
+and `onSurface` are the same value in every theme (both are just "ink"), so `inverseOnSurface` and
+`inversePrimary` land on the same tone within each theme — that is correct, not a shortcut.
+
+**Menus and dialogs share one tone** because the palette assigns `GraphiteElevated`/`PaperElevated`
+to "menus, dialogs" as a single role. A menu opening *inside* a dialog (`RecurrencePickerDialog`,
+the budget category dropdown) therefore has no tonal edge and separates on a hairline instead —
+`apexMenuBorder()`, passed at every `ExposedDropdownMenu` call site. **Do not drop that border
+while these two slots share a tone**; the menu becomes invisible against its host.
+
+#### Audit: six undefined slots, found 2026-07-30
+
+Resolving each M3 component's default `*Tokens.ContainerColor` back to its `ColorSchemeKeyTokens`
+(rather than reading call sites — a call site that mentions no colour is exactly the one that
+reaches an undefined slot) turned up six holes beyond the already-known `tertiaryContainer` one:
+
+| Slot | Reached by | Was rendering |
+|---|---|---|
+| `surfaceContainer` | 4 `ExposedDropdownMenu`s, scrolled `TopAppBar` | baseline lavender — the reported off-palette dropdown |
+| `surfaceContainerHigh` | **19 `AlertDialog`s and 4 `DatePickerDialog`s — not one overrode it** | baseline purple-tinted |
+| `surfaceContainerLow` | the one `ModalBottomSheet` that set no `containerColor` (Dashboard day detail) | baseline |
+| `inverseSurface`/`inverseOnSurface`/`inversePrimary` | 3 `SnackbarHost`s, all reachable | baseline — the action label was Material `Primary40/80` **purple** |
+| `scrim` | 3 `ModalBottomSheet`s | baseline `#000` — benign, but undeclared |
+| `surfaceTint` | anything at nonzero elevation | Material's default tint, drifting elevated surfaces off-palette |
+
+This audit was written against the pre-graphite Ember palette and ported onto graphite's names
+the same day it was found — the graphite rewrite above had carried over only the already-known
+`tertiaryContainer` fix and reopened the rest of this exact hole under new names. That asymmetry
+is itself the lesson: **when the palette is rewritten, re-run this audit; don't assume a prior
+fix survives a rename.**
+
+Two things guard it now:
+
+- **`ApexPaletteSlotsTest`** asserts every component-default slot in both schemes is a token from
+  the table above, that the two schemes define the same set, and that the snackbar actually
+  inverts. Host-side and deterministic — no device needed.
+- **The style plate's "Component surfaces — undefined-slot detector"** reads from `MenuDefaults`,
+  `AlertDialogDefaults`, `SnackbarDefaults` and friends rather than from named slots, so it takes
+  the same path the real component does. A tile whose hex isn't in the table above is a bug you
+  can see.
+
+**When adopting a new M3 component type, add its slots to both schemes and to the test.**
+
 ---
 
 **Status (Ember-era, retained).** Foundation plus **all eight screens** shipped 2026-07-29. The
@@ -372,6 +442,7 @@ locally — that local assembly is how the app got eight corner radii and 66 inl
 | `ApexChartFrame` | eyebrow + plot. No card, no shadow. | |
 | `ApexGroup` | `surfaceVariant`, 14dp radius, **explicit `contentColor`** | Use sparingly. |
 | `ApexEmptyState` | message + optional action | Requires a message that says what would fill it. |
+| `apexMenuBorder()` | 1dp `outline` stroke | Not a component — the `border` every `DropdownMenu`/`ExposedDropdownMenu` must pass. Menus and dialogs share a tone (§0), so this is the only thing separating a menu from the dialog it opens on. `outline`, not `outlineVariant`: the faint hairline vanishes against the elevated tone. |
 
 ### The `Surface` dimming trap
 
@@ -577,10 +648,12 @@ Pre-existing, unrelated to the redesign, but very visible now that light mode is
 
 **`graphics-shapes` has no use site yet.** Adopt it in the first screen that needs state morphing.
 
-**Every `ColorScheme` slot the app touches must be defined in both schemes.** An undefined slot does
-not fall back to something neutral — it falls back to Material's *default* scheme. `tertiaryContainer`
-was missing from the dark scheme, so the Overview's screen-time stat card rendered in Material Purple.
-Worth an audit if a colour ever appears that is not in this document.
+**~~Every `ColorScheme` slot the app touches must be defined in both schemes~~ — audited and fixed
+2026-07-30, see [§0's container-ladder section](#the-container-ladder--which-m3-slot-gets-which-tone).**
+The original instance (`tertiaryContainer` missing from the dark scheme, rendering the Overview's
+screen-time stat card in Material Purple) turned out to be one of seven — the full audit found
+menus, all `AlertDialog`s, `DatePickerDialog`, a bottom sheet, and every snackbar colour also
+undefined. Now guarded by `ApexPaletteSlotsTest` and the style plate, not just this paragraph.
 
 ---
 

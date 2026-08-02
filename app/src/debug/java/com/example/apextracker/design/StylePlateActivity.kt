@@ -76,6 +76,7 @@ private fun StylePlate(dark: Boolean, onToggleTheme: () -> Unit) {
         TypeSection()
         NumeralSection()
         SurfaceSection()
+        ComponentSurfaceSection()
         SemanticSection()
         HeatSection()
         ComponentSection()
@@ -146,11 +147,18 @@ private fun NumeralSection() = PlateSection("Numerals · Geist Mono") {
 @Composable
 private fun SurfaceSection() = PlateSection("Surfaces") {
     val cs = MaterialTheme.colorScheme
+    // The full ladder, in M3's own order. Several steps share a tone: this design has four tones
+    // and M3 has five container slots, so they are mapped by role rather than stretched to fit.
     listOf(
         "background" to cs.background,
         "surface" to cs.surface,
         "surfaceVariant" to cs.surfaceVariant,
-        "containerHighest" to cs.surfaceContainerHighest
+        "containerLowest" to cs.surfaceContainerLowest,
+        "containerLow" to cs.surfaceContainerLow,
+        "container" to cs.surfaceContainer,
+        "containerHigh" to cs.surfaceContainerHigh,
+        "containerHighest" to cs.surfaceContainerHighest,
+        "inverseSurface" to cs.inverseSurface
     ).forEach { (name, c) ->
         Row(
             Modifier
@@ -170,6 +178,85 @@ private fun SurfaceSection() = PlateSection("Surfaces") {
     Caption("Secondary text on background: ${contrast(cs.onSurfaceVariant, cs.background)}:1 · needs ≥4.5")
     Caption("Accent on background: ${contrast(cs.primary, cs.background)}:1 · needs ≥4.5 for text, ≥3 for indicators")
     Caption("Hairline on background: ${contrast(cs.outline, cs.background)}:1 · needs ≥3 to be visible")
+}
+
+// ── 3b. Component surfaces — the undefined-slot detector ───────────────────────────────
+
+/**
+ * Every surface an M3 component picks *for itself* when the call site passes no colour.
+ *
+ * These read from the `*Defaults` objects rather than from named `ColorScheme` slots on purpose:
+ * that is the same path the real component takes, so if a slot is ever left undefined, the tile
+ * here renders Material's baseline (a lavender/purple-tinted neutral) instead of a palette tone and
+ * the hole is visible at a glance. The 2026-07-30 audit found six such slots — dropdown menus,
+ * every AlertDialog, DatePickerDialog, one ModalBottomSheet, and all three snackbar colours were
+ * all rendering off-palette, and none of it was reachable by grepping for `colorScheme.`
+ *
+ * A tile whose hex is not in Design.md §3 is a bug.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ComponentSurfaceSection() = PlateSection("Component surfaces — undefined-slot detector") {
+    val cs = MaterialTheme.colorScheme
+    Caption("What each component picks when the call site passes nothing. Every hex here must appear in Design.md §3.")
+    Spacer(Modifier.height(ApexSpacing.s))
+
+    SlotRow("menu", MenuDefaults.containerColor, cs)
+    SlotRow("dialog", AlertDialogDefaults.containerColor, cs)
+    SlotRow("bottom sheet", BottomSheetDefaults.ContainerColor, cs)
+    SlotRow("scrim", BottomSheetDefaults.ScrimColor, cs)
+    SlotRow("card", CardDefaults.cardColors().containerColor, cs)
+    SlotRow("top bar (scrolled)", cs.surfaceContainer, cs)
+    SlotRow("nav bar", NavigationBarDefaults.containerColor, cs)
+    SlotRow("snackbar", SnackbarDefaults.color, cs)
+    SlotRow("snackbar text", SnackbarDefaults.contentColor, cs)
+    SlotRow("snackbar action", SnackbarDefaults.actionColor, cs)
+
+    Spacer(Modifier.height(ApexSpacing.m))
+    Caption("In context — a snackbar is the one inverted surface in the app:")
+    Spacer(Modifier.height(ApexSpacing.s))
+    Snackbar(action = { TextButton(onClick = {}) { Text("UNDO") } }) { Text("Reminder deleted") }
+
+    Spacer(Modifier.height(ApexSpacing.m))
+    Caption("A menu opens on top of a dialog (RecurrencePickerDialog). Same tone by design — the hairline is what separates them:")
+    Spacer(Modifier.height(ApexSpacing.s))
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(ApexShapes.sheet))
+            .background(AlertDialogDefaults.containerColor)
+            .padding(ApexSpacing.l)
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(ApexShapes.control))
+                .background(MenuDefaults.containerColor)
+                .border(1.dp, cs.outline, RoundedCornerShape(ApexShapes.control))
+                .padding(ApexSpacing.m)
+        ) {
+            Text("Menu item", style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
+@Composable
+private fun SlotRow(label: String, color: Color, cs: ColorScheme) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = ApexSpacing.xs),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            Modifier
+                .size(28.dp)
+                .clip(RoundedCornerShape(ApexShapes.cell))
+                .background(color)
+                .border(1.dp, cs.outlineVariant, RoundedCornerShape(ApexShapes.cell))
+        )
+        Spacer(Modifier.width(ApexSpacing.m))
+        Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        Text(color.hex(), style = ApexNumerals.small, color = cs.onSurfaceVariant)
+    }
 }
 
 // ── 4. The semantic collision test ─────────────────────────────────────────────────────

@@ -92,6 +92,8 @@ Settings dialogs for each module live in `*Settings.kt` files (e.g., `BudgetSett
 - `ui/design/ApexComponents.kt` — the shared component vocabulary (`ApexSectionHeader`, `ApexDivider`, `ApexStatRow`, `ApexChartFrame`, `ApexGroup`, `ApexEmptyState`).
 - **`ApexTheme` has one entry (`GRAPHITE`)** — the cold-monochrome identity (2026-07-30), down from four accents then the single warm `EMBER`. The enum survives so a second identity is a drop-in; the settings accent picker is gone. `FirebaseManager` still round-trips the field by name and legacy values (`EMBER`/`EMERALD`/…) fail `valueOf` and fall back, which is correct.
 - **Sage (the positive semantic) is deliberately NOT in the `ColorScheme`** — it lives only in `ApexSemantics.positive`. It used to be `secondary`/`secondaryContainer`, which made every M3 component defaulting to secondary render "goal met" green.
+- **Every `ColorScheme` slot the app can reach is defined in *both* schemes** — audited 2026-07-30 (`Design.md` §8), ported onto graphite the same day. An undefined slot falls back to Material's purple-tinted *baseline*, silently, and **you cannot find it by grepping for `colorScheme.`**: the slot is reached through a component's own defaults, so the offending call sites are the ones that mention no colour. That audit found menus, all 19 `AlertDialog`s, `DatePickerDialog`, one `ModalBottomSheet` and all three snackbar colours rendering off-palette. `ApexPaletteSlotsTest` and the style plate's "undefined-slot detector" section now guard it. **Adding a new M3 component type means adding its slots to both schemes.**
+- **`apexMenuBorder()` is not optional.** `surfaceContainer` (menus) and `surfaceContainerHigh` (dialogs) share one tone by design, so the hairline is the only thing separating a dropdown from the dialog it opens on. Pass it at every `DropdownMenu`/`ExposedDropdownMenu` call site.
 - **`Design.md` at the repo root is the authority** for all values, measured contrast ratios, the chart spec and the screen inventory. `.claude/skills/android-product-design/SKILL.md` carries the enforcing rules. Don't restate values here — that's how this file drifted before.
 
 ### Background Work
@@ -325,6 +327,16 @@ still describes Ember and is marked superseded (full table rewrite deferred). Th
   re-recorded. Verified on the SM-S931U1 in both themes + 200% font; no screen's hierarchy needed
   per-screen rescue (ink primary + mono headlines carry it). The debug `StylePlateActivity` renders
   the graphite system on-device.
+- **Follow-up (same day): the M3 undefined-slot bug ported forward.** The Ember palette had a
+  known instance of this (`tertiaryContainer`, dark-only — see the `apextracker-architecture`
+  memory / the pre-graphite Design.md §8 note), but a separate, uncommitted 2026-07-30 audit found
+  it was far bigger: `surfaceContainer`/`surfaceContainerHigh`/`surfaceContainerLow`, `scrim`,
+  `surfaceTint`, and the whole `inverseSurface`/`inverseOnSurface`/`inversePrimary` snackbar trio
+  were *also* undefined, so dropdown menus, all 19 `AlertDialog`s, `DatePickerDialog`, one
+  `ModalBottomSheet`, and every snackbar were silently rendering Material's baseline purple. The
+  graphite rewrite above shipped without this fix (it only carried `tertiaryContainer`) and
+  reopened the same hole under new names; it was ported onto graphite immediately after, in the
+  same session, once the gap was found. See §8 in Design.md and `ApexPaletteSlotsTest`.
 
 ## Developer's own TODO list (from notes.txt, still current)
 - Budget: "Extract from receipt" (OCR/receipt-parsing) — not started.

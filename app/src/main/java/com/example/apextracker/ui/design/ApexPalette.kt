@@ -75,7 +75,30 @@ val ApexDarkColors: ColorScheme = darkColorScheme(
     onSurface = Frost,
     surfaceVariant = GraphiteRaised,
     onSurfaceVariant = FrostDim,
+    // ── The container ladder ───────────────────────────────────────────────────────────
+    // M3 has five container steps; this design has four tones. They are mapped by *role*,
+    // not by walking M3's ordering, so several steps deliberately share a tone. See the
+    // audit note above ApexLightColors for what each one is reached by and why it matters.
+    surfaceContainerLowest = GraphiteBase,
+    surfaceContainerLow = GraphiteSurface,   // sheet bodies
+    surfaceContainer = GraphiteElevated,     // menus
+    surfaceContainerHigh = GraphiteElevated, // dialogs
     surfaceContainerHighest = GraphiteElevated,
+    surfaceDim = GraphiteBase,
+    surfaceBright = GraphiteElevated,
+    // Transparent kills M3's tonal-elevation tint outright: surfaceColorAtElevation composites
+    // surfaceTint over surface, so a non-transparent value would drift raised surfaces toward
+    // ink. This design layers with authored tones and hairlines instead (Design.md §5).
+    surfaceTint = Color.Transparent,
+    scrim = GraphiteBase,
+    // Snackbars invert. The dark scheme's snackbar is a *light* surface, so it takes the paper
+    // tones — and, since graphite has no accent, its "primary" is just the light theme's ink
+    // (Char), same as inverseOnSurface. That's not a shortcut: under Ember this slot resolved to
+    // the light accent; under graphite "primary" and "onSurface" are the same thing in every
+    // theme, so both inverse slots land on Char here.
+    inverseSurface = PaperRaised,
+    inverseOnSurface = Char,
+    inversePrimary = Char,
     outline = GraphiteLine,
     outlineVariant = GraphiteLineFaint,
     error = AlarmDark,
@@ -84,6 +107,28 @@ val ApexDarkColors: ColorScheme = darkColorScheme(
     onErrorContainer = Color(0xFFF0A49E)
 )
 
+/**
+ * Every `ColorScheme` slot the app can reach — audited 2026-07-30 by resolving each M3 component's
+ * default `*Tokens.ContainerColor` back to its `ColorSchemeKeyTokens`, rather than by reading call
+ * sites (a call site that sets nothing is exactly the one that reaches a slot silently).
+ *
+ * What that turned up, beyond the already-known `tertiaryContainer` hole:
+ *
+ * | Slot | Reached by | Was rendering |
+ * |---|---|---|
+ * | `surfaceContainer` | `ExposedDropdownMenu`, `DropdownMenuItem`, scrolled `TopAppBar` | baseline Neutral12 / Neutral94 |
+ * | `surfaceContainerHigh` | `AlertDialog` ×19, `DatePickerDialog` ×4 — none overrode it | baseline Neutral17 / Neutral92 |
+ * | `surfaceContainerLow` | the one `ModalBottomSheet` that set no `containerColor` | baseline Neutral10 / Neutral96 |
+ * | `inverseSurface`/`inverseOnSurface`/`inversePrimary` | `Snackbar` ×3, all reachable | baseline — the action label was Material **Primary40/80 purple** |
+ * | `scrim` | `ModalBottomSheet` ×3 | baseline #000 (benign, but undeclared) |
+ *
+ * `surfaceContainer` and `surfaceContainerHigh` share `GraphiteElevated`/`PaperElevated` because
+ * Design.md §3 gives that tone to "menus, dialogs" as one role. A menu opening *inside* a dialog
+ * (`RecurrencePickerDialog`, the budget category dropdown) is therefore tone-identical to its
+ * host, and separates on a hairline instead — which is this design's own device. That border is
+ * passed at the `ExposedDropdownMenu` call sites via `apexMenuBorder()`; **do not drop it while
+ * these two slots share a tone.**
+ */
 val ApexLightColors: ColorScheme = lightColorScheme(
     primary = Char,
     onPrimary = Color(0xFFFFFFFF),
@@ -103,7 +148,23 @@ val ApexLightColors: ColorScheme = lightColorScheme(
     onSurface = Char,
     surfaceVariant = PaperRaised,
     onSurfaceVariant = CharDim,
+    // Same role mapping as the dark scheme — see the audit note above.
+    surfaceContainerLowest = PaperBase,
+    surfaceContainerLow = PaperSurface,   // sheet bodies
+    surfaceContainer = PaperElevated,     // menus
+    surfaceContainerHigh = PaperElevated, // dialogs
     surfaceContainerHighest = PaperElevated,
+    surfaceDim = PaperRaised,
+    surfaceBright = PaperSurface,
+    surfaceTint = Color.Transparent,
+    // scrim is the one slot that is legitimately identical across themes: a sheet needs the same
+    // dimming behind it in light mode as in dark, so both use the cool near-black.
+    scrim = GraphiteBase,
+    // The light scheme's snackbar is a *dark* surface: graphite tones, and — no accent to borrow
+    // — the dark theme's ink (Frost) for both the text and the action label.
+    inverseSurface = GraphiteRaised,
+    inverseOnSurface = Frost,
+    inversePrimary = Frost,
     outline = PaperLine,
     outlineVariant = PaperLineFaint,
     error = AlarmLight,

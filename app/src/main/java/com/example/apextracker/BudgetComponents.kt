@@ -27,6 +27,7 @@ import com.example.apextracker.ui.design.ApexDivider
 import com.example.apextracker.ui.design.ApexMotion
 import com.example.apextracker.ui.design.ApexNumerals
 import com.example.apextracker.ui.design.ApexSpacing
+import com.example.apextracker.ui.design.apexMenuBorder
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -242,7 +243,11 @@ fun CategoryDropdown(categories: List<Category>, selectedCategory: Category?, ex
             modifier = Modifier.menuAnchor().fillMaxWidth(),
             shape = MaterialTheme.shapes.medium
         )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { onExpandedChange(false) }) {
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { onExpandedChange(false) },
+            border = apexMenuBorder()
+        ) {
             DropdownMenuItem(text = { Text(stringResource(R.string.budget_no_category)) }, onClick = { onCategorySelected(null) })
             categories.forEach { category ->
                 DropdownMenuItem(
