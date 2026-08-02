@@ -82,8 +82,9 @@ with Google only adds optional sync so the data can follow me to another device.
   trackers ("screen time under 6h", "study 2h", "read a paper today").
 - **Budget** — expenses by category, per-category and overall monthly limits, a spending-trend
   chart, subscriptions, a calendar view, and CSV export.
-- **Study timer** — a stopwatch with per-subject tracking, daily history, and manual back-fill
-  for sessions I forgot to time.
+- **Study timer** — a split-flap digit display with per-subject tracking, daily history, and
+  manual back-fill for sessions I forgot to time. Starting it drops into a full-screen focus mode
+  that hides the app chrome and keeps the screen awake.
 - **Screen time** — per-app usage from Android's usage stats, with per-app daily limits.
 - **Reminders** — one-off and recurring, with real notifications: exact alarms, reboot-safe,
   and Done / Snooze actions right on the notification.
