@@ -75,6 +75,7 @@ private fun StylePlate(dark: Boolean, onToggleTheme: () -> Unit) {
 
         TypeSection()
         NumeralSection()
+        FlipClockSection()
         SurfaceSection()
         ComponentSurfaceSection()
         SemanticSection()
@@ -108,6 +109,48 @@ private fun TypeSection() = PlateSection("Type") {
     Text("Geist · bodyMedium — the workhorse for list rows and secondary content.", style = t.bodyMedium)
     Text("Geist · bodySmall — captions and hints.", style = t.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     Text("Geist · labelMedium", style = t.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+// ── 1b. Flip clock ─────────────────────────────────────────────────────────────────────
+
+/**
+ * The split-flap clock, ticking. This is the only honest place to sign off the card tone, the seam,
+ * and the perspective of the falling half — a static preview shows none of them. The counter runs
+ * only while this plate is open, and it starts near the hour boundary so the arrival of the hour
+ * field is visible within a minute of looking at it.
+ */
+@Composable
+private fun FlipClockSection() = PlateSection("Flip clock") {
+    var seconds by remember { mutableLongStateOf(3592L) }
+    var running by remember { mutableStateOf(true) }
+    LaunchedEffect(running) {
+        while (running) {
+            kotlinx.coroutines.delay(1000)
+            seconds += 1
+        }
+    }
+    FlipClockFitToWidth { ApexFlipClock(seconds = { seconds }, active = running) }
+    Spacer(Modifier.height(ApexSpacing.s))
+    Text(
+        if (running) "Running — surfaceContainerHighest card" else "Paused — surfaceVariant card",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Spacer(Modifier.height(ApexSpacing.s))
+    Row(horizontalArrangement = Arrangement.spacedBy(ApexSpacing.s)) {
+        TextButton(onClick = { running = !running }) { Text(if (running) "Pause" else "Run") }
+        TextButton(onClick = { seconds = 3592L }) { Text("59:52") }
+        // +1s is a tick and must flap; +1m is a jump and must snap. The pair is the only way to
+        // check the delta gate by hand.
+        TextButton(onClick = { seconds += 1L }) { Text("+1s") }
+        TextButton(onClick = { seconds += 60L }) { Text("+1m") }
+    }
+    Spacer(Modifier.height(ApexSpacing.m))
+    Text("At ApexNumerals.large", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Spacer(Modifier.height(ApexSpacing.s))
+    FlipClockFitToWidth {
+        ApexFlipClock(seconds = { seconds }, style = ApexNumerals.large, active = running)
+    }
 }
 
 // ── 2. Numerals ────────────────────────────────────────────────────────────────────────

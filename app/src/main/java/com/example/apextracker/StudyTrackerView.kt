@@ -4,8 +4,21 @@ import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Settings
+import android.view.WindowManager
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.*
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -33,11 +46,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -46,11 +61,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.apextracker.ui.design.ApexChartFrame
 import com.example.apextracker.ui.design.ApexDivider
 import com.example.apextracker.ui.design.ApexEmptyState
+import com.example.apextracker.ui.design.ApexFlipClock
 import com.example.apextracker.ui.design.ApexMotion
+import com.example.apextracker.ui.design.FlipClockFitToWidth
 import com.example.apextracker.ui.design.ApexNumerals
 import com.example.apextracker.ui.design.ApexSectionHeader
 import com.example.apextracker.ui.design.ApexShapes
@@ -58,18 +78,45 @@ import com.example.apextracker.ui.design.ApexSpacing
 import com.example.apextracker.ui.design.LocalApexSemantics
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun StudyTrackerView(onBackToMenu: () -> Unit, viewModel: StudyViewModel = viewModel()) {
-    val timeSeconds by viewModel.timeSeconds.collectAsState()
+fun StudyTrackerView(
+    onBackToMenu: () -> Unit,
+    onFocusModeChange: (Boolean) -> Unit = {},
+    viewModel: StudyViewModel = viewModel()
+) {
+    // Note the missing `by`. collectAsState() itself performs no snapshot read — only .value does —
+    // so holding the State and handing a lambda to the clock keeps the once-a-second tick from
+    // recomposing this whole screen, chart and history rows included.
+    val timeSecondsState = viewModel.timeSeconds.collectAsState()
     val isRunning by viewModel.isRunning.collectAsState()
     val currentSubject by viewModel.currentSubject.collectAsState()
     val allSessions by viewModel.getAllSessions().collectAsState(initial = emptyList())
     val dailyGoalMinutes by viewModel.dailyGoalMinutes.collectAsState()
     val todayTotalSeconds by viewModel.todayTotalSeconds.collectAsState()
     val studyStreak by viewModel.studyStreak.collectAsState()
+
+    // Hoisted above the focus swap so scroll position survives a focus round trip.
+    val scrollState = rememberScrollState()
+
+    // Focus mode is exactly "the stopwatch is running" — there is no separate flag that could drift
+    // out of sync with the timer. The onDispose is belt to AppNavigation's braces: between them the
+    // bottom bar cannot get stuck hidden whatever happens inside this screen.
+    //
+    // If a subject switcher is ever added to the focus surface, note that selectSubject() pauses,
+    // suspends on a DAO read, then resumes — isRunning goes true→false→true and focus mode would
+    // flicker. It is unreachable today because the subject chip is one of the things focus hides.
+    // The fix then is to derive focus from a debounced snapshotFlow { isRunning }, not to special-
+    // case selectSubject.
+    LaunchedEffect(isRunning) { onFocusModeChange(isRunning) }
+    DisposableEffect(Unit) { onDispose { onFocusModeChange(false) } }
+
+    FocusWindowEffects(active = isRunning)
+
+    // System back pauses rather than leaving the screen. Losing the surface you were watching by
+    // accident is worse than the alternative, and Pause is the one thing this surface is for.
+    BackHandler(enabled = isRunning) { viewModel.pauseTimer() }
 
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -155,155 +202,270 @@ fun StudyTrackerView(onBackToMenu: () -> Unit, viewModel: StudyViewModel = viewM
 
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Text(stringResource(R.string.study_title),
-                        style = MaterialTheme.typography.titleSmall
+            // Hidden while focused. expand/shrink rather than a bare fade, because the Scaffold
+            // derives innerPadding from the measured bar height — animating the height animates the
+            // padding too, so the body grows into the vacated space instead of leaving a hole.
+            AnimatedVisibility(
+                visible = !isRunning,
+                enter = expandVertically(ApexMotion.enter(), expandFrom = Alignment.Top) + fadeIn(ApexMotion.enter()),
+                exit = shrinkVertically(ApexMotion.exit(), shrinkTowards = Alignment.Top) + fadeOut(ApexMotion.exit()),
+            ) {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text(stringResource(R.string.study_title),
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBackToMenu) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { showGoalDialog = true }) {
+                            Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.study_goal_setting))
+                        }
+                        IconButton(onClick = { showResetConfirm = true }) {
+                            Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.action_reset))
+                        }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background
                     )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBackToMenu) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { showGoalDialog = true }) {
-                        Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.study_goal_setting))
-                    }
-                    IconButton(onClick = { showResetConfirm = true }) {
-                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.action_reset))
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
                 )
-            )
+            }
         }
     ) { innerPadding ->
-        // One scrolling column with eyebrow-and-hairline sections. This replaced a 1.45f/1f weighted
-        // split whose lower half was a 32dp-rounded surfaceVariant panel — a card at half-screen
-        // scale, which also silently dimmed every value inside it. The weighted split additionally
-        // left the timer region mostly empty while clipping the chart's day labels, and it would have
-        // collapsed the same way the Dashboard's heatmap did at a large font scale.
-        Column(
+        // Running collapses the screen to the focus surface. The incoming side fades and scales in,
+        // echoing the NavHost's own idiom, so focus mode reads as arriving somewhere rather than as
+        // the rest of the screen merely vanishing.
+        AnimatedContent(
+            targetState = isRunning,
+            transitionSpec = {
+                (fadeIn(ApexMotion.enter()) + scaleIn(initialScale = 0.96f, animationSpec = ApexMotion.enter()))
+                    .togetherWith(fadeOut(ApexMotion.exit()))
+                    .using(SizeTransform(clip = false))
+            },
             modifier = Modifier
                 .padding(innerPadding)
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = ApexSpacing.l),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Spacer(Modifier.height(ApexSpacing.l))
-
-            val goalSeconds = dailyGoalMinutes * 60L
-            StudyTimerDisplay(
-                seconds = timeSeconds,
-                isRunning = isRunning,
-                goalFraction = goalFraction(todayTotalSeconds, goalSeconds),
-                goalLabel = if (dailyGoalMinutes > 0) {
-                    stringResource(R.string.study_goal_progress, (todayTotalSeconds / 60L).toInt(), dailyGoalMinutes)
-                } else null
-            )
-
-            Spacer(Modifier.height(ApexSpacing.l))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(ApexSpacing.s)
-            ) {
-                SubjectSelectorChip(
+                .background(MaterialTheme.colorScheme.background),
+            label = "focus"
+        ) { focused ->
+            if (focused) {
+                StudyFocusContent(
+                    seconds = { timeSecondsState.value },
                     subject = currentSubject,
-                    onClick = { showSubjectPicker = true }
+                    onPause = { viewModel.toggleTimer() }
                 )
-                if (dailyGoalMinutes > 0 && studyStreak > 0) {
-                    StudyStreakChip(studyStreak)
+            } else {
+                StudyIdleContent(
+                    scrollState = scrollState,
+                    seconds = { timeSecondsState.value },
+                    currentSubject = currentSubject,
+                    allSessions = allSessions,
+                    dailyGoalMinutes = dailyGoalMinutes,
+                    todayTotalSeconds = todayTotalSeconds,
+                    studyStreak = studyStreak,
+                    pastDays = pastDays,
+                    onToggleTimer = { viewModel.toggleTimer() },
+                    onPickSubject = { showSubjectPicker = true },
+                    onManualEntry = { manualEntry = it }
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Focus mode owns the window while it lasts: the screen stays awake (a stopwatch you are watching
+ * must not time out) and the system bars go away, since this is the only full-bleed surface in the
+ * app. Every acquisition is paired in onDispose, and [active] is a key rather than a branch inside
+ * the effect, so the window is handed back the moment focus ends — not merely when the screen is
+ * left.
+ *
+ * Teardown is covered on every path: pausing changes the key; navigating away disposes the whole
+ * destination; being stopped with the screen on pauses the timer through the existing ON_STOP
+ * observer; being stopped with the screen off deliberately keeps counting, which is harmless because
+ * FLAG_KEEP_SCREEN_ON only acts on a visible window; rotation re-runs the effect against the new
+ * window; and process death takes the flags with it.
+ *
+ * enableEdgeToEdge() does not conflict. It sets decorFitsSystemWindows = false and transparent bar
+ * backgrounds; it does not pin bar visibility. Hiding the bars drives WindowInsets.systemBars to
+ * zero and showing them brings it back, while the SystemBarStyle that governs icon contrast is
+ * never touched here.
+ */
+@Composable
+private fun FocusWindowEffects(active: Boolean) {
+    val view = LocalView.current
+    val activity = LocalActivity.current
+    if (view.isInEditMode || activity == null) return   // previews have no Activity window
+    DisposableEffect(active, activity, view) {
+        val window = activity.window
+        val controller = WindowCompat.getInsetsController(window, view)
+        if (active) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            controller.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller.hide(WindowInsetsCompat.Type.systemBars())
+        }
+        onDispose {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            controller.show(WindowInsetsCompat.Type.systemBars())
+            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
+        }
+    }
+}
+
+/**
+ * The focus surface: the subject that is banking the time, the clock, and the way out. Nothing else
+ * — no eyebrow (a screen that is only a clock does not need a caption reading FOCUSING), no goal
+ * meter, no chart, no history, and neither app bar.
+ *
+ * Removing the rest of the screen from composition while the timer runs is also the one real fix for
+ * a pre-existing cost: the session writes a Room row every second, so the weekly chart and every
+ * history row used to re-execute once a second for the whole session.
+ */
+@Composable
+private fun StudyFocusContent(
+    seconds: () -> Long,
+    subject: String,
+    onPause: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxSize().padding(horizontal = ApexSpacing.l),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = subject.ifBlank { stringResource(R.string.study_no_subject) },
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(ApexSpacing.xl))
+        FlipClockFitToWidth {
+            ApexFlipClock(seconds = seconds, active = true)
+        }
+        Spacer(Modifier.height(ApexSpacing.xxl))
+        // navigationBarsPadding: 0dp while the bars are hidden, and correct if one is swiped
+        // transiently back in — the button must never end up underneath the gesture handle.
+        StudyToggleButton(
+            isRunning = true,
+            onClick = onPause,
+            modifier = Modifier.navigationBarsPadding()
+        )
+    }
+}
+
+/**
+ * The full screen: one scrolling column with eyebrow-and-hairline sections. This replaced a
+ * 1.45f/1f weighted split whose lower half was a 32dp-rounded surfaceVariant panel — a card at
+ * half-screen scale, which also silently dimmed every value inside it. The weighted split
+ * additionally left the timer region mostly empty while clipping the chart's day labels, and it
+ * would have collapsed the same way the Dashboard's heatmap did at a large font scale.
+ */
+@Composable
+private fun StudyIdleContent(
+    scrollState: ScrollState,
+    seconds: () -> Long,
+    currentSubject: String,
+    allSessions: List<StudySession>,
+    dailyGoalMinutes: Int,
+    todayTotalSeconds: Long,
+    studyStreak: Int,
+    pastDays: List<DayStudy>,
+    onToggleTimer: () -> Unit,
+    onPickSubject: () -> Unit,
+    onManualEntry: (ManualSessionSeed) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .padding(horizontal = ApexSpacing.l),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(Modifier.height(ApexSpacing.l))
+
+        val goalSeconds = dailyGoalMinutes * 60L
+        StudyTimerDisplay(
+            seconds = seconds,
+            goalFraction = goalFraction(todayTotalSeconds, goalSeconds),
+            goalLabel = if (dailyGoalMinutes > 0) {
+                stringResource(R.string.study_goal_progress, (todayTotalSeconds / 60L).toInt(), dailyGoalMinutes)
+            } else null
+        )
+
+        Spacer(Modifier.height(ApexSpacing.l))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(ApexSpacing.s)
+        ) {
+            SubjectSelectorChip(subject = currentSubject, onClick = onPickSubject)
+            if (dailyGoalMinutes > 0 && studyStreak > 0) {
+                StudyStreakChip(studyStreak)
+            }
+        }
+
+        Spacer(Modifier.height(ApexSpacing.xl))
+        StudyToggleButton(isRunning = false, onClick = onToggleTimer)
+
+        Spacer(Modifier.height(ApexSpacing.xl))
+        ApexDivider()
+        Spacer(Modifier.height(ApexSpacing.l))
+
+        if (dailyGoalMinutes >= 0) {
+            ApexChartFrame(
+                title = stringResource(R.string.study_this_week),
+                trailing = {
+                    Text(
+                        formatDurationCompact(weeklyStudyMinutes(allSessions, 7, LocalDate.now())
+                            .sumOf { it.second } * 60_000L),
+                        style = ApexNumerals.small,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-            }
-
-            Spacer(Modifier.height(ApexSpacing.xl))
-
-            // Not full-width: a 64dp-tall edge-to-edge slab was the loudest thing on the screen,
-            // competing with the timer it is subordinate to.
-            val interactionSource = remember { MutableInteractionSource() }
-            val isPressed by interactionSource.collectIsPressedAsState()
-            val scale by animateFloatAsState(if (isPressed) 0.97f else 1f, animationSpec = ApexMotion.snap(), label = "press")
-            Button(
-                onClick = { viewModel.toggleTimer() },
-                modifier = Modifier.height(52.dp).widthIn(min = 200.dp).scale(scale),
-                interactionSource = interactionSource,
-                shape = RoundedCornerShape(ApexShapes.control),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isRunning) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primary,
-                    contentColor = if (isRunning) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimary
-                )
             ) {
-                Icon(
-                    if (isRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(ApexSpacing.s))
-                Text(
-                    text = stringResource(if (isRunning) R.string.study_pause_session else R.string.study_start_studying),
-                    style = MaterialTheme.typography.labelLarge
-                )
+                StudyWeeklyChart(sessions = allSessions, goalMinutes = dailyGoalMinutes)
             }
-
             Spacer(Modifier.height(ApexSpacing.xl))
             ApexDivider()
             Spacer(Modifier.height(ApexSpacing.l))
-
-            if (dailyGoalMinutes >= 0) {
-                ApexChartFrame(
-                    title = stringResource(R.string.study_this_week),
-                    trailing = {
-                        Text(
-                            formatDurationCompact(weeklyStudyMinutes(allSessions, 7, LocalDate.now())
-                                .sumOf { it.second } * 60_000L),
-                            style = ApexNumerals.small,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                ) {
-                    StudyWeeklyChart(sessions = allSessions, goalMinutes = dailyGoalMinutes)
-                }
-                Spacer(Modifier.height(ApexSpacing.xl))
-                ApexDivider()
-                Spacer(Modifier.height(ApexSpacing.l))
-            }
-
-            ApexSectionHeader(
-                stringResource(R.string.study_recent_history),
-                trailing = {
-                    IconButton(onClick = { manualEntry = ManualSessionSeed(LocalDate.now().minusDays(1), "", 0L) }) {
-                        Icon(
-                            Icons.Default.Add,
-                            contentDescription = stringResource(R.string.study_log_past_session),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            )
-
-            if (pastDays.isEmpty()) {
-                ApexEmptyState(
-                    message = stringResource(R.string.study_no_history),
-                    actionLabel = stringResource(R.string.study_log_past_session),
-                    onAction = { manualEntry = ManualSessionSeed(LocalDate.now().minusDays(1), "", 0L) }
-                )
-            } else {
-                // A plain Column, not a LazyColumn: the page scrolls now, and a nested lazy list
-                // inside a scrollable parent has no bounded height to work with.
-                pastDays.forEachIndexed { i, day ->
-                    if (i > 0) ApexDivider()
-                    DayStudyItem(day, onEditSubject = { subject, seconds ->
-                        manualEntry = ManualSessionSeed(day.date, subject, seconds)
-                    })
-                }
-            }
-
-            Spacer(Modifier.height(ApexSpacing.xxl))
         }
+
+        ApexSectionHeader(
+            stringResource(R.string.study_recent_history),
+            trailing = {
+                IconButton(onClick = { onManualEntry(ManualSessionSeed(LocalDate.now().minusDays(1), "", 0L)) }) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = stringResource(R.string.study_log_past_session),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        )
+
+        if (pastDays.isEmpty()) {
+            ApexEmptyState(
+                message = stringResource(R.string.study_no_history),
+                actionLabel = stringResource(R.string.study_log_past_session),
+                onAction = { onManualEntry(ManualSessionSeed(LocalDate.now().minusDays(1), "", 0L)) }
+            )
+        } else {
+            // A plain Column, not a LazyColumn: the page scrolls now, and a nested lazy list
+            // inside a scrollable parent has no bounded height to work with.
+            pastDays.forEachIndexed { i, day ->
+                if (i > 0) ApexDivider()
+                DayStudyItem(day, onEditSubject = { subject, seconds ->
+                    onManualEntry(ManualSessionSeed(day.date, subject, seconds))
+                })
+            }
+        }
+
+        Spacer(Modifier.height(ApexSpacing.xxl))
     }
 }
 
@@ -397,64 +559,116 @@ fun SubjectPickerDialog(
 
 @Composable
 fun StudyTimerDisplay(
-    seconds: Long,
-    isRunning: Boolean,
+    seconds: () -> Long,
     goalFraction: Float = 0f,
     goalLabel: String? = null
 ) {
-    val primaryColor = MaterialTheme.colorScheme.primary
-
-    Box(contentAlignment = Alignment.Center) {
-        // There used to be two counter-rotating decorative rings behind this — a sweep-gradient arc
-        // spinning one way and a faint circle spinning the other, carrying no information whatsoever.
-        // They are the reference example of banned ambient motion in the design law. Deleted.
-        //
-        // What remains is the determinate goal arc, which does carry information: the track plus a
-        // sweep for today's fraction of the daily goal, starting at 12 o'clock and never rotating,
-        // so it reads as progress rather than decoration.
-        if (goalLabel != null) {
-            val trackColor = MaterialTheme.colorScheme.outlineVariant
-            Canvas(modifier = Modifier.size(232.dp)) {
-                val stroke = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
-                drawArc(color = trackColor, startAngle = -90f, sweepAngle = 360f, useCenter = false, style = stroke)
-                if (goalFraction > 0f) {
-                    drawArc(
-                        color = primaryColor,
-                        startAngle = -90f,
-                        sweepAngle = 360f * goalFraction.coerceAtMost(1f),
-                        useCenter = false,
-                        style = stroke
-                    )
-                }
-            }
+    // There used to be two counter-rotating decorative rings behind this — a sweep-gradient arc
+    // spinning one way and a faint circle spinning the other, carrying no information whatsoever.
+    // They are the reference example of banned ambient motion in the design law. Deleted, and they
+    // are not coming back as a flap: the split-flap clock below moves only when a digit changes,
+    // and the gap between fields never blinks.
+    //
+    // The determinate goal arc that replaced them is gone too, for a geometric reason rather than a
+    // design one: a 232dp ring cannot wrap a six-card flip row. The information it carried — today's
+    // fraction of the daily goal — is now the hairline meter below, which reads as progress for the
+    // same reason the arc did (it starts at one end and never loops) and reads better at a wide
+    // aspect ratio.
+    //
+    // No isRunning parameter: this is StudyIdleContent's clock only, always paused. A running
+    // session is StudyFocusContent's own ApexFlipClock(active = true) with no READY/FOCUSING
+    // caption at all — see that composable.
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        FlipClockFitToWidth {
+            ApexFlipClock(seconds = seconds, active = false)
         }
+        Spacer(Modifier.height(ApexSpacing.m))
+        Text(
+            text = stringResource(R.string.study_ready),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        if (goalLabel != null) {
+            Spacer(modifier = Modifier.height(ApexSpacing.l))
+            StudyGoalMeter(fraction = goalFraction, label = goalLabel)
+        }
+    }
+}
 
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            // Geist Mono, tabular. This used to be displayLarge (now Instrument Serif) with
-            // FontWeight.Black and -2sp tracking, which was three violations at once: a proportional
-            // face on a value that changes every second (so the digits shifted as it counted), a
-            // synthetic bold on a face that ships exactly one weight, and a display serif used for a
-            // quantity. Mono figures are fixed-width, so the timer no longer moves while running.
-            Text(
-                text = formatTime(seconds),
-                style = ApexNumerals.hero,
-                color = if (isRunning) primaryColor else MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = if (isRunning) stringResource(R.string.study_focusing) else stringResource(R.string.study_ready),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            if (goalLabel != null) {
-                Spacer(modifier = Modifier.height(ApexSpacing.s))
-                Text(
-                    text = goalLabel,
-                    style = ApexNumerals.small,
-                    color = if (goalFraction >= 1f) LocalApexSemantics.current.positive
-                    else MaterialTheme.colorScheme.onSurfaceVariant
+/**
+ * Today's progress toward the daily study goal: a hairline track with a fill, and the figure under
+ * it. Replaces the circular arc — same information, an aspect ratio that sits under a wide clock.
+ *
+ * Bare Canvas and drawRect, matching StudyWeeklyChart and BudgetTrends — there is no progress
+ * component and no chart library in this app. Deliberately **not** animated: the underlying total
+ * advances every second while the timer runs, so the fill is already a continuous quantity, and an
+ * animateFloatAsState on it would be motion carrying no information beyond the value itself (plus a
+ * recomposition per second in whatever scope owned it). The missing ApexMotion reference here is the
+ * decision, not an oversight.
+ */
+@Composable
+private fun StudyGoalMeter(fraction: Float, label: String, modifier: Modifier = Modifier) {
+    val track = MaterialTheme.colorScheme.outlineVariant
+    val met = LocalApexSemantics.current.positive
+    val ink = MaterialTheme.colorScheme.onSurface
+    val filled = fraction.coerceIn(0f, 1f)
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // xs, not hairline: this screen already carries full-width 1dp ApexDividers, and at 0%
+        // progress a 2dp track sitting directly under the eyebrow is indistinguishable from one of
+        // them. A 4dp bar reads as a meter even when empty.
+        Canvas(Modifier.fillMaxWidth().height(ApexSpacing.xs)) {
+            drawRect(track)
+            if (filled > 0f) {
+                drawRect(
+                    color = if (fraction >= 1f) met else ink,
+                    size = Size(size.width * filled, size.height)
                 )
             }
         }
+        Spacer(Modifier.height(ApexSpacing.s))
+        Text(
+            text = label,
+            style = ApexNumerals.small,
+            color = if (fraction >= 1f) met else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+/**
+ * The one start/pause control, shared by the idle screen and the focus surface so the press
+ * behaviour and geometry exist in one place.
+ *
+ * Not full-width: a 64dp-tall edge-to-edge slab was the loudest thing on the screen, competing with
+ * the timer it is subordinate to.
+ */
+@Composable
+private fun StudyToggleButton(isRunning: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (isPressed) 0.97f else 1f, animationSpec = ApexMotion.snap(), label = "press")
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(52.dp).widthIn(min = 200.dp).scale(scale),
+        interactionSource = interactionSource,
+        shape = RoundedCornerShape(ApexShapes.control),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (isRunning) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primary,
+            contentColor = if (isRunning) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimary
+        )
+    ) {
+        Icon(
+            if (isRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(ApexSpacing.s))
+        Text(
+            text = stringResource(if (isRunning) R.string.study_pause_session else R.string.study_start_studying),
+            style = MaterialTheme.typography.labelLarge
+        )
     }
 }
 
@@ -673,13 +887,9 @@ fun DayStudyItem(day: DayStudy, onEditSubject: (String, Long) -> Unit = { _, _ -
     }
 }
 
-fun formatTime(seconds: Long): String {
-    val h = seconds / 3600
-    val m = (seconds % 3600) / 60
-    val s = seconds % 60
-    return if (h > 0) String.format(Locale.getDefault(), "%02d:%02d:%02d", h, m, s)
-    else String.format(Locale.getDefault(), "%02d:%02d", m, s)
-}
+// formatTime() lived here — the stopwatch's HH:MM:SS / MM:SS string. It had exactly one caller, the
+// timer readout, and the split-flap clock replaced it: flipClockGroups() in ui/design owns the field
+// layout now, and it renders digits rather than a string. Deleted rather than left behind.
 
 /** Seed values for [ManualSessionDialog] — a blank new entry or an existing row being edited. */
 data class ManualSessionSeed(val date: LocalDate, val subject: String, val seconds: Long)

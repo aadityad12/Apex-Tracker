@@ -140,7 +140,6 @@
     <string name="study_this_week">This week</string>
     <string name="study_week_empty">No study time logged this week</string>
     <string name="study_no_history">No history yet</string>
-    <string name="study_focusing">FOCUSING</string>
     <string name="study_ready">READY</string>
     <string name="study_pause_session">Pause</string>
     <string name="study_start_studying">Start studying</string>
@@ -158,6 +157,18 @@
     <string name="study_hours_label">Hours</string>
     <string name="study_minutes_label">Minutes</string>
     <string name="cd_choose_subject">Choose study subject</string>
+    <!-- Spoken form of the study stopwatch. Minute resolution deliberately: a seconds-precise
+         description would change sixty times a minute and is unusable to listen to. -->
+    <string name="cd_study_elapsed">%1$s studied today</string>
+    <string name="duration_joined">%1$s %2$s</string>
+    <plurals name="duration_hours">
+        <item quantity="one">%1$d hour</item>
+        <item quantity="other">%1$d hours</item>
+    </plurals>
+    <plurals name="duration_minutes">
+        <item quantity="one">%1$d minute</item>
+        <item quantity="other">%1$d minutes</item>
+    </plurals>
 
     <!-- Screen time -->
     <string name="screen_time_title">SCREEN TIME</string>

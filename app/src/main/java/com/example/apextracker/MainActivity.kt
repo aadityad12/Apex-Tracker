@@ -70,6 +70,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
+import com.example.apextracker.ui.design.ApexMotion
 import com.example.apextracker.ui.design.ApexTheme
 import com.example.apextracker.ui.design.ApexTrackerTheme
 import com.example.apextracker.ui.design.apexMenuBorder
@@ -270,21 +271,39 @@ fun AppNavigation(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
+    // Set by StudyTrackerView while the stopwatch is running, so focus mode really is a blank
+    // surface. rememberSaveable, not remember: MainActivity declares no configChanges, so a rotation
+    // recreates the Activity — the ViewModel would re-report `true`, but only after the first frame,
+    // which is one frame of the bottom bar flashing back in.
+    var studyFocus by rememberSaveable { mutableStateOf(false) }
+    // The outgoing destination stays composed for the NavHost transition, so without this the bar
+    // would stay hidden for the whole animation away from the study screen.
+    LaunchedEffect(currentRoute) { if (currentRoute != "study_tracker") studyFocus = false }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
+            // The route condition stays a hard `if` — only the focus dimension animates. Wrapping
+            // the route check as well would change the bar's behaviour on every navigation in the
+            // app, which is an unrelated regression to hide inside this change.
             if (currentRoute in PRIMARY_ROUTES) {
-                AppBottomBar(
-                    currentRoute = currentRoute,
-                    onSelectPrimary = { route ->
-                        navController.navigate(route) {
-                            popUpTo("dashboard") { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
-                    onMore = { showMoreSheet = true }
-                )
+                AnimatedVisibility(
+                    visible = !studyFocus,
+                    enter = expandVertically(ApexMotion.enter(), expandFrom = Alignment.Bottom) + fadeIn(ApexMotion.enter()),
+                    exit = shrinkVertically(ApexMotion.exit(), shrinkTowards = Alignment.Bottom) + fadeOut(ApexMotion.exit()),
+                ) {
+                    AppBottomBar(
+                        currentRoute = currentRoute,
+                        onSelectPrimary = { route ->
+                            navController.navigate(route) {
+                                popUpTo("dashboard") { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        },
+                        onMore = { showMoreSheet = true }
+                    )
+                }
             }
         },
         containerColor = MaterialTheme.colorScheme.background
@@ -339,7 +358,13 @@ fun AppNavigation(
             }
         }
         composable("study_tracker") {
-            StudyTrackerView(onBackToMenu = { navController.popBackStack() })
+            StudyTrackerView(
+                onBackToMenu = { navController.popBackStack() },
+                onFocusModeChange = { studyFocus = it }
+            )
+            // Whatever happens inside the screen, the flag clears when the destination leaves
+            // composition — the bar can never be left hidden.
+            DisposableEffect(Unit) { onDispose { studyFocus = false } }
         }
         composable("screen_time") {
             ScreenTimeTrackerView(onBackToMenu = { navController.popBackStack() })
