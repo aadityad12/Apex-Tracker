@@ -70,6 +70,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
+import com.example.apextracker.ui.design.ApexElevation
 import com.example.apextracker.ui.design.ApexMotion
 import com.example.apextracker.ui.design.ApexTheme
 import com.example.apextracker.ui.design.ApexTrackerTheme
@@ -432,6 +433,15 @@ private const val LABEL_DROP_FONT_SCALE = 1.5f
  */
 internal fun labelsFitAtFontScale(fontScale: Float): Boolean = fontScale < LABEL_DROP_FONT_SCALE
 
+// Component sizing for the raised centre button. Deliberately named local constants rather than
+// design tokens: ApexSpacing is a *spacing* scale (gaps and padding) and ApexShapes is radii —
+// neither has a slot meaning "how big is this control", and inventing a sizing vocabulary of one
+// for the app's single raised control would be worse than naming the values where they are used.
+// Promote them to a token object if a second raised control ever appears.
+private val RaisedNavButtonSize = 52.dp  // reads as the bar's focal point; also clears the 48dp target
+private val RaisedNavButtonLift = 10.dp  // how far it breaks the bar's top edge
+private val RaisedNavIconSize = 26.dp    // a touch above NavigationBarItem's 24dp, to match the size bump
+
 /**
  * Study · Screen | **Dashboard** | Budget · More — the home surface sits in the middle as a raised
  * accent button rather than a flat left-most tab (Issue #129). Selection/navigation semantics are
@@ -476,14 +486,22 @@ internal fun AppBottomBar(
                 else MaterialTheme.colorScheme.primaryContainer,
                 contentColor = if (onDashboard) MaterialTheme.colorScheme.onPrimary
                 else MaterialTheme.colorScheme.onPrimaryContainer,
-                shadowElevation = 6.dp,
-                modifier = Modifier.size(52.dp).offset(y = (-10).dp)
+                // Zero in dark, where a shadow renders nothing over the near-black background —
+                // see ApexElevation.
+                shadowElevation = ApexElevation.raised,
+                // Selected, the ink fill separates from the substrate on its own and a ring only
+                // puts a grey rim on it. Unselected, the container tint does not separate, so it
+                // takes the hairline. Both judged on the style plate in both themes.
+                border = if (onDashboard) null else ApexElevation.hairlineRing,
+                modifier = Modifier
+                    .size(RaisedNavButtonSize)
+                    .offset(y = -RaisedNavButtonLift)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         Icons.Default.Dashboard,
                         contentDescription = stringResource(R.string.module_dashboard),
-                        modifier = Modifier.size(26.dp)
+                        modifier = Modifier.size(RaisedNavIconSize)
                     )
                 }
             }

@@ -460,8 +460,36 @@ The banned pattern is specific: **a vertical run of `Card`s each with a small co
 top.** That is the single most recognisable generated-dashboard shape and removing it is why this
 redesign exists. The app currently has 32 `Card(` call sites.
 
-**Drop shadows on dark surfaces are cargo cult** — `shadowElevation` renders nothing over `#131210`.
-The old chart cards were paying for an invisible effect. Use surface-tone layering.
+**Drop shadows on dark surfaces are cargo cult** — `shadowElevation` renders nothing over
+`GraphiteBase` (`#0E0F11`). The old chart cards were paying for an invisible effect. Use
+surface-tone layering.
+
+### Raising a control — `ApexElevation`
+
+That ban is about the *dark* substrate, and reading it as "delete every shadow" is the opposite
+error: on paper (`PaperBase`, `#F3F4F6`) the same shadow reads clearly and does real work under a
+control that is genuinely meant to lift. So a raised control is theme-aware, not shadow-free.
+Verified on the plate, both themes, four variants (§9):
+
+| | dark | light |
+|---|---|---|
+| `raised` (shadow) | **0dp** — a 6dp shadow and no shadow at all are pixel-identical over `GraphiteBase` | **3dp** — visible; 6dp is a diffuse smudge under a 52dp control |
+| `hairlineRing` | on the container tint only | on the container tint only |
+
+The two members key off different things, which is the part worth remembering:
+
+- **The shadow is theme-dependent**, because a shadow is occluded light and the dark substrate has
+  none to occlude.
+- **The ring is *fill*-dependent, in both themes.** A fill that already separates from the
+  substrate — the ink primary — needs no ring; adding one puts a grey rim on it and dulls it in
+  dark *and* light. A fill that does not separate — a container tint — needs the ring, and in dark
+  it is the only thing giving the control an edge at all.
+
+The one use site is the bottom bar's centre Dashboard button. Its 52/26/10dp geometry is
+deliberately **not** tokenised: `ApexSpacing` is a spacing scale and `ApexShapes` is radii, and
+neither has a slot meaning "how big is this control", so the values are named constants beside the
+component with a comment. Promote them if a second raised control appears — one call site does not
+justify a sizing vocabulary.
 
 ---
 
