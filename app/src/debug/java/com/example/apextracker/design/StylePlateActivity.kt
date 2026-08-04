@@ -4,13 +4,17 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,6 +24,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.apextracker.ui.design.*
 import kotlin.math.max
@@ -82,6 +87,7 @@ private fun StylePlate(dark: Boolean, onToggleTheme: () -> Unit) {
         HeatSection()
         ComponentSection()
         ChartSection()
+        RaisedControlSection()
         CardVsNoCardSection()
 
         Spacer(Modifier.height(ApexSpacing.xxl))
@@ -477,6 +483,86 @@ private fun ChartSection() = PlateSection("Chart — no card, hairline baseline,
                 }
             }
         }
+    }
+}
+
+// ── 7b. The raised nav button ──────────────────────────────────────────────────────────
+
+/**
+ * The bottom bar's centre Dashboard button, the app's one genuinely raised control, shown in the
+ * three candidate treatments over the real bar substrate.
+ *
+ * This section exists because the treatment cannot be chosen on paper: Design.md §5 says a shadow
+ * over the near-black background renders nothing, which is easy to assert and easy to get wrong
+ * in the other direction — "then delete it everywhere" would strip a shadow that does real work
+ * on paper. Flip the theme switch at the top and compare the columns.
+ */
+@Composable
+private fun RaisedControlSection() = PlateSection("Raised control — the bottom bar's centre button") {
+    Caption("Shadow · shadow + hairline · hairline only. Flip the theme switch and compare.")
+    Spacer(Modifier.height(ApexSpacing.m))
+
+    listOf(true, false).forEach { selected ->
+        Text(
+            if (selected) "Selected (on dashboard)" else "Unselected",
+            style = MaterialTheme.typography.labelMedium
+        )
+        Spacer(Modifier.height(ApexSpacing.s))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(ApexSpacing.l)
+        ) {
+            RaisedVariant("shadow 6", selected, shadow = 6.dp, ring = false, modifier = Modifier.weight(1f))
+            RaisedVariant("shadow 3 + ring", selected, shadow = 3.dp, ring = true, modifier = Modifier.weight(1f))
+            RaisedVariant("ring only", selected, shadow = 0.dp, ring = true, modifier = Modifier.weight(1f))
+            RaisedVariant("bare", selected, shadow = 0.dp, ring = false, modifier = Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(ApexSpacing.l))
+    }
+}
+
+/** One candidate, drawn over a strip of `background` — the colour the real bar sits on. */
+@Composable
+private fun RaisedVariant(
+    label: String,
+    selected: Boolean,
+    shadow: Dp,
+    ring: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val cs = MaterialTheme.colorScheme
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(64.dp)
+                .background(cs.background),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = if (selected) cs.primary else cs.primaryContainer,
+                contentColor = if (selected) cs.onPrimary else cs.onPrimaryContainer,
+                shadowElevation = shadow,
+                border = if (ring) BorderStroke(1.dp, cs.outline) else null,
+                modifier = Modifier.size(52.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Default.Dashboard,
+                        contentDescription = null,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(ApexSpacing.xs))
+        Text(
+            label,
+            style = MaterialTheme.typography.bodySmall,
+            color = cs.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
