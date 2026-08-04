@@ -12,6 +12,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.apextracker.ui.design.ApexChartFrame
@@ -115,11 +117,18 @@ fun BudgetTrendsCard(items: List<BudgetItem>, selectedMonth: YearMonth, onMonthS
                     totals.forEach { (month, amount) ->
                         val heightFraction = (amount / maxTotal).toFloat()
                         val isCurrentMonth = month == today
+                        val monthName = month.month.getDisplayName(TextStyle.FULL, locale)
+                        val barLabel = stringResource(
+                            R.string.budget_trends_bar_cd,
+                            monthName,
+                            formatCurrency(amount, currencyCode)
+                        )
                         Box(
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxHeight()
-                                .clickable { onMonthSelected(month) },
+                                .semantics { contentDescription = barLabel }
+                                .clickable(onClickLabel = barLabel) { onMonthSelected(month) },
                             contentAlignment = Alignment.BottomCenter
                         ) {
                             Canvas(
