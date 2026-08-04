@@ -1,6 +1,5 @@
 package com.example.apextracker
 
-import android.app.DatePickerDialog
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
@@ -17,12 +16,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.example.apextracker.ui.design.ApexDatePickerDialog
 import com.example.apextracker.ui.design.ApexDivider
 import com.example.apextracker.ui.design.ApexMotion
 import com.example.apextracker.ui.design.ApexNumerals
@@ -179,11 +178,7 @@ fun BudgetItemDialog(
     var date by remember { mutableStateOf(initialDate) }
     var selectedCategory by remember { mutableStateOf(categories.find { it.id == initialCategoryId }) }
     var expanded by remember { mutableStateOf(false) }
-
-    val context = LocalContext.current
-    val datePickerDialog = remember {
-        DatePickerDialog(context, { _, y, m, d -> date = LocalDate.of(y, m + 1, d) }, date.year, date.monthValue - 1, date.dayOfMonth)
-    }
+    var showDatePicker by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -204,7 +199,7 @@ fun BudgetItemDialog(
                 CategoryDropdown(categories, selectedCategory, expanded, onExpandedChange = { expanded = it }, onCategorySelected = { selectedCategory = it; expanded = false })
                 OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text(stringResource(R.string.label_description_optional)) }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium)
                 Button(
-                    onClick = { datePickerDialog.show() }, 
+                    onClick = { showDatePicker = true },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.filledTonalButtonColors(),
                     shape = MaterialTheme.shapes.medium
@@ -228,6 +223,14 @@ fun BudgetItemDialog(
         },
         shape = MaterialTheme.shapes.extraLarge
     )
+
+    if (showDatePicker) {
+        ApexDatePickerDialog(
+            initialDate = date,
+            onDismiss = { showDatePicker = false },
+            onConfirm = { date = it }
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

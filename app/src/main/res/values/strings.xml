@@ -13,6 +13,7 @@
     <string name="action_create">Create</string>
     <string name="action_set">Set</string>
     <string name="action_change">Change</string>
+    <string name="picker_select_time">Select time</string>
     <string name="deleted_quoted">Deleted \"%1$s\"</string>
     <string name="sign_in_failed">Sign-in failed: %1$s</string>
     <string name="sign_in_failed_unexpected_credential">Sign-in failed: unexpected credential type (%1$s)</string>
