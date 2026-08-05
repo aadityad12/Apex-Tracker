@@ -4,6 +4,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import com.example.apextracker.widget.refreshBudgetWidget
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -276,6 +277,7 @@ private fun BackupRestoreControls() {
                             status = invalidMsg
                         } else {
                             restoreBackup(db, data)
+                            refreshBudgetWidget(context)
                             status = restoreDoneMsg
                         }
                     }

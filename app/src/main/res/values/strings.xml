@@ -391,6 +391,13 @@
     <string name="widget_goals_title">TODAY\'S GOALS</string>
     <string name="widget_goals_empty">No goals yet</string>
     <string name="widget_goals_desc">Today\'s goals checklist</string>
+    <string name="widget_budget_title">%1$s BUDGET</string>
+    <string name="widget_budget_spent_this_month">spent this month</string>
+    <string name="widget_budget_no_limit">Set a limit in Budget</string>
+    <string name="widget_budget_of_limit">of %1$s</string>
+    <string name="widget_budget_remaining">%1$s left</string>
+    <string name="widget_budget_over">%1$s over</string>
+    <string name="widget_budget_desc">Monthly spending versus budget</string>
     <string name="cd_dashboard_day">%1$s: %2$s</string>
     <string name="cd_dashboard_day_today">Today, %1$s</string>
     <string name="cd_dashboard_day_untracked">no goals tracked</string>
