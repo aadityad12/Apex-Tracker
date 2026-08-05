@@ -12,6 +12,8 @@
    - device_identity holds the per-install UUID that keys this device's screen-time docs
      at users/{uid}/devices/{deviceId}. Restoring it onto a second device would make both
      devices write to the same doc and clobber each other's screen time.
+   - daily_apex_tip is a local cache of AI-generated text based on personal tracker totals.
+     It is deliberately device-local and a dated response would be stale after restore.
 -->
 <data-extraction-rules>
     <cloud-backup>
@@ -19,6 +21,7 @@
         <exclude domain="database" path="budget_database-wal" />
         <exclude domain="database" path="budget_database-shm" />
         <exclude domain="sharedpref" path="device_identity.xml" />
+        <exclude domain="file" path="datastore/daily_apex_tip.preferences_pb" />
     </cloud-backup>
     <!-- Declared explicitly: an absent <device-transfer> silently falls back to the
          <cloud-backup> rules above, which is right today, but that coupling is not
@@ -28,5 +31,6 @@
         <exclude domain="database" path="budget_database-wal" />
         <exclude domain="database" path="budget_database-shm" />
         <exclude domain="sharedpref" path="device_identity.xml" />
+        <exclude domain="file" path="datastore/daily_apex_tip.preferences_pb" />
     </device-transfer>
 </data-extraction-rules>

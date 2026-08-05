@@ -11,4 +11,5 @@
     <exclude domain="database" path="budget_database-wal" />
     <exclude domain="database" path="budget_database-shm" />
     <exclude domain="sharedpref" path="device_identity.xml" />
+    <exclude domain="file" path="datastore/daily_apex_tip.preferences_pb" />
 </full-backup-content>

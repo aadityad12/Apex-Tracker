@@ -387,7 +387,23 @@ clock") digit display, and added a focus mode.
 - Budget: "Extract from receipt" (OCR/receipt-parsing) — not started.
 - Study Timer: "Always on display" support — not started; the 2026-08-01 flip clock's focus mode
   covers keep-screen-on but not true ambient/AOD rendering — see issue #171.
-- Ideas floated for later: home screen widgets (Glance — issues #44, #130–#132), animated ring-chart visualizations (Canvas-based, like `ApexLogo`), Gemini API "Daily Apex Tip" insights. (Biometric lock shipped 2026-07-20 — see the Issue #45 section above.)
+- Ideas floated for later: home screen widgets (Glance — issue #44; the focused widgets in
+  #130/#131/#167 have shipped) and animated ring-chart visualizations (Canvas-based, like
+  `ApexLogo`). (Biometric lock shipped 2026-07-20; Daily Apex Tip shipped 2026-08-05.)
+
+## 2026-08-05 Daily Apex Tip (Issue #168)
+
+- `ApexTipViewModel` exposes an opt-in card on Dashboard. Before enabling, the card states exactly
+  which anonymous daily aggregates leave the device; names, notes, transaction details and app
+  names are never put in the prompt.
+- `ApexTipSettings` stores consent, the last attempt date and one locally cached response. Automatic
+  generation is capped at one attempt per local day; a failed request requires an explicit Retry.
+  The DataStore file is excluded from Android backup because the response is personal and dated.
+- `FirebaseApexTipGenerator` uses Firebase AI Logic with stable `gemini-3.5-flash-lite`; debug builds
+  use App Check's debug provider and release builds use Play Integrity. The Firebase project must
+  have AI Logic enabled and the local debug token allowlisted before a debug request can succeed.
+- Prompt construction, output bounding and daily-request decisions are pure logic covered by
+  `ApexTipTest`. Firebase remains behind the small generator boundary; Room is not involved.
 
 ## 2026-07-29 Redesign foundation (branch `redesign/foundation`, not yet merged)
 
