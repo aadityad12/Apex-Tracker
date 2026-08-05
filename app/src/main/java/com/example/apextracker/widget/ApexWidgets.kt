@@ -5,15 +5,27 @@ import android.util.Log
 import androidx.glance.appwidget.updateAll
 
 /**
- * Pushes fresh data to every ApexTracker home-screen widget (Issues #130/#131). Call after a
- * goal or completion change so the widgets don't wait for Android's slow periodic refresh.
- * Fire-and-forget: failures (e.g. no widget placed) are logged, never thrown.
+ * Pushes fresh goal data to the streak and goals widgets (Issues #130/#131). Kept separate from
+ * [refreshBudgetWidget]: Glance schedules asynchronous sessions per provider, and firing unrelated
+ * providers together can coalesce away the update that actually has changed data.
  */
 suspend fun refreshApexWidgets(context: Context) {
+    suspend fun refresh(name: String, update: suspend () -> Unit) {
+        try {
+            update()
+        } catch (e: Exception) {
+            Log.w("ApexWidgets", "$name widget refresh failed", e)
+        }
+    }
+    refresh("streak") { StreakWidget().updateAll(context) }
+    refresh("goals") { GoalsWidget().updateAll(context) }
+}
+
+/** Immediately refreshes the Budget provider after its Room/DataStore source changes (#167). */
+suspend fun refreshBudgetWidget(context: Context) {
     try {
-        StreakWidget().updateAll(context)
-        GoalsWidget().updateAll(context)
+        BudgetWidget().updateAll(context)
     } catch (e: Exception) {
-        Log.w("ApexWidgets", "Widget refresh failed", e)
+        Log.w("ApexWidgets", "budget widget refresh failed", e)
     }
 }

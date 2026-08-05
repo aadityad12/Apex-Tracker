@@ -228,6 +228,14 @@ New home surface: a GitHub-contribution-style heatmap scoring each day by the fr
 - **Nav** — Phase 4 made the Dashboard the home behind the bottom nav bar and retired `MainMenu` (see Navigation above).
 - **Sync** — see Cloud Sync above. **On-device round-trip is signed-in-only and was not automatable** (Google sign-in needs real user interaction, which the safety rules bar the agent from completing); build/unit-tests/lint pass and the signed-out path is a verified no-op. A signed-in two-session round-trip (create a goal → confirm `users/{uid}/goals` in the Firestore console → reinstall+sign-in pulls it back) is the one check owed before fully closing this out. Note the `firestore-api-disabled` memory: if goal pushes log `PERMISSION_DENIED`, Firestore isn't enabled/deployed for the project.
 - **Known behavior**: the perfect-day streak reads "No streak yet" each morning until today's goals are ticked (streak counts today inclusive) — deliberate, trivially changed. A primary bottom-bar destination (e.g. Budget) still shows its own top-bar back arrow alongside the bar — minor redundancy, left to avoid touching each module's Scaffold.
+- **Home-screen widgets** — `widget/` contains Glance widgets for the perfect-day streak (#130),
+  today's goal list (#131), and monthly spending versus the overall Budget limit (#167). All read
+  one-shot snapshots from Room/DataStore. Goal changes call `refreshApexWidgets()`; Budget changes,
+  cloud pulls, currency changes, and backup restores call the provider-specific
+  `refreshBudgetWidget()` so unrelated Glance sessions cannot coalesce its update. Android's 30-minute
+  provider cadence is only a backstop. Widget taps open the relevant app route through the validated
+  `navigate_to` intent extra. Glance cannot consume the Compose theme, so its Graphite-dark palette
+  is a hand-kept mirror of `ApexPalette.kt`.
 
 ## 2026-07-08 Follow-up (PR #2)
 

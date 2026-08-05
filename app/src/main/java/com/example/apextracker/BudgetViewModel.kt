@@ -3,6 +3,7 @@ package com.example.apextracker
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.apextracker.widget.refreshBudgetWidget
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -41,7 +42,10 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
     val overallMonthlyLimit: Flow<Double?> = budgetPrefs.overallMonthlyLimit
 
     fun setOverallMonthlyLimit(limit: Double?) {
-        viewModelScope.launch { budgetPrefs.setOverallMonthlyLimit(limit) }
+        viewModelScope.launch {
+            budgetPrefs.setOverallMonthlyLimit(limit)
+            refreshBudgetWidget(getApplication())
+        }
     }
 
     val allCategories: Flow<List<Category>> = categoryDao.getAllCategories()
@@ -63,6 +67,7 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
             subscriptionCatchUpMutex.withLock {
                 val subscriptions = subscriptionDao.getAllSubscriptionsSync()
                 val today = LocalDate.now()
+                var insertedBudgetItem = false
 
                 subscriptions.forEach { subscription ->
                     // Paused subscriptions generate nothing and don't advance (Issue #79).
@@ -84,6 +89,7 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
                             modifiedAt = System.currentTimeMillis()
                         )
                         budgetDao.insertItem(item)
+                        insertedBudgetItem = true
                         safeCloudCall(TAG, "push subscription budget item") {
                             firebaseManager.pushBudgetItem(item, null)
                         }
@@ -109,6 +115,7 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
                         }
                     }
                 }
+                if (insertedBudgetItem) refreshBudgetWidget(getApplication())
             }
         }
     }
@@ -125,6 +132,7 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
                 modifiedAt = System.currentTimeMillis()
             )
             budgetDao.insertItem(item)
+            refreshBudgetWidget(getApplication())
             safeCloudCall(TAG, "push budget item") {
                 firebaseManager.pushBudgetItem(item, categoryCloudIdFor(item.categoryId))
             }
@@ -138,6 +146,7 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
                 modifiedAt = System.currentTimeMillis()
             )
             budgetDao.updateItem(updated)
+            refreshBudgetWidget(getApplication())
             safeCloudCall(TAG, "update budget item") {
                 firebaseManager.pushBudgetItem(updated, categoryCloudIdFor(updated.categoryId))
             }
@@ -147,6 +156,7 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
     fun deleteItem(item: BudgetItem) {
         viewModelScope.launch {
             budgetDao.deleteItem(item)
+            refreshBudgetWidget(getApplication())
             safeCloudCall(TAG, "delete budget item") {
                 firebaseManager.deleteBudgetItem(item.cloudId)
             }
@@ -159,6 +169,7 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
     fun restoreItem(item: BudgetItem) {
         viewModelScope.launch {
             budgetDao.insertItem(item)
+            refreshBudgetWidget(getApplication())
             safeCloudCall(TAG, "restore budget item") {
                 firebaseManager.pushBudgetItem(item, categoryCloudIdFor(item.categoryId))
             }

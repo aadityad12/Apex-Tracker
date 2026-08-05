@@ -75,6 +75,7 @@ import com.example.apextracker.ui.design.ApexMotion
 import com.example.apextracker.ui.design.ApexTheme
 import com.example.apextracker.ui.design.ApexTrackerTheme
 import com.example.apextracker.ui.design.apexMenuBorder
+import com.example.apextracker.widget.refreshBudgetWidget
 import kotlinx.coroutines.launch
 
 // FragmentActivity (not ComponentActivity) because androidx.biometric's BiometricPrompt requires
@@ -196,6 +197,7 @@ class MainActivity : FragmentActivity() {
                             // for DataStore, so this can't ping-pong with the push effect above.
                             parseCurrencySafe(it["currency"] as? String)?.let { currency ->
                                 currencySettings.setCurrencyCode(currency.currencyCode)
+                                refreshBudgetWidget(applicationContext)
                             }
                         }
                     }
@@ -208,7 +210,12 @@ class MainActivity : FragmentActivity() {
                         isDarkMode = isDarkMode,
                         onDarkModeChange = { isDarkMode = it },
                         currencyCode = storedCurrency ?: defaultCurrencyCode(),
-                        onCurrencyChange = { scope.launch { currencySettings.setCurrencyCode(it) } },
+                        onCurrencyChange = {
+                            scope.launch {
+                                currencySettings.setCurrencyCode(it)
+                                refreshBudgetWidget(applicationContext)
+                            }
+                        },
                         requestedRoute = pendingRoute,
                         onRequestedRouteConsumed = { pendingRoute = null }
                     )

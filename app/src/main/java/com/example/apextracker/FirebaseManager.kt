@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Build
 import android.provider.Settings
 import android.util.Log
+import com.example.apextracker.widget.refreshBudgetWidget
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.DocumentChange
@@ -808,6 +809,7 @@ class FirebaseManager(private val context: Context) {
         syncStep("excluded apps") { syncExcludedApps(db) }
         syncStep("goals") { syncGoals(db) }
         syncStep("goal completions") { syncGoalCompletions(db) }
+        refreshBudgetWidget(context)
     }
 
     private suspend fun syncStep(name: String, block: suspend () -> Unit) {
@@ -939,6 +941,7 @@ class FirebaseManager(private val context: Context) {
                     DocumentChange.Type.REMOVED -> removeBudgetItemByCloudId(db, docId)
                 }
             }
+            refreshBudgetWidget(context)
         }
     }
 
