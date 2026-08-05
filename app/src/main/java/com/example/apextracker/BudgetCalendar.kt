@@ -38,7 +38,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLocale
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.res.stringResource
@@ -117,9 +120,21 @@ fun BudgetMonthSelector(currentMonth: YearMonth, onMonthChange: (YearMonth) -> U
 @Composable
 fun WeekdayHeaders(firstDayOfWeek: DayOfWeek = DayOfWeek.SUNDAY) {
     val locale = LocalLocale.current.platformLocale
+    val useNarrowLabels = LocalDensity.current.fontScale >= 1.5f
     Row(modifier = Modifier.fillMaxWidth()) {
         (0..6).map { firstDayOfWeek.plus(it.toLong()) }.forEach { day ->
-            Text(text = day.getDisplayName(TextStyle.SHORT, locale), modifier = Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+            Text(
+                text = day.getDisplayName(if (useNarrowLabels) TextStyle.NARROW else TextStyle.SHORT, locale),
+                modifier = Modifier
+                    .weight(1f)
+                    .clearAndSetSemantics {
+                        contentDescription = day.getDisplayName(TextStyle.FULL, locale)
+                    },
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
+            )
         }
     }
 }
