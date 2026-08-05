@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.example.apextracker.ui.design.ApexDatePickerDialog
 import com.example.apextracker.ui.design.ApexSpacing
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -507,11 +508,7 @@ fun SubscriptionDialog(
     var amount by remember { mutableStateOf(initialAmount) }
     var date by remember { mutableStateOf(initialDate) }
     var notes by remember { mutableStateOf(initialNotes) }
-
-    val context = LocalContext.current
-    val datePickerDialog = remember {
-        android.app.DatePickerDialog(context, { _, y, m, d -> date = LocalDate.of(y, m + 1, d) }, date.year, date.monthValue - 1, date.dayOfMonth)
-    }
+    var showDatePicker by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -529,7 +526,7 @@ fun SubscriptionDialog(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text(stringResource(R.string.label_name)) }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = amount, onValueChange = { if (it.isEmpty() || it.matches(Regex("^\\d*\\.?\\d{0,2}$"))) amount = it }, label = { Text(stringResource(R.string.label_amount)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
-                TextButton(onClick = { datePickerDialog.show() }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.budget_next_renewal, date.format(DateTimeFormatter.ISO_LOCAL_DATE))) }
+                TextButton(onClick = { showDatePicker = true }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.budget_next_renewal, date.format(DateTimeFormatter.ISO_LOCAL_DATE))) }
                 OutlinedTextField(value = notes, onValueChange = { notes = it }, label = { Text(stringResource(R.string.label_notes_optional)) }, modifier = Modifier.fillMaxWidth())
             }
         },
@@ -540,6 +537,14 @@ fun SubscriptionDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } }
     )
+
+    if (showDatePicker) {
+        ApexDatePickerDialog(
+            initialDate = date,
+            onDismiss = { showDatePicker = false },
+            onConfirm = { date = it }
+        )
+    }
 }
 
 /**

@@ -30,8 +30,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.platform.LocalContext
-import android.app.DatePickerDialog
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -66,6 +64,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.apextracker.ui.design.ApexChartFrame
+import com.example.apextracker.ui.design.ApexDatePickerDialog
 import com.example.apextracker.ui.design.ApexDivider
 import com.example.apextracker.ui.design.ApexEmptyState
 import com.example.apextracker.ui.design.ApexFlipClock
@@ -77,6 +76,7 @@ import com.example.apextracker.ui.design.ApexShapes
 import com.example.apextracker.ui.design.ApexSpacing
 import com.example.apextracker.ui.design.LocalApexSemantics
 import java.time.LocalDate
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -908,11 +908,18 @@ fun ManualSessionDialog(
     onDismiss: () -> Unit,
     onSave: (LocalDate, String, Long) -> Unit
 ) {
-    val context = LocalContext.current
     var date by remember { mutableStateOf(seed.date) }
     var subject by remember { mutableStateOf(seed.subject) }
     var hours by remember { mutableStateOf((seed.seconds / 3600).toString()) }
     var minutes by remember { mutableStateOf(((seed.seconds % 3600) / 60).toString()) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    // Today and later belong to the timer, so manual entries only go back to yesterday.
+    val latestSelectableMillis = remember { LocalDate.now().minusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli() }
+    val selectableDates = remember(latestSelectableMillis) {
+        object : SelectableDates {
+            override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis <= latestSelectableMillis
+        }
+    }
 
     val parsedSeconds = parseManualDurationSeconds(hours, minutes)
     val options = remember(knownSubjects, seed.subject) {
@@ -925,20 +932,7 @@ fun ManualSessionDialog(
         text = {
             Column {
                 OutlinedButton(
-                    onClick = {
-                        DatePickerDialog(
-                            context,
-                            { _, year, month, dayOfMonth ->
-                                val picked = LocalDate.of(year, month + 1, dayOfMonth)
-                                // Today and later belong to the timer, so clamp to yesterday.
-                                date = if (picked.isBefore(LocalDate.now())) picked else LocalDate.now().minusDays(1)
-                            },
-                            date.year, date.monthValue - 1, date.dayOfMonth
-                        ).also { dialog ->
-                            dialog.datePicker.maxDate = System.currentTimeMillis() - 86_400_000L
-                            dialog.show()
-                        }
-                    },
+                    onClick = { showDatePicker = true },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(date.format(DateTimeFormatter.ofPattern("EEE, MMM d, yyyy")))
@@ -996,4 +990,13 @@ fun ManualSessionDialog(
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
         }
     )
+
+    if (showDatePicker) {
+        ApexDatePickerDialog(
+            initialDate = date,
+            onDismiss = { showDatePicker = false },
+            onConfirm = { date = it },
+            selectableDates = selectableDates
+        )
+    }
 }

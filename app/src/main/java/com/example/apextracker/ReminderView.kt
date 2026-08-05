@@ -1,7 +1,5 @@
 package com.example.apextracker
 
-import android.app.DatePickerDialog
-import android.app.TimePickerDialog
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -40,12 +38,14 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.filled.WarningAmber
+import com.example.apextracker.ui.design.ApexDatePickerDialog
 import com.example.apextracker.ui.design.ApexDivider
 import com.example.apextracker.ui.design.ApexEmptyState
 import com.example.apextracker.ui.design.ApexNumerals
 import com.example.apextracker.ui.design.ApexSectionHeader
 import com.example.apextracker.ui.design.ApexShapes
 import com.example.apextracker.ui.design.ApexSpacing
+import com.example.apextracker.ui.design.ApexTimePickerDialog
 import com.example.apextracker.ui.design.LocalApexSemantics
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -443,10 +443,10 @@ fun ReminderEditDialog(
     var date by remember { mutableStateOf(initialDate) }
     var time by remember { mutableStateOf(initialTime) }
     var recurrence by remember { mutableStateOf(initialRecurrence) }
-    
+
     var showRecurrencePicker by remember { mutableStateOf(false) }
-    
-    val context = LocalContext.current
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -468,23 +468,14 @@ fun ReminderEditDialog(
                 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
-                        onClick = {
-                            DatePickerDialog(context, { _, year, month, day ->
-                                date = LocalDate.of(year, month + 1, day)
-                            }, date.year, date.monthValue - 1, date.dayOfMonth).show()
-                        },
+                        onClick = { showDatePicker = true },
                         modifier = Modifier.weight(1f)
                     ) {
                         Text(date.format(DateTimeFormatter.ofPattern("MMM dd, yyyy")))
                     }
-                    
+
                     Button(
-                        onClick = {
-                            val t = time ?: LocalTime.now()
-                            TimePickerDialog(context, { _, hour, minute ->
-                                time = LocalTime.of(hour, minute)
-                            }, t.hour, t.minute, true).show()
-                        },
+                        onClick = { showTimePicker = true },
                         modifier = Modifier.weight(1f)
                     ) {
                         Text(time?.format(DateTimeFormatter.ofPattern("HH:mm")) ?: stringResource(R.string.reminders_all_day))
@@ -561,6 +552,22 @@ fun ReminderEditDialog(
             }
         )
     }
+
+    if (showDatePicker) {
+        ApexDatePickerDialog(
+            initialDate = date,
+            onDismiss = { showDatePicker = false },
+            onConfirm = { date = it }
+        )
+    }
+
+    if (showTimePicker) {
+        ApexTimePickerDialog(
+            initialTime = time ?: LocalTime.now(),
+            onDismiss = { showTimePicker = false },
+            onConfirm = { time = it }
+        )
+    }
 }
 
 @Composable
@@ -573,7 +580,7 @@ fun ReminderSettingsDialog(
     onSetAllDayTime: (LocalTime) -> Unit,
     onSetOffset: (Int) -> Unit
 ) {
-    val context = LocalContext.current
+    var showTimePicker by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -588,11 +595,7 @@ fun ReminderSettingsDialog(
                 Column {
                     Text(stringResource(R.string.reminders_all_day_time), style = MaterialTheme.typography.labelMedium)
                     Button(
-                        onClick = {
-                            TimePickerDialog(context, { _, hour, minute ->
-                                onSetAllDayTime(LocalTime.of(hour, minute))
-                            }, allDayTime.hour, allDayTime.minute, true).show()
-                        },
+                        onClick = { showTimePicker = true },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(allDayTime.format(DateTimeFormatter.ofPattern("HH:mm")))
@@ -617,6 +620,14 @@ fun ReminderSettingsDialog(
             }
         }
     )
+
+    if (showTimePicker) {
+        ApexTimePickerDialog(
+            initialTime = allDayTime,
+            onDismiss = { showTimePicker = false },
+            onConfirm = onSetAllDayTime
+        )
+    }
 }
 
 /**

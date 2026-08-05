@@ -202,8 +202,18 @@ class ScreenTimeViewModel(application: Application) : AndroidViewModel(applicati
             resolveInfo?.activityInfo?.packageName
         } catch (e: Exception) { null }
 
+        // Restrict to the same package set the itemized "Today's Apps" list is built from
+        // (installedApps, filtered in loadInstalledApps() to !isSystemApp || hasLauncher) so the
+        // headline total can never outrun what the list can show — a launcher-less system package
+        // (a background service, IME, permission controller, ...) used to count toward the total
+        // while being unrepresentable in the list (Issue #159). Empty means installedApps hasn't
+        // loaded yet (a brief window at cold start); fall back to the old unrestricted filter
+        // rather than reporting a false zero for that one tick.
+        val trackablePackages = _installedApps.value.map { it.packageName }.toSet()
+
         val totalFilteredTime = usageMap.filter { (pkg, _) ->
-            pkg !in excludedPackageNames && 
+            (trackablePackages.isEmpty() || pkg in trackablePackages) &&
+            pkg !in excludedPackageNames &&
             pkg != myPackageName &&
             pkg != launcherPackage &&
             pkg != "com.android.systemui"

@@ -49,6 +49,7 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
+import java.time.temporal.WeekFields
 
 @Composable
 fun BudgetCalendarView(
@@ -60,15 +61,20 @@ fun BudgetCalendarView(
     var selectedDayItems by remember { mutableStateOf<List<BudgetItem>?>(null) }
     var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
 
+    // The grid's column order follows the locale's real first day of week (Issue #160) instead of
+    // hardcoding Sunday=0 — most of Europe and elsewhere is Monday-first.
+    val locale = LocalLocale.current.platformLocale
+    val firstDayOfWeek = remember(locale) { WeekFields.of(locale).firstDayOfWeek }
+
     val daysInMonth = currentMonth.lengthOfMonth()
-    val firstDayOfMonth = currentMonth.atDay(1).dayOfWeek.value % 7
+    val firstDayOfMonth = (currentMonth.atDay(1).dayOfWeek.value - firstDayOfWeek.value + 7) % 7
     val days = (1..daysInMonth).toList()
     val paddingDays = (0 until firstDayOfMonth).toList()
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         BudgetMonthSelector(currentMonth = currentMonth, onMonthChange = onMonthChange)
         Spacer(modifier = Modifier.height(16.dp))
-        WeekdayHeaders()
+        WeekdayHeaders(firstDayOfWeek)
         Spacer(modifier = Modifier.height(8.dp))
         CalendarGrid(days, paddingDays, currentMonth, items, onDayClick = { date, dayItems ->
             selectedDate = date
@@ -105,11 +111,10 @@ fun BudgetMonthSelector(currentMonth: YearMonth, onMonthChange: (YearMonth) -> U
 }
 
 @Composable
-fun WeekdayHeaders() {
+fun WeekdayHeaders(firstDayOfWeek: DayOfWeek = DayOfWeek.SUNDAY) {
     val locale = LocalLocale.current.platformLocale
     Row(modifier = Modifier.fillMaxWidth()) {
-        val firstDay = DayOfWeek.SUNDAY
-        (0..6).map { firstDay.plus(it.toLong()) }.forEach { day ->
+        (0..6).map { firstDayOfWeek.plus(it.toLong()) }.forEach { day ->
             Text(text = day.getDisplayName(TextStyle.SHORT, locale), modifier = Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
         }
     }

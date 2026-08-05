@@ -41,10 +41,10 @@ import com.example.apextracker.ui.design.ApexShapes
 import com.example.apextracker.ui.design.ApexSpacing
 import com.example.apextracker.ui.design.LocalApexSemantics
 import androidx.lifecycle.viewmodel.compose.viewModel
-import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
+import java.time.temporal.WeekFields
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -321,17 +321,21 @@ private fun HeatmapSection(
     modifier: Modifier = Modifier
 ) {
     val today = state.today
-    val (rangeStart, rangeEnd) = remember(window, today) { heatmapRange(window, today) }
-    val weeks = remember(state, rangeStart, rangeEnd) {
-        heatmapWeeks(rangeStart, rangeEnd) { date -> state.dayCell(date) }
+    val locale = LocalLocale.current.platformLocale
+    // The grid's week rows anchor on the locale's real first day of week (Issue #160) — most of
+    // Europe and elsewhere is Monday-first, and a Sunday-first grid for those locales doesn't
+    // match how the reader's own calendar is laid out.
+    val firstDayOfWeek = remember(locale) { WeekFields.of(locale).firstDayOfWeek }
+    val (rangeStart, rangeEnd) = remember(window, today, firstDayOfWeek) { heatmapRange(window, today, firstDayOfWeek) }
+    val weeks = remember(state, rangeStart, rangeEnd, firstDayOfWeek) {
+        heatmapWeeks(rangeStart, rangeEnd, firstDayOfWeek) { date -> state.dayCell(date) }
     }
     val years = remember(state.earliestGoalStart, today) { heatmapYears(state.earliestGoalStart, today) }
 
-    // Sunday-first to match the rows heatmapWeeks builds, but the letters come from the locale
-    // rather than a hardcoded English list (Issue #120).
-    val locale = LocalLocale.current.platformLocale
-    val weekdayLetters = remember(locale) {
-        (0L..6L).map { DayOfWeek.SUNDAY.plus(it).getDisplayName(TextStyle.NARROW, locale) }
+    // Letters follow the same locale-derived first day as the rows above; the letters themselves
+    // still come from the locale rather than a hardcoded English list (Issue #120).
+    val weekdayLetters = remember(locale, firstDayOfWeek) {
+        (0L..6L).map { firstDayOfWeek.plus(it).getDisplayName(TextStyle.NARROW, locale) }
     }
 
     // A year is ~365 cells. Resolving string resources per cell (and giving each its own ripple)

@@ -13,6 +13,7 @@
     <string name="action_create">Create</string>
     <string name="action_set">Set</string>
     <string name="action_change">Change</string>
+    <string name="picker_select_time">Select time</string>
     <string name="deleted_quoted">Deleted \"%1$s\"</string>
     <string name="sign_in_failed">Sign-in failed: %1$s</string>
     <string name="sign_in_failed_unexpected_credential">Sign-in failed: unexpected credential type (%1$s)</string>
@@ -70,6 +71,7 @@
     <string name="budget_transactions">Transactions</string>
     <string name="budget_trends_title">Spending trends</string>
     <string name="budget_trends_empty">No spending data yet</string>
+    <string name="budget_trends_bar_cd">%1$s: %2$s</string>
     <string name="budget_no_data">Nothing recorded this month — add an expense to start tracking</string>
     <string name="budget_add_item_title">Add Budget Item</string>
     <string name="budget_edit_item_title">Edit Budget Item</string>
@@ -374,8 +376,10 @@
     <string name="goal_rule_spend_under">Spend under %1$s</string>
     <string name="goal_rule_spend_over">Spend over %1$s</string>
     <string name="goal_rule_subject_suffix"> · %1$s</string>
-    <string name="widget_streak_day">day perfect streak</string>
-    <string name="widget_streak_days">day perfect streak</string>
+    <plurals name="widget_streak_days">
+        <item quantity="one">day perfect streak</item>
+        <item quantity="other">days perfect streak</item>
+    </plurals>
     <string name="widget_streak_desc">Perfect-day goal streak</string>
     <string name="widget_goals_title">TODAY\'S GOALS</string>
     <string name="widget_goals_empty">No goals yet</string>
