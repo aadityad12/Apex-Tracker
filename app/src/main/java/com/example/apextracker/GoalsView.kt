@@ -1,6 +1,8 @@
 package com.example.apextracker
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,6 +28,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import com.example.apextracker.ui.design.ApexDivider
 import com.example.apextracker.ui.design.ApexEmptyState
 import com.example.apextracker.ui.design.ApexSectionHeader
+import com.example.apextracker.ui.design.ApexShapes
 import com.example.apextracker.ui.design.ApexSpacing
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -105,11 +108,11 @@ fun GoalsView(
         GoalEditDialog(
             existing = existing,
             onDismiss = { editorTarget = null },
-            onSave = { name, type, metric, comparator, threshold, subject ->
+            onSave = { name, type, cadence, metric, comparator, threshold, subject ->
                 if (existing == null) {
-                    viewModel.addGoal(name, type, metric, comparator, threshold, subject)
+                    viewModel.addGoal(name, type, cadence, metric, comparator, threshold, subject)
                 } else {
-                    viewModel.updateGoal(existing, name, type, metric, comparator, threshold, subject)
+                    viewModel.updateGoal(existing, name, type, cadence, metric, comparator, threshold, subject)
                 }
                 editorTarget = null
             }
@@ -152,9 +155,7 @@ private fun ArchivedGoalRow(goal: Goal, onUnarchive: () -> Unit, onDelete: () ->
         Column(Modifier.weight(1f)) {
             Text(goal.name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             val rule = goalRuleText(goal)
-            if (rule.isNotEmpty()) {
-                Text(rule, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+            Text(rule, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         IconButton(onClick = onUnarchive) {
             Icon(Icons.Default.Unarchive, contentDescription = stringResource(R.string.goal_unarchive), tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -171,22 +172,27 @@ private fun GoalLabel(goal: Goal, modifier: Modifier) {
         Text(goal.name, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
         val rule = goalRuleText(goal)
         Text(
-            text = rule.ifEmpty { stringResource(R.string.goal_type_manual) },
+            text = rule,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
 
-/** Human-readable rule for an AUTO goal (empty for MANUAL). Shared by the dashboard and this screen. */
+/** Human-readable cadence/rule summary shared by the Dashboard and goal-management screen. */
 @Composable
 internal fun goalRuleText(goal: Goal): String {
-    if (goal.type != GoalType.AUTO) return ""
+    if (goal.type != GoalType.AUTO) {
+        return stringResource(
+            if (goal.cadence == GoalCadence.WEEKLY) R.string.goal_manual_weekly
+            else R.string.goal_type_manual
+        )
+    }
     val t = goal.threshold ?: return ""
     val tStr = if (t % 1.0 == 0.0) t.toLong().toString() else t.toString()
     val subjectSuffix = goal.subject?.let { stringResource(R.string.goal_rule_subject_suffix, it) } ?: ""
     val under = goal.comparator == GoalComparator.UNDER
-    return when (goal.metric) {
+    val rule = when (goal.metric) {
         GoalMetric.SCREEN_TIME ->
             if (under) stringResource(R.string.goal_rule_screen_under, tStr) else stringResource(R.string.goal_rule_screen_over, tStr)
         GoalMetric.STUDY ->
@@ -199,6 +205,11 @@ internal fun goalRuleText(goal: Goal): String {
             if (under) stringResource(R.string.goal_rule_papers_under, tStr) else stringResource(R.string.goal_rule_papers_over, tStr)
         else -> ""
     }
+    return if (goal.cadence == GoalCadence.WEEKLY && rule.isNotEmpty()) {
+        rule + stringResource(R.string.goal_rule_weekly_suffix)
+    } else {
+        rule
+    }
 }
 
 /** Shared add/edit dialog. [existing] null = create; otherwise fields prefill from that goal. */
@@ -206,10 +217,11 @@ internal fun goalRuleText(goal: Goal): String {
 internal fun GoalEditDialog(
     existing: Goal?,
     onDismiss: () -> Unit,
-    onSave: (name: String, type: String, metric: String?, comparator: String?, threshold: Double?, subject: String?) -> Unit
+    onSave: (name: String, type: String, cadence: String, metric: String?, comparator: String?, threshold: Double?, subject: String?) -> Unit
 ) {
     var name by remember { mutableStateOf(existing?.name ?: "") }
     var type by remember { mutableStateOf(existing?.type ?: GoalType.MANUAL) }
+    var cadence by remember { mutableStateOf(existing?.cadence ?: GoalCadence.DAILY) }
     var metric by remember { mutableStateOf(existing?.metric ?: GoalMetric.SCREEN_TIME) }
     var comparator by remember { mutableStateOf(existing?.comparator ?: GoalComparator.UNDER) }
     var thresholdText by remember {
@@ -231,16 +243,19 @@ internal fun GoalEditDialog(
                 enabled = canSave,
                 onClick = {
                     if (isAuto) {
-                        onSave(name, GoalType.AUTO, metric, comparator, threshold, if (metric == GoalMetric.STUDY) subject else null)
+                        onSave(name, GoalType.AUTO, cadence, metric, comparator, threshold, if (metric == GoalMetric.STUDY) subject else null)
                     } else {
-                        onSave(name, GoalType.MANUAL, null, null, null, null)
+                        onSave(name, GoalType.MANUAL, cadence, null, null, null, null)
                     }
                 }
             ) { Text(stringResource(if (existing == null) R.string.goal_save else R.string.goal_update)) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.goal_cancel)) } },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(ApexSpacing.m)
+            ) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -248,24 +263,35 @@ internal fun GoalEditDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = !isAuto, onClick = { type = GoalType.MANUAL }, label = { Text(stringResource(R.string.goal_type_manual)) })
-                    FilterChip(selected = isAuto, onClick = { type = GoalType.AUTO }, label = { Text(stringResource(R.string.goal_type_auto)) })
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(ApexSpacing.s),
+                    verticalArrangement = Arrangement.spacedBy(ApexSpacing.xs)
+                ) {
+                    FilterChip(selected = !isAuto, onClick = { type = GoalType.MANUAL }, label = { Text(stringResource(R.string.goal_type_manual_short), maxLines = 1) }, shape = RoundedCornerShape(ApexShapes.control))
+                    FilterChip(selected = isAuto, onClick = { type = GoalType.AUTO }, label = { Text(stringResource(R.string.goal_type_auto_short), maxLines = 1) }, shape = RoundedCornerShape(ApexShapes.control))
+                }
+                Text(stringResource(R.string.goal_cadence_label), style = MaterialTheme.typography.labelMedium)
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(ApexSpacing.s),
+                    verticalArrangement = Arrangement.spacedBy(ApexSpacing.xs)
+                ) {
+                    FilterChip(selected = cadence == GoalCadence.DAILY, onClick = { cadence = GoalCadence.DAILY }, label = { Text(stringResource(R.string.goal_cadence_daily), maxLines = 1) }, shape = RoundedCornerShape(ApexShapes.control))
+                    FilterChip(selected = cadence == GoalCadence.WEEKLY, onClick = { cadence = GoalCadence.WEEKLY }, label = { Text(stringResource(R.string.goal_cadence_weekly), maxLines = 1) }, shape = RoundedCornerShape(ApexShapes.control))
                 }
                 if (isAuto) {
                     // Four chips exceed the dialog width in one Row (the fourth clips off-screen),
                     // so the metric picker wraps onto two rows.
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = metric == GoalMetric.SCREEN_TIME, onClick = { metric = GoalMetric.SCREEN_TIME }, label = { Text(stringResource(R.string.goal_metric_screen)) })
-                        FilterChip(selected = metric == GoalMetric.STUDY, onClick = { metric = GoalMetric.STUDY }, label = { Text(stringResource(R.string.goal_metric_study)) })
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(ApexSpacing.s), verticalArrangement = Arrangement.spacedBy(ApexSpacing.xs)) {
+                        FilterChip(selected = metric == GoalMetric.SCREEN_TIME, onClick = { metric = GoalMetric.SCREEN_TIME }, label = { Text(stringResource(R.string.goal_metric_screen), maxLines = 1) }, shape = RoundedCornerShape(ApexShapes.control))
+                        FilterChip(selected = metric == GoalMetric.STUDY, onClick = { metric = GoalMetric.STUDY }, label = { Text(stringResource(R.string.goal_metric_study), maxLines = 1) }, shape = RoundedCornerShape(ApexShapes.control))
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = metric == GoalMetric.SPEND, onClick = { metric = GoalMetric.SPEND }, label = { Text(stringResource(R.string.goal_metric_spend)) })
-                        FilterChip(selected = metric == GoalMetric.PAPERS, onClick = { metric = GoalMetric.PAPERS }, label = { Text(stringResource(R.string.goal_metric_papers)) })
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(ApexSpacing.s), verticalArrangement = Arrangement.spacedBy(ApexSpacing.xs)) {
+                        FilterChip(selected = metric == GoalMetric.SPEND, onClick = { metric = GoalMetric.SPEND }, label = { Text(stringResource(R.string.goal_metric_spend), maxLines = 1) }, shape = RoundedCornerShape(ApexShapes.control))
+                        FilterChip(selected = metric == GoalMetric.PAPERS, onClick = { metric = GoalMetric.PAPERS }, label = { Text(stringResource(R.string.goal_metric_papers), maxLines = 1) }, shape = RoundedCornerShape(ApexShapes.control))
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = comparator == GoalComparator.UNDER, onClick = { comparator = GoalComparator.UNDER }, label = { Text(stringResource(R.string.goal_dir_under)) })
-                        FilterChip(selected = comparator == GoalComparator.OVER, onClick = { comparator = GoalComparator.OVER }, label = { Text(stringResource(R.string.goal_dir_over)) })
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(ApexSpacing.s), verticalArrangement = Arrangement.spacedBy(ApexSpacing.xs)) {
+                        FilterChip(selected = comparator == GoalComparator.UNDER, onClick = { comparator = GoalComparator.UNDER }, label = { Text(stringResource(R.string.goal_dir_under), maxLines = 1) }, shape = RoundedCornerShape(ApexShapes.control))
+                        FilterChip(selected = comparator == GoalComparator.OVER, onClick = { comparator = GoalComparator.OVER }, label = { Text(stringResource(R.string.goal_dir_over), maxLines = 1) }, shape = RoundedCornerShape(ApexShapes.control))
                     }
                     OutlinedTextField(
                         value = thresholdText,

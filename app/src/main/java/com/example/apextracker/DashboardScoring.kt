@@ -33,6 +33,42 @@ fun activeGoalsOn(date: LocalDate, goals: List<Goal>): List<Goal> =
             (goal.archivedDate == null || date.isBefore(goal.archivedDate))
     }
 
+/** Canonical date used by a goal's completion record: the day itself, or Monday for its ISO week. */
+fun goalCompletionDate(goal: Goal, date: LocalDate): LocalDate =
+    if (goal.cadence == GoalCadence.WEEKLY) weekStart(date, DayOfWeek.MONDAY) else date
+
+/** Aggregate the tracker inputs over the goal's active portion of the containing cadence period. */
+fun metricsForGoalPeriod(
+    goal: Goal,
+    date: LocalDate,
+    metricsFor: (LocalDate) -> DayMetrics
+): DayMetrics {
+    if (goal.cadence != GoalCadence.WEEKLY) return metricsFor(date)
+
+    val periodStart = goalCompletionDate(goal, date)
+    val periodEnd = periodStart.plusDays(6)
+    val activeStart = maxOf(periodStart, goal.startDate)
+    val activeEnd = minOf(periodEnd, goal.archivedDate?.minusDays(1) ?: periodEnd)
+    if (activeEnd.isBefore(activeStart)) return DayMetrics()
+
+    val days = generateSequence(activeStart) { current ->
+        current.plusDays(1).takeIf { !it.isAfter(activeEnd) }
+    }.map(metricsFor).toList()
+    val study = buildMap<String, Long> {
+        days.forEach { metrics ->
+            metrics.studyBySubject.forEach { (subject, seconds) ->
+                put(subject, getOrDefault(subject, 0L) + seconds)
+            }
+        }
+    }
+    return DayMetrics(
+        studyBySubject = study,
+        screenMillis = days.sumOf { it.screenMillis },
+        spend = days.sumOf { it.spend },
+        papersRead = days.sumOf { it.papersRead }
+    )
+}
+
 /**
  * Whether an AUTO goal's rule holds for a day's metrics. Thresholds are hours for time metrics and
  * currency units for spend. OVER is met at-or-above the threshold, UNDER at-or-below (reaching the
@@ -63,12 +99,24 @@ fun isGoalSatisfied(
     goal: Goal,
     date: LocalDate,
     completions: List<GoalCompletion>,
-    metrics: DayMetrics
+    metricsFor: (LocalDate) -> DayMetrics
 ): Boolean = when (goal.type) {
     GoalType.MANUAL ->
-        completions.any { it.goalCloudId == goal.cloudId && it.date == date && it.done }
-    GoalType.AUTO -> evaluateAutoGoal(goal, metrics)
+        completions.any {
+            it.goalCloudId == goal.cloudId && it.date == goalCompletionDate(goal, date) && it.done
+        }
+    GoalType.AUTO -> evaluateAutoGoal(goal, metricsForGoalPeriod(goal, date, metricsFor))
     else -> false
+}
+
+/** Convenience overload for callers evaluating one daily metrics value. */
+fun isGoalSatisfied(
+    goal: Goal,
+    date: LocalDate,
+    completions: List<GoalCompletion>,
+    metrics: DayMetrics
+): Boolean = isGoalSatisfied(goal, date, completions) { candidate ->
+    if (candidate == date) metrics else DayMetrics()
 }
 
 /**
@@ -80,12 +128,22 @@ fun dayFraction(
     date: LocalDate,
     goals: List<Goal>,
     completions: List<GoalCompletion>,
-    metrics: DayMetrics
+    metricsFor: (LocalDate) -> DayMetrics
 ): Double? {
     val active = activeGoalsOn(date, goals)
     if (active.isEmpty()) return null
-    val satisfied = active.count { isGoalSatisfied(it, date, completions, metrics) }
+    val satisfied = active.count { isGoalSatisfied(it, date, completions, metricsFor) }
     return satisfied.toDouble() / active.size
+}
+
+/** Convenience overload preserving the original daily-scoring API. */
+fun dayFraction(
+    date: LocalDate,
+    goals: List<Goal>,
+    completions: List<GoalCompletion>,
+    metrics: DayMetrics
+): Double? = dayFraction(date, goals, completions) { candidate ->
+    if (candidate == date) metrics else DayMetrics()
 }
 
 /**
@@ -112,7 +170,7 @@ fun perfectDayStreak(
     var streak = 0
     var cursor = endDate
     while (true) {
-        val fraction = dayFraction(cursor, goals, completions, metricsFor(cursor))
+        val fraction = dayFraction(cursor, goals, completions, metricsFor)
         if (fraction != null && fraction >= 1.0) {
             streak++
             cursor = cursor.minusDays(1)
@@ -137,9 +195,13 @@ fun goalStreak(
     var cursor = endDate
     while (!goal.startDate.isAfter(cursor)) {
         val active = goal.archivedDate == null || cursor.isBefore(goal.archivedDate)
-        if (active && isGoalSatisfied(goal, cursor, completions, metricsFor(cursor))) {
+        if (active && isGoalSatisfied(goal, cursor, completions, metricsFor)) {
             streak++
-            cursor = cursor.minusDays(1)
+            cursor = if (goal.cadence == GoalCadence.WEEKLY) {
+                goalCompletionDate(goal, cursor).minusDays(1)
+            } else {
+                cursor.minusDays(1)
+            }
         } else {
             break
         }

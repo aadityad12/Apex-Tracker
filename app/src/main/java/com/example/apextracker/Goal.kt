@@ -10,6 +10,12 @@ object GoalType {
     const val AUTO = "AUTO"
 }
 
+/** How often a goal is evaluated. Stored as a string for forward-compatible Room/Firestore data. */
+object GoalCadence {
+    const val DAILY = "DAILY"
+    const val WEEKLY = "WEEKLY"
+}
+
 /** Goal.metric values (AUTO goals only). Each maps to an existing per-day tracker total. */
 object GoalMetric {
     const val SCREEN_TIME = "SCREEN_TIME" // threshold in hours, evaluated against ScreenTimeSession.durationMillis
@@ -25,7 +31,7 @@ object GoalComparator {
 }
 
 /**
- * A daily habit-style goal tracked on the Dashboard heatmap. Distinct from [Reminder]s (one-off /
+ * A habit-style goal tracked on the Dashboard heatmap. Distinct from [Reminder]s (one-off /
  * recurring to-dos) — goals feed the contribution graph, reminders never do.
  *
  * MANUAL goals are ticked by hand and their per-day state lives in [GoalCompletion]. AUTO goals
@@ -42,6 +48,7 @@ data class Goal(
     val id: Long = 0,
     val name: String,
     val type: String,                 // GoalType.*
+    val cadence: String = GoalCadence.DAILY,
     val metric: String? = null,       // GoalMetric.* (AUTO only)
     val comparator: String? = null,   // GoalComparator.* (AUTO only)
     val threshold: Double? = null,    // hours (SCREEN_TIME/STUDY) or currency (SPEND)

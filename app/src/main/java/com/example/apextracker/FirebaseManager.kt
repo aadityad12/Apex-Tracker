@@ -235,6 +235,9 @@ internal fun studySessionDocId(date: LocalDate, subject: String): String =
 internal fun parseGoalDoc(data: Map<String, Any?>): Goal = Goal(
     name = data.requireString("name"),
     type = data.requireString("type"),
+    cadence = data.optString("cadence")
+        ?.takeIf { it == GoalCadence.DAILY || it == GoalCadence.WEEKLY }
+        ?: GoalCadence.DAILY,
     // AUTO-only fields; absent on MANUAL goals and on any partially-written doc.
     metric = data.optString("metric"),
     comparator = data.optString("comparator"),
@@ -553,6 +556,7 @@ class FirebaseManager(private val context: Context) {
                     "cloudId" to goal.cloudId,
                     "name" to goal.name,
                     "type" to goal.type,
+                    "cadence" to goal.cadence,
                     "metric" to goal.metric,
                     "comparator" to goal.comparator,
                     "threshold" to goal.threshold,
@@ -593,7 +597,8 @@ class FirebaseManager(private val context: Context) {
             } else if (parsed.modifiedAt > local.modifiedAt) {
                 db.goalDao().updateGoal(
                     local.copy(
-                        name = parsed.name, type = parsed.type, metric = parsed.metric,
+                        name = parsed.name, type = parsed.type, cadence = parsed.cadence,
+                        metric = parsed.metric,
                         comparator = parsed.comparator, threshold = parsed.threshold,
                         subject = parsed.subject, startDate = parsed.startDate,
                         archivedDate = parsed.archivedDate, sortOrder = parsed.sortOrder,

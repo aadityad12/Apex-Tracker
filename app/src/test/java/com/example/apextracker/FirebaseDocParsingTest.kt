@@ -321,6 +321,7 @@ class FirebaseDocParsingTest {
         )
         assertEquals("g1", parsed.cloudId)
         assertEquals("MANUAL", parsed.type)
+        assertEquals(GoalCadence.DAILY, parsed.cadence)
         assertNull(parsed.metric)
         assertNull(parsed.threshold)
         assertNull(parsed.archivedDate)
@@ -333,12 +334,14 @@ class FirebaseDocParsingTest {
         val parsed = parseGoalDoc(
             mapOf(
                 "cloudId" to "g2", "name" to "Screen", "type" to "AUTO",
+                "cadence" to "WEEKLY",
                 "metric" to "SCREEN_TIME", "comparator" to "UNDER", "threshold" to 6.0,
                 "subject" to "Work", "startDate" to "2026-07-01", "archivedDate" to "2026-07-10",
                 "modifiedAt" to 999L
             )
         )
         assertEquals("SCREEN_TIME", parsed.metric)
+        assertEquals(GoalCadence.WEEKLY, parsed.cadence)
         assertEquals("UNDER", parsed.comparator)
         assertEquals(6.0, parsed.threshold!!, 0.0001)
         assertEquals("Work", parsed.subject)
