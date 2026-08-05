@@ -3,7 +3,9 @@ package com.example.apextracker
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -34,6 +36,11 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+// One-off component geometry; these are sizes/caps, not spacing-scale entries (Design.md §5).
+private val BudgetSettingsContentMaxHeight = 400.dp
+private val CategoryColorDotSize = 20.dp
+private val ColorSwatchSize = 32.dp
 
 @Composable
 fun BudgetSettingsDialog(
@@ -74,7 +81,7 @@ fun BudgetSettingsDialog(
             }
         },
         text = {
-            Box(modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp)) {
+            Box(modifier = Modifier.fillMaxWidth().heightIn(max = BudgetSettingsContentMaxHeight)) {
                 when (activeSubScreen) {
                     "categories" -> {
                         CategoriesView(
@@ -88,7 +95,10 @@ fun BudgetSettingsDialog(
                         SubscriptionsView(viewModel)
                     }
                     else -> {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(
+                            modifier = Modifier.verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(ApexSpacing.s)
+                        ) {
                             BudgetSettingsItem(stringResource(R.string.budget_manage_categories)) { activeSubScreen = "categories" }
                             BudgetSettingsItem(stringResource(R.string.budget_manage_subscriptions)) { activeSubScreen = "subscriptions" }
                             BudgetSettingsItem(
@@ -150,7 +160,7 @@ fun BudgetExportScopeDialog(onDismiss: () -> Unit, onExport: (scopeToCurrentMont
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.budget_export_scope_title)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(ApexSpacing.s)) {
                 Button(onClick = { onExport(true) }, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.budget_export_current_month))
                 }
@@ -172,15 +182,24 @@ fun BudgetSettingsItem(label: String, value: String? = null, onClick: () -> Unit
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
     ) {
         Row(
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            modifier = Modifier.padding(ApexSpacing.l).fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(label, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = label,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyLarge
+            )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (value != null) {
-                    Text(value, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = value,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
+                    )
+                    Spacer(modifier = Modifier.width(ApexSpacing.s))
                 }
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -202,8 +221,8 @@ fun CategoriesView(
         Button(onClick = { showAddDialog = true }, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.budget_create_category))
         }
-        Spacer(modifier = Modifier.height(8.dp))
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Spacer(modifier = Modifier.height(ApexSpacing.s))
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(ApexSpacing.s)) {
             items(categories) { category ->
                 CategoryItem(
                     category = category,
@@ -251,13 +270,13 @@ fun CategoryItem(category: Category, onEdit: () -> Unit) {
         color = MaterialTheme.colorScheme.surface
     ) {
         Row(
-            modifier = Modifier.padding(12.dp).fillMaxWidth(),
+            modifier = Modifier.padding(ApexSpacing.m).fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                Box(modifier = Modifier.size(20.dp).background(categoryColorOf(category.colorHex), CircleShape))
-                Spacer(modifier = Modifier.width(12.dp))
+                Box(modifier = Modifier.size(CategoryColorDotSize).background(categoryColorOf(category.colorHex), CircleShape))
+                Spacer(modifier = Modifier.width(ApexSpacing.m))
                 Column {
                     Text(category.name, style = MaterialTheme.typography.bodyMedium)
                     val limit = category.effectiveMonthlyLimit()
@@ -272,7 +291,7 @@ fun CategoryItem(category: Category, onEdit: () -> Unit) {
                     )
                 }
             }
-            Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.cd_edit), modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+            Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.cd_edit), tint = MaterialTheme.colorScheme.primary)
         }
     }
 }
@@ -311,7 +330,7 @@ fun CategoryDialog(
             }
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(ApexSpacing.l)) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -376,10 +395,10 @@ fun ColorGrid(colors: List<String>, selectedColor: String, onColorSelected: (Str
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(32.dp)
+                                    .size(ColorSwatchSize)
                                     .background(parseColorSafe(color), CircleShape)
                                     .border(
-                                        width = if (isSelected) 2.dp else 1.dp,
+                                        width = if (isSelected) ApexSpacing.hairline else ApexSpacing.hairline / 2,
                                         color = if (isSelected) MaterialTheme.colorScheme.onSurface
                                         else MaterialTheme.colorScheme.outlineVariant,
                                         shape = CircleShape
@@ -404,8 +423,8 @@ fun SubscriptionsView(viewModel: BudgetViewModel) {
         Button(onClick = { showAddDialog = true }, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.budget_add_subscription))
         }
-        Spacer(modifier = Modifier.height(8.dp))
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Spacer(modifier = Modifier.height(ApexSpacing.s))
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(ApexSpacing.s)) {
             items(subscriptions) { sub ->
                 SubscriptionItem(
                     subscription = sub,
@@ -453,7 +472,7 @@ fun SubscriptionItem(subscription: Subscription, onTogglePause: () -> Unit, onCl
         color = MaterialTheme.colorScheme.surface
     ) {
         Row(
-            modifier = Modifier.padding(12.dp).fillMaxWidth(),
+            modifier = Modifier.padding(ApexSpacing.m).fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -523,7 +542,7 @@ fun SubscriptionDialog(
             }
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(ApexSpacing.s)) {
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text(stringResource(R.string.label_name)) }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = amount, onValueChange = { if (it.isEmpty() || it.matches(Regex("^\\d*\\.?\\d{0,2}$"))) amount = it }, label = { Text(stringResource(R.string.label_amount)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
                 TextButton(onClick = { showDatePicker = true }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.budget_next_renewal, date.format(DateTimeFormatter.ISO_LOCAL_DATE))) }
@@ -567,7 +586,7 @@ fun OverallLimitDialog(current: Double?, onDismiss: () -> Unit, onSave: (Double?
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth()
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(ApexSpacing.s))
                 Text(
                     stringResource(R.string.budget_limit_hint),
                     style = MaterialTheme.typography.labelSmall,

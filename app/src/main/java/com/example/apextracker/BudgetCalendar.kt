@@ -38,18 +38,25 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLocale
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.example.apextracker.ui.design.ApexNumerals
+import com.example.apextracker.ui.design.ApexSpacing
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.time.temporal.WeekFields
+
+// One-off data marker geometry (Design.md §6), deliberately not part of the spacing scale.
+private val CalendarCategoryDotSize = 8.dp
 
 @Composable
 fun BudgetCalendarView(
@@ -71,11 +78,11 @@ fun BudgetCalendarView(
     val days = (1..daysInMonth).toList()
     val paddingDays = (0 until firstDayOfMonth).toList()
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+    Column(modifier = Modifier.fillMaxSize().padding(ApexSpacing.l)) {
         BudgetMonthSelector(currentMonth = currentMonth, onMonthChange = onMonthChange)
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(ApexSpacing.l))
         WeekdayHeaders(firstDayOfWeek)
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(ApexSpacing.s))
         CalendarGrid(days, paddingDays, currentMonth, items, onDayClick = { date, dayItems ->
             selectedDate = date
             selectedDayItems = dayItems
@@ -93,7 +100,7 @@ fun BudgetCalendarView(
 @Composable
 fun BudgetMonthSelector(currentMonth: YearMonth, onMonthChange: (YearMonth) -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        modifier = Modifier.fillMaxWidth().padding(ApexSpacing.l),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -113,9 +120,21 @@ fun BudgetMonthSelector(currentMonth: YearMonth, onMonthChange: (YearMonth) -> U
 @Composable
 fun WeekdayHeaders(firstDayOfWeek: DayOfWeek = DayOfWeek.SUNDAY) {
     val locale = LocalLocale.current.platformLocale
+    val useNarrowLabels = LocalDensity.current.fontScale >= 1.5f
     Row(modifier = Modifier.fillMaxWidth()) {
         (0..6).map { firstDayOfWeek.plus(it.toLong()) }.forEach { day ->
-            Text(text = day.getDisplayName(TextStyle.SHORT, locale), modifier = Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+            Text(
+                text = day.getDisplayName(if (useNarrowLabels) TextStyle.NARROW else TextStyle.SHORT, locale),
+                modifier = Modifier
+                    .weight(1f)
+                    .clearAndSetSemantics {
+                        contentDescription = day.getDisplayName(TextStyle.FULL, locale)
+                    },
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
+            )
         }
     }
 }
@@ -125,8 +144,8 @@ fun CalendarGrid(days: List<Int>, paddingDays: List<Int>, currentMonth: YearMont
     LazyVerticalGrid(
         columns = GridCells.Fixed(7),
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.spacedBy(ApexSpacing.xs),
+        horizontalArrangement = Arrangement.spacedBy(ApexSpacing.xs)
     ) {
         items(paddingDays) { Box(modifier = Modifier.aspectRatio(1f)) }
         items(days) { day ->
@@ -144,10 +163,10 @@ fun CalendarDayCard(day: Int, date: LocalDate, totalSpent: Double, onClick: () -
         modifier = Modifier.aspectRatio(0.8f).clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = if (date == LocalDate.now()) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Column(modifier = Modifier.padding(2.dp).fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Text(text = day.toString(), style = MaterialTheme.typography.bodyMedium)
+        Column(modifier = Modifier.padding(ApexSpacing.hairline).fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Text(text = day.toString(), style = ApexNumerals.medium)
             if (totalSpent > 0) {
-                Text(text = formatCurrency(totalSpent, LocalCurrencyCode.current), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontSize = 9.sp, maxLines = 1)
+                Text(text = formatCurrency(totalSpent, LocalCurrencyCode.current), style = ApexNumerals.small, color = MaterialTheme.colorScheme.primary, maxLines = 1)
             }
         }
     }
@@ -159,7 +178,7 @@ fun DayBreakdownDialog(date: LocalDate, items: List<BudgetItem>, categories: Lis
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.budget_breakdown_title, date.format(DateTimeFormatter.ofPattern("MMM dd, yyyy")))) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(ApexSpacing.s)) {
                 items.forEach { item ->
                     val category = if (item.categoryId == -1L) {
                         subscriptionsCategory()
@@ -182,8 +201,8 @@ fun DayBreakdownItem(item: BudgetItem, category: Category?) {
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (category != null) {
-                    Box(modifier = Modifier.size(8.dp).background(categoryColorOf(category.colorHex), CircleShape))
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Box(modifier = Modifier.size(CalendarCategoryDotSize).background(categoryColorOf(category.colorHex), CircleShape))
+                    Spacer(modifier = Modifier.width(ApexSpacing.xs))
                 }
                 Text(
                     text = if (isSubscriptionItem(item)) {

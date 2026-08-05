@@ -35,6 +35,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.example.apextracker.ui.design.ApexShapes
+import com.example.apextracker.ui.design.ApexSpacing
+
+// Component geometry, not spacing: the profile image is also its minimum 48dp touch-sized visual.
+private val ProfileImageSize = 48.dp
 
 /**
  * App-wide settings bottom sheet — account/sign-in, dark mode, and currency. Extracted
@@ -66,8 +71,8 @@ fun AppSettingsSheet(
                 // Scrollable so every section (now incl. Backup, Issue #121) is reachable rather
                 // than falling below the sheet's fold.
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp)
+                .padding(horizontal = ApexSpacing.xl)
+                .padding(bottom = ApexSpacing.xxl)
         ) {
             Text(
                 stringResource(R.string.menu_settings),
@@ -76,7 +81,7 @@ fun AppSettingsSheet(
                 color = MaterialTheme.colorScheme.onSurface
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(ApexSpacing.xl))
 
             // User Profile / Auth Section
             Text(
@@ -84,28 +89,28 @@ fun AppSettingsSheet(
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary
             )
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(ApexSpacing.m))
 
             Surface(
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(ApexShapes.container),
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 if (user != null) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(16.dp)
+                        modifier = Modifier.padding(ApexSpacing.l)
                     ) {
                         if (user?.photoUrl != null) {
                             AsyncImage(
                                 model = user?.photoUrl,
                                 contentDescription = stringResource(R.string.cd_profile_picture),
-                                modifier = Modifier.size(48.dp).clip(CircleShape),
+                                modifier = Modifier.size(ProfileImageSize).clip(CircleShape),
                                 contentScale = ContentScale.Crop
                             )
                         } else {
                             Surface(
-                                modifier = Modifier.size(48.dp),
+                                modifier = Modifier.size(ProfileImageSize),
                                 shape = CircleShape,
                                 color = MaterialTheme.colorScheme.primary
                             ) {
@@ -118,7 +123,7 @@ fun AppSettingsSheet(
                                 }
                             }
                         }
-                        Spacer(modifier = Modifier.width(16.dp))
+                        Spacer(modifier = Modifier.width(ApexSpacing.l))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(user?.displayName ?: stringResource(R.string.user_fallback), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
                             Text(user?.email ?: "", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -130,18 +135,18 @@ fun AppSettingsSheet(
                 } else {
                     Button(
                         onClick = { authViewModel.signInWithGoogle(context) },
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth().padding(ApexSpacing.l),
+                        shape = RoundedCornerShape(ApexShapes.control),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
                         Icon(Icons.Default.Cloud, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(ApexSpacing.s))
                         Text(stringResource(R.string.sign_in_google))
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(ApexSpacing.xl))
 
             Text(
                 stringResource(R.string.menu_appearance),
@@ -149,23 +154,23 @@ fun AppSettingsSheet(
                 color = MaterialTheme.colorScheme.primary
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(ApexSpacing.m))
 
             Surface(
                 onClick = { onDarkModeChange(!isDarkMode) },
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(ApexShapes.container),
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().padding(16.dp)
+                    modifier = Modifier.fillMaxWidth().padding(ApexSpacing.l)
                 ) {
                     Icon(
                         imageVector = if (isDarkMode) Icons.Default.DarkMode else Icons.Default.LightMode,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary
                     )
-                    Spacer(modifier = Modifier.width(16.dp))
+                    Spacer(modifier = Modifier.width(ApexSpacing.l))
                     Text(stringResource(R.string.menu_dark_mode), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
                     Switch(
                         checked = isDarkMode,
@@ -175,7 +180,7 @@ fun AppSettingsSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(ApexSpacing.xl))
 
             Text(
                 stringResource(R.string.menu_currency),
@@ -183,21 +188,19 @@ fun AppSettingsSheet(
                 color = MaterialTheme.colorScheme.primary
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(ApexSpacing.l))
 
             CurrencyDropdown(currencyCode = currencyCode, onCurrencySelected = onCurrencyChange)
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(ApexSpacing.xl))
 
             Text(
                 stringResource(R.string.backup_section),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary
             )
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(ApexSpacing.m))
             BackupRestoreControls()
-
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
@@ -244,7 +247,7 @@ private fun BackupRestoreControls() {
         }
     }
 
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(ApexSpacing.m)) {
         OutlinedButton(
             onClick = { exportLauncher.launch("apextracker-backup-${LocalDate.now()}.json") },
             modifier = Modifier.weight(1f)
@@ -255,7 +258,7 @@ private fun BackupRestoreControls() {
         ) { Text(stringResource(R.string.backup_import)) }
     }
     status?.let {
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(ApexSpacing.s))
         Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 
