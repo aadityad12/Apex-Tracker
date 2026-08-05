@@ -66,9 +66,7 @@ private fun StreakWidgetContent(streak: Int, context: Context) {
             style = TextStyle(color = accent, fontSize = 40.sp, fontWeight = FontWeight.Bold)
         )
         Text(
-            text = context.getString(
-                if (streak == 1) R.string.widget_streak_day else R.string.widget_streak_days
-            ),
+            text = context.resources.getQuantityString(R.plurals.widget_streak_days, streak),
             style = TextStyle(color = onBg, fontSize = 13.sp, fontWeight = FontWeight.Medium)
         )
     }
