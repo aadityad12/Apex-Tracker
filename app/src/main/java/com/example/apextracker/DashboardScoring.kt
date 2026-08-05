@@ -1,5 +1,6 @@
 package com.example.apextracker
 
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
@@ -148,9 +149,15 @@ fun goalStreak(
 
 // --- Heatmap windowing (Issue #128) -------------------------------------------------------
 
-/** Sunday of [date]'s week — the heatmap's rows are Sunday-first. */
-fun weekSunday(date: LocalDate): LocalDate =
-    date.minusDays((date.dayOfWeek.value % 7).toLong()) // ISO MON=1..SUN=7; SUN%7=0
+/**
+ * The first day of [date]'s week, anchored on [firstDayOfWeek] (Issue #160) — defaults to Sunday
+ * so the heatmap keeps its historical layout for locales that don't specify otherwise, but
+ * `WeekFields.of(locale).firstDayOfWeek` lets a Monday-first locale's rows follow suit.
+ */
+fun weekStart(date: LocalDate, firstDayOfWeek: DayOfWeek = DayOfWeek.SUNDAY): LocalDate {
+    val diff = (date.dayOfWeek.value - firstDayOfWeek.value + 7) % 7
+    return date.minusDays(diff.toLong())
+}
 
 /**
  * Which slice of history the heatmap shows.
@@ -177,13 +184,14 @@ const val RECENT_WEEKS = 8
 
 /**
  * The inclusive day range for [window], ending no later than [today] — a heatmap must never show
- * future days as untracked.
+ * future days as untracked. [firstDayOfWeek] must match what [heatmapWeeks] is called with, so the
+ * [HeatmapWindow.Recent] start stays snapped to a whole row.
  */
-fun heatmapRange(window: HeatmapWindow, today: LocalDate): Pair<LocalDate, LocalDate> = when (window) {
+fun heatmapRange(window: HeatmapWindow, today: LocalDate, firstDayOfWeek: DayOfWeek = DayOfWeek.SUNDAY): Pair<LocalDate, LocalDate> = when (window) {
     // Snapped to the week boundary, not `today - 55 days`: an unsnapped start lands mid-week and
     // heatmapWeeks then emits nine ragged rows instead of eight whole ones. The row count has to be
     // deterministic because the layout is sized around it.
-    HeatmapWindow.Recent -> weekSunday(today).minusWeeks((RECENT_WEEKS - 1).toLong()) to today
+    HeatmapWindow.Recent -> weekStart(today, firstDayOfWeek).minusWeeks((RECENT_WEEKS - 1).toLong()) to today
     HeatmapWindow.Rolling12Months -> today.minusDays(364) to today
     is HeatmapWindow.Year -> {
         val end = LocalDate.of(window.year, 12, 31)
@@ -202,22 +210,24 @@ fun heatmapYears(earliestStart: LocalDate?, today: LocalDate): List<Int> {
 
 /**
  * Lays a day range out as heatmap rows: one row per week, **newest week first**, each row seven
- * cells Sunday..Saturday. Cells outside the range (leading/trailing padding, and future days) are
- * null so the grid stays rectangular. [cellFor] supplies each in-range day's cell.
+ * cells starting on [firstDayOfWeek] (Issue #160 — defaults to Sunday, matching [heatmapRange]'s
+ * default). Cells outside the range (leading/trailing padding, and future days) are null so the
+ * grid stays rectangular. [cellFor] supplies each in-range day's cell.
  */
 fun heatmapWeeks(
     start: LocalDate,
     end: LocalDate,
+    firstDayOfWeek: DayOfWeek = DayOfWeek.SUNDAY,
     cellFor: (LocalDate) -> DayCell
 ): List<List<DayCell?>> {
     if (end.isBefore(start)) return emptyList()
-    val topSunday = weekSunday(end)
-    val firstSunday = weekSunday(start)
-    val weekCount = ChronoUnit.WEEKS.between(firstSunday, topSunday).toInt() + 1
+    val topRowStart = weekStart(end, firstDayOfWeek)
+    val firstRowStart = weekStart(start, firstDayOfWeek)
+    val weekCount = ChronoUnit.WEEKS.between(firstRowStart, topRowStart).toInt() + 1
     return (0 until weekCount).map { row ->
-        val sunday = topSunday.minusWeeks(row.toLong())
+        val rowStart = topRowStart.minusWeeks(row.toLong())
         (0 until 7).map { col ->
-            val date = sunday.plusDays(col.toLong())
+            val date = rowStart.plusDays(col.toLong())
             if (date.isBefore(start) || date.isAfter(end)) null else cellFor(date)
         }
     }
