@@ -59,16 +59,15 @@ fun DashboardUiState.metricsFor(date: LocalDate): DayMetrics = DayMetrics(
 
 /** One heatmap cell for [date], computed from the same snapshot the day sheet uses. */
 fun DashboardUiState.dayCell(date: LocalDate): DayCell {
-    val fraction = dayFraction(date, allGoals, completions, metricsFor(date))
+    val fraction = dayFraction(date, allGoals, completions) { metricsFor(it) }
     return DayCell(date, fraction, fraction?.let { intensityBucket(it) } ?: -1)
 }
 
 /** Live status of every goal active on [date] — powers the day-detail sheet (today or any past day). */
 fun DashboardUiState.dayGoalStatuses(date: LocalDate): List<GoalStatus> {
-    val metrics = metricsFor(date)
     return activeGoalsOn(date, allGoals)
         .sortedWith(compareBy({ it.sortOrder }, { it.id }))
-        .map { GoalStatus(it, isGoalSatisfied(it, date, completions, metrics)) }
+        .map { goal -> GoalStatus(goal, isGoalSatisfied(goal, date, completions) { metricsFor(it) }) }
 }
 
 class DashboardViewModel(application: Application) : AndroidViewModel(application) {
@@ -122,7 +121,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
 
         val active = activeGoalsOn(today, goals).sortedWith(compareBy({ it.sortOrder }, { it.id }))
-        val todayGoals = active.map { GoalStatus(it, isGoalSatisfied(it, today, completions, metricsFor(today))) }
+        val todayGoals = active.map { GoalStatus(it, isGoalSatisfied(it, today, completions, metricsFor)) }
         val streak = perfectDayStreak(today, goals, completions, metricsFor)
 
         return DashboardUiState(
@@ -159,14 +158,15 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         // same pre-write state, so one tap gets swallowed or immediately undone (Issue #111).
         // Same guard as ReminderViewModel.toggleCompletion; keyed on the completion's own
         // (goalCloudId, date) primary key. Only touched from the main thread.
-        val key = goal.cloudId to date
+        val completionDate = goalCompletionDate(goal, date)
+        val key = goal.cloudId to completionDate
         if (!togglesInFlight.add(key)) return
         viewModelScope.launch {
             try {
-                val existing = completionDao.getByGoalAndDate(goal.cloudId, date)
+                val existing = completionDao.getByGoalAndDate(goal.cloudId, completionDate)
                 val completion = GoalCompletion(
                     goalCloudId = goal.cloudId,
-                    date = date,
+                    date = completionDate,
                     done = !(existing?.done ?: false),
                     modifiedAt = System.currentTimeMillis()
                 )
@@ -182,6 +182,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     fun addGoal(
         name: String,
         type: String,
+        cadence: String,
         metric: String?,
         comparator: String?,
         threshold: Double?,
@@ -193,6 +194,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             val goal = Goal(
                 name = trimmed,
                 type = type,
+                cadence = cadence,
                 metric = metric,
                 comparator = comparator,
                 threshold = threshold,
@@ -212,6 +214,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         goal: Goal,
         name: String,
         type: String,
+        cadence: String,
         metric: String?,
         comparator: String?,
         threshold: Double?,
@@ -223,6 +226,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             val updated = goal.copy(
                 name = trimmed,
                 type = type,
+                cadence = cadence,
                 metric = metric,
                 comparator = comparator,
                 threshold = threshold,

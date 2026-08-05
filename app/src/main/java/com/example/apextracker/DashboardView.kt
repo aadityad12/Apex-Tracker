@@ -284,7 +284,7 @@ private fun GoalStatusRow(status: GoalStatus, onToggle: (Goal) -> Unit) {
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface
             )
-            if (!isManual) {
+            if (!isManual || goal.cadence == GoalCadence.WEEKLY) {
                 Text(
                     goalRuleText(goal),
                     style = MaterialTheme.typography.bodySmall,
@@ -614,4 +614,3 @@ private fun DayDetailSheet(
         }
     }
 }
-

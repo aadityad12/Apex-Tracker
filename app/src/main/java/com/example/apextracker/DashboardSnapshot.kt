@@ -18,17 +18,20 @@ data class DashboardSnapshot(
 private fun metricsProvider(
     study: List<StudySession>,
     screen: List<ScreenTimeSession>,
-    budget: List<BudgetItem>
+    budget: List<BudgetItem>,
+    papers: List<Paper>
 ): (LocalDate) -> DayMetrics {
     val studyByDate = study.groupBy { it.date }
         .mapValues { (_, rows) -> rows.associate { it.subject to it.durationSeconds } }
     val screenByDate = screen.associate { it.date to it.durationMillis }
     val spendByDate = budget.groupBy { it.date }.mapValues { (_, rows) -> rows.sumOf { it.amount } }
+    val papersByDate = papersReadByDate(papers)
     return { d ->
         DayMetrics(
             studyBySubject = studyByDate[d] ?: emptyMap(),
             screenMillis = screenByDate[d] ?: 0L,
-            spend = spendByDate[d] ?: 0.0
+            spend = spendByDate[d] ?: 0.0,
+            papersRead = papersByDate[d] ?: 0
         )
     }
 }
@@ -40,11 +43,12 @@ suspend fun loadDashboardSnapshot(db: AppDatabase, today: LocalDate): DashboardS
     val metricsFor = metricsProvider(
         db.studySessionDao().getAllSessionsOneShot(),
         db.screenTimeSessionDao().getAllSessionsOneShot(),
-        db.budgetDao().getAllItemsOneShot()
+        db.budgetDao().getAllItemsOneShot(),
+        db.paperDao().getAllPapersOneShot()
     )
     val active = activeGoalsOn(today, goals).sortedWith(compareBy({ it.sortOrder }, { it.id }))
     DashboardSnapshot(
         perfectStreak = perfectDayStreak(today, goals, completions, metricsFor),
-        today = active.map { GoalStatus(it, isGoalSatisfied(it, today, completions, metricsFor(today))) }
+        today = active.map { GoalStatus(it, isGoalSatisfied(it, today, completions, metricsFor)) }
     )
 }

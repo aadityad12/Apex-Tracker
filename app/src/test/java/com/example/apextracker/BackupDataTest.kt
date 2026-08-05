@@ -26,6 +26,7 @@ class BackupDataTest {
             ),
             notes = listOf(Note(id = 4, title = "n", content = "c", createdAt = LocalDateTime.of(2026, 7, 1, 8, 0), modifiedAt = LocalDateTime.of(2026, 7, 2, 9, 0))),
             studySessions = listOf(StudySession(date = LocalDate.of(2026, 7, 20), subject = "Maths", durationSeconds = 3600)),
+            goals = listOf(Goal(name = "Read", type = GoalType.MANUAL, cadence = GoalCadence.WEEKLY)),
             goalCompletions = listOf(GoalCompletion(goalCloudId = "g1", date = LocalDate.of(2026, 7, 23), done = true))
         )
 
@@ -36,6 +37,7 @@ class BackupDataTest {
         assertEquals(data.reminders, restored.reminders)          // exercises LocalTime + Recurrence
         assertEquals(data.notes, restored.notes)                  // exercises LocalDateTime
         assertEquals(data.studySessions, restored.studySessions)
+        assertEquals(data.goals, restored.goals)
         assertEquals(data.goalCompletions, restored.goalCompletions)
     }
 
@@ -43,7 +45,7 @@ class BackupDataTest {
     fun `empty backup round-trips`() {
         val restored = parseBackupJson(buildBackupJson(BackupData(exportedAt = "x")))!!
         assertTrue(restored.budgetItems.isEmpty())
-        assertEquals(1, restored.formatVersion)
+        assertEquals(2, restored.formatVersion)
     }
 
     @Test
@@ -56,5 +58,14 @@ class BackupDataTest {
     @Test
     fun `the literal null parses to null for the caller to handle`() {
         assertNull(parseBackupJson("null"))
+    }
+
+    @Test
+    fun `goal cadence missing from an older backup defaults to daily`() {
+        val restored = parseBackupJson(
+            """{"formatVersion":1,"goals":[{"name":"Old goal","type":"MANUAL","startDate":"2026-07-01","sortOrder":0,"cloudId":"old","modifiedAt":0}]}"""
+        )!!
+
+        assertEquals(GoalCadence.DAILY, restored.goals.single().cadence)
     }
 }

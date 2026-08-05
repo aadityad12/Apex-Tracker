@@ -359,6 +359,13 @@
     <string name="goal_name_label">Goal name</string>
     <string name="goal_type_manual">Check off myself</string>
     <string name="goal_type_auto">Track automatically</string>
+    <string name="goal_type_manual_short">Manual</string>
+    <string name="goal_type_auto_short">Automatic</string>
+    <string name="goal_cadence_label">Cadence</string>
+    <string name="goal_cadence_daily">Daily</string>
+    <string name="goal_cadence_weekly">Weekly</string>
+    <string name="goal_manual_weekly">Check off once per week</string>
+    <string name="goal_rule_weekly_suffix"> · per week</string>
     <string name="goal_metric_screen">Screen</string>
     <string name="goal_metric_study">Study</string>
     <string name="goal_metric_spend">Spend</string>
@@ -440,7 +447,7 @@
     <string name="cd_papers_add">Add a paper</string>
     <string name="cd_papers_signal">Rate %1$d of 5</string>
     <string name="goal_metric_papers">Papers</string>
-    <string name="goal_threshold_papers">Papers per day</string>
+    <string name="goal_threshold_papers">Papers</string>
     <string name="goal_rule_papers_over">Read %1$s+ papers</string>
     <string name="goal_rule_papers_under">At most %1$s papers</string>
 </resources>

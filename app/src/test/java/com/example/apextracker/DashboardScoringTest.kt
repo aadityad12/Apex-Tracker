@@ -11,8 +11,19 @@ class DashboardScoringTest {
 
     private val today = LocalDate.of(2026, 7, 21)
 
-    private fun manual(cloudId: String, start: LocalDate = today.minusDays(30), archived: LocalDate? = null) =
-        Goal(name = "Workout", type = GoalType.MANUAL, cloudId = cloudId, startDate = start, archivedDate = archived)
+    private fun manual(
+        cloudId: String,
+        start: LocalDate = today.minusDays(30),
+        archived: LocalDate? = null,
+        cadence: String = GoalCadence.DAILY
+    ) = Goal(
+        name = "Workout",
+        type = GoalType.MANUAL,
+        cadence = cadence,
+        cloudId = cloudId,
+        startDate = start,
+        archivedDate = archived
+    )
 
     private fun auto(
         metric: String,
@@ -20,10 +31,12 @@ class DashboardScoringTest {
         threshold: Double,
         subject: String? = null,
         start: LocalDate = today.minusDays(30),
-        archived: LocalDate? = null
+        archived: LocalDate? = null,
+        cadence: String = GoalCadence.DAILY
     ) = Goal(
         name = "Auto",
         type = GoalType.AUTO,
+        cadence = cadence,
         metric = metric,
         comparator = comparator,
         threshold = threshold,
@@ -113,6 +126,54 @@ class DashboardScoringTest {
         val g = manual("a")
         val undone = GoalCompletion(goalCloudId = "a", date = today, done = false)
         assertFalse(isGoalSatisfied(g, today, listOf(undone), DayMetrics()))
+    }
+
+    @Test
+    fun `weekly manual goal uses one Monday completion for the whole ISO week`() {
+        val goal = manual("weekly", cadence = GoalCadence.WEEKLY)
+        val monday = LocalDate.of(2026, 7, 20)
+        val completion = done("weekly", monday)
+
+        assertEquals(monday, goalCompletionDate(goal, today))
+        assertTrue(isGoalSatisfied(goal, today, listOf(completion), DayMetrics()))
+        assertTrue(isGoalSatisfied(goal, today.plusDays(5), listOf(completion), DayMetrics()))
+        assertFalse(isGoalSatisfied(goal, today.plusWeeks(1), listOf(completion), DayMetrics()))
+    }
+
+    @Test
+    fun `weekly auto goal sums tracker metrics across Monday through Sunday`() {
+        val goal = auto(
+            GoalMetric.STUDY,
+            GoalComparator.OVER,
+            threshold = 3.0,
+            cadence = GoalCadence.WEEKLY
+        )
+        val monday = LocalDate.of(2026, 7, 20)
+        val metrics = mapOf(
+            monday to DayMetrics(studyBySubject = mapOf("Work" to 2 * 3_600L)),
+            monday.plusDays(2) to DayMetrics(studyBySubject = mapOf("Work" to 1 * 3_600L))
+        )
+
+        assertTrue(isGoalSatisfied(goal, today, emptyList()) { metrics[it] ?: DayMetrics() })
+    }
+
+    @Test
+    fun `weekly metric aggregation excludes days before the goal started`() {
+        val monday = LocalDate.of(2026, 7, 20)
+        val goal = auto(
+            GoalMetric.STUDY,
+            GoalComparator.OVER,
+            threshold = 2.0,
+            start = monday.plusDays(1),
+            cadence = GoalCadence.WEEKLY
+        )
+
+        assertFalse(
+            isGoalSatisfied(goal, today, emptyList()) { date ->
+                if (date == monday) DayMetrics(studyBySubject = mapOf("" to 3 * 3_600L))
+                else DayMetrics()
+            }
+        )
     }
 
     // ── dayFraction ──────────────────────────────────────────────────────────
