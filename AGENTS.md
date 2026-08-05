@@ -60,12 +60,14 @@ Note: unit tests cover the pure logic extracted during the fix passes — run `f
 | `overview` | `OverviewView.kt` | `OverviewViewModel.kt` | Aggregates all DAOs |
 | `budget_tracker` | `BudgetTrackerView.kt` + `BudgetComponents.kt` + `BudgetCalendar.kt` | `BudgetViewModel.kt` | `BudgetItem`, `Category`, `Subscription` |
 | `study_tracker` | `StudyTrackerView.kt` | `StudyViewModel.kt` | `StudySession` |
-| `screen_time` | `ScreenTimeTrackerView.kt` | `ScreenTimeViewModel.kt` | `ScreenTimeSession`, `ExcludedApp` |
+| `screen_time` | `ScreenTimeTrackerView.kt` | `ScreenTimeViewModel.kt` | `ScreenTimeSession`, `ExcludedApp`, `AppUsageLimit` |
 | `reminders` | `ReminderView.kt` | `ReminderViewModel.kt` | `Reminder` |
 | `notes` | `NoteView.kt` | `NoteViewModel.kt` | `Note` |
 | `papers` | `PapersView.kt` | `PapersViewModel.kt` | `Paper` |
 
 Settings dialogs for each module live in `*Settings.kt` files (e.g., `BudgetSettings.kt`, `ReminderSettings.kt`).
+
+Screen Time supports per-app daily limits (Issue #124): `AppUsageLimit` stores each device-local limit and the last notification date, while `ScreenTimeLimitNotifier` alerts once per app per day after usage crosses that limit.
 
 `BudgetCalendar.kt`'s `BudgetCalendarView` is reachable as of 2026-07-11 (Issue #32): a list/calendar `IconButton` toggle in the Budget top bar, with the selected month hoisted into `BudgetTrackerApp` and shared between both views.
 
