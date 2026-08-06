@@ -367,9 +367,11 @@ clock") digit display, and added a focus mode.
   is destroyed.
 - **Screenshot baselines** — `FlipClockScreenshots.kt` added 3 new reference PNGs (dark, light,
   dark @200% font) to `app/src/screenshotTestDebug/reference/`.
-- **Known gap, tracked separately**: this is *keep-screen-on*, not true ambient/always-on-display
-  rendering (dimmed digits for a locked/dark screen) — that's issue #171, and the flip-clock
-  digit groups are noted there as a natural place to add a dimmed rendering variant later.
+- **Ambient display (Issue #171)** — focus mode's **Dim display** control lowers the Activity
+  window brightness, switches the whole surface and flip clock to a fixed dark graphite palette,
+  and disables flap animation to reduce light and motion. Pausing restores the exact prior window
+  brightness and normal theme. This is deliberately an in-app always-on surface; Android does not
+  let a normal phone app replace the system/lock-screen AOD.
 
 ## 2026-08-05 Weekly goal cadence (Issue #166)
 
@@ -385,8 +387,7 @@ clock") digit display, and added a focus mode.
 
 ## Developer's own TODO list (from notes.txt, still current)
 - Budget: "Extract from receipt" (OCR/receipt-parsing) — not started.
-- Study Timer: "Always on display" support — not started; the 2026-08-01 flip clock's focus mode
-  covers keep-screen-on but not true ambient/AOD rendering — see issue #171.
+- Study Timer: "Always on display" support — shipped as the dimmed in-app ambient display (#171).
 - Ideas floated for later: home screen widgets (Glance — issue #44; the focused widgets in
   #130/#131/#167 have shipped) and animated ring-chart visualizations (Canvas-based, like
   `ApexLogo`). (Biometric lock shipped 2026-07-20; Daily Apex Tip shipped 2026-08-05.)

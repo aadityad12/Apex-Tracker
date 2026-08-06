@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -77,6 +78,8 @@ import com.example.apextracker.ui.design.ApexSectionHeader
 import com.example.apextracker.ui.design.ApexShapes
 import com.example.apextracker.ui.design.ApexSpacing
 import com.example.apextracker.ui.design.LocalApexSemantics
+import com.example.apextracker.ui.design.FrostDim
+import com.example.apextracker.ui.design.GraphiteBase
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
@@ -99,6 +102,7 @@ fun StudyTrackerView(
     val todayTotalSeconds by viewModel.todayTotalSeconds.collectAsState()
     val studyStreak by viewModel.studyStreak.collectAsState()
     val context = LocalContext.current
+    var ambientDisplay by rememberSaveable { mutableStateOf(false) }
 
     // Hoisted above the focus swap so scroll position survives a focus round trip.
     val scrollState = rememberScrollState()
@@ -115,7 +119,10 @@ fun StudyTrackerView(
     LaunchedEffect(isRunning) { onFocusModeChange(isRunning) }
     DisposableEffect(Unit) { onDispose { onFocusModeChange(false) } }
 
-    FocusWindowEffects(active = isRunning)
+    LaunchedEffect(isRunning) {
+        if (!isRunning) ambientDisplay = false
+    }
+    FocusWindowEffects(active = isRunning, ambient = ambientDisplay)
 
     // System back pauses rather than leaving the screen. Losing the surface you were watching by
     // accident is worse than the alternative, and Pause is the one thing this surface is for.
@@ -273,6 +280,8 @@ fun StudyTrackerView(
                 StudyFocusContent(
                     seconds = { timeSecondsState.value },
                     subject = currentSubject,
+                    ambient = ambientDisplay,
+                    onToggleAmbient = { ambientDisplay = !ambientDisplay },
                     onPause = { viewModel.toggleTimer() }
                 )
             } else {
@@ -313,7 +322,7 @@ fun StudyTrackerView(
  * never touched here.
  */
 @Composable
-private fun FocusWindowEffects(active: Boolean) {
+private fun FocusWindowEffects(active: Boolean, ambient: Boolean) {
     val view = LocalView.current
     val activity = LocalActivity.current
     if (view.isInEditMode || activity == null) return   // previews have no Activity window
@@ -332,7 +341,23 @@ private fun FocusWindowEffects(active: Boolean) {
             controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
         }
     }
+    DisposableEffect(active, ambient, activity) {
+        val window = activity.window
+        val previousBrightness = window.attributes.screenBrightness
+        if (active && ambient) {
+            window.attributes = window.attributes.apply {
+                screenBrightness = AMBIENT_SCREEN_BRIGHTNESS
+            }
+        }
+        onDispose {
+            window.attributes = window.attributes.apply {
+                screenBrightness = previousBrightness
+            }
+        }
+    }
 }
+
+private const val AMBIENT_SCREEN_BRIGHTNESS = 0.03f
 
 /**
  * The focus surface: the subject that is banking the time, the clock, and the way out. Nothing else
@@ -347,31 +372,51 @@ private fun FocusWindowEffects(active: Boolean) {
 private fun StudyFocusContent(
     seconds: () -> Long,
     subject: String,
+    ambient: Boolean,
+    onToggleAmbient: () -> Unit,
     onPause: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier.fillMaxSize().padding(horizontal = ApexSpacing.l),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(if (ambient) GraphiteBase else MaterialTheme.colorScheme.background)
     ) {
-        Text(
-            text = subject.ifBlank { stringResource(R.string.study_no_subject) },
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.height(ApexSpacing.xl))
-        FlipClockFitToWidth {
-            ApexFlipClock(seconds = seconds, active = true)
+        TextButton(
+            onClick = onToggleAmbient,
+            modifier = Modifier.align(Alignment.TopEnd).padding(ApexSpacing.s)
+        ) {
+            Text(
+                text = stringResource(
+                    if (ambient) R.string.study_restore_brightness else R.string.study_dim_display
+                ),
+                color = if (ambient) FrostDim else MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
-        Spacer(Modifier.height(ApexSpacing.xxl))
-        // navigationBarsPadding: 0dp while the bars are hidden, and correct if one is swiped
-        // transiently back in — the button must never end up underneath the gesture handle.
-        StudyToggleButton(
-            isRunning = true,
-            onClick = onPause,
-            modifier = Modifier.navigationBarsPadding()
-        )
+        Column(
+            modifier = Modifier.fillMaxSize().padding(horizontal = ApexSpacing.l),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = subject.ifBlank { stringResource(R.string.study_no_subject) },
+                style = MaterialTheme.typography.titleSmall,
+                color = if (ambient) FrostDim else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(ApexSpacing.xl))
+            FlipClockFitToWidth {
+                ApexFlipClock(seconds = seconds, active = true, ambient = ambient)
+            }
+            Spacer(Modifier.height(ApexSpacing.xxl))
+            // navigationBarsPadding: 0dp while the bars are hidden, and correct if one is swiped
+            // transiently back in — the button must never end up underneath the gesture handle.
+            StudyToggleButton(
+                isRunning = true,
+                ambient = ambient,
+                onClick = onPause,
+                modifier = Modifier.navigationBarsPadding()
+            )
+        }
     }
 }
 
@@ -662,7 +707,12 @@ private fun StudyGoalMeter(fraction: Float, label: String, modifier: Modifier = 
  * the timer it is subordinate to.
  */
 @Composable
-private fun StudyToggleButton(isRunning: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun StudyToggleButton(
+    isRunning: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    ambient: Boolean = false
+) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(if (isPressed) 0.97f else 1f, animationSpec = ApexMotion.snap(), label = "press")
@@ -672,8 +722,16 @@ private fun StudyToggleButton(isRunning: Boolean, onClick: () -> Unit, modifier:
         interactionSource = interactionSource,
         shape = RoundedCornerShape(ApexShapes.control),
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (isRunning) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primary,
-            contentColor = if (isRunning) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimary
+            containerColor = when {
+                ambient -> GraphiteBase
+                isRunning -> MaterialTheme.colorScheme.surfaceVariant
+                else -> MaterialTheme.colorScheme.primary
+            },
+            contentColor = when {
+                ambient -> FrostDim
+                isRunning -> MaterialTheme.colorScheme.onSurface
+                else -> MaterialTheme.colorScheme.onPrimary
+            }
         )
     ) {
         Icon(

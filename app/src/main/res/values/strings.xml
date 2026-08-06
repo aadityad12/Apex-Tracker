@@ -148,6 +148,8 @@
     <string name="study_goal_setting">Daily goal</string>
     <string name="study_goal_desc">A minutes-per-day study target. Set 0 to turn it off.</string>
     <string name="study_goal_minutes_label">Minutes per day</string>
+    <string name="study_dim_display">Dim display</string>
+    <string name="study_restore_brightness">Restore brightness</string>
     <string name="study_goal_progress">%1$d / %2$d min</string>
     <string name="study_streak">%1$d-day streak</string>
     <string name="study_no_subject">No subject</string>
