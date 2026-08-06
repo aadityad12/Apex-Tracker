@@ -137,4 +137,30 @@ class SemanticScholarTest {
             parseS2PaperJson("""{"paperId": "abc"}""")
         }
     }
+
+    @Test
+    fun `search response parses valid rows and skips malformed rows`() {
+        val papers = parseS2SearchJson(
+            """
+            {
+              "total": 2,
+              "data": [
+                {"paperId":"p1","title":"Fresh Paper","authors":[],"year":2026},
+                {"paperId":"broken"}
+              ]
+            }
+            """.trimIndent()
+        )
+        assertEquals(1, papers.size)
+        assertEquals("p1", papers.single().s2Id)
+        assertEquals("Fresh Paper", papers.single().title)
+    }
+
+    @Test
+    fun `rate limit backoff uses header and clamps extremes`() {
+        assertEquals(1_060_000L, semanticScholarBlockedUntil(60L, 1_000_000L))
+        assertEquals(1_060_000L, semanticScholarBlockedUntil(1L, 1_000_000L))
+        assertEquals(87_400_000L, semanticScholarBlockedUntil(999_999L, 1_000_000L))
+        assertEquals(22_600_000L, semanticScholarBlockedUntil(null, 1_000_000L))
+    }
 }

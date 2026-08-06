@@ -131,7 +131,8 @@ was verified end-to-end on the SM-S931U1 — real v19→v20 migration on a popul
 CLAUDE.md's "v15" was already stale; the DB was at v19), seed import, mark-read with memo +
 signal, history rendering, and the PAPERS goal metric evaluating "Met" on the Dashboard from a
 real read. S2 API verified live (the unauthenticated pool 429s readily — v2 must back off).
-Deferred to issues: #149 (daily topic fetch), #150 (recommendations), #151 (Firestore sync).
+Follow-ups: #149 (daily topic fetch) and #151 (Firestore sync) shipped; #150 (recommendations)
+remains.
 **Merged as PR #152.**
 
 **Phase 2 complete (2026-07-30, branch `redesign/graphite`, PR #153):** the Ember identity was

@@ -6,9 +6,12 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.time.LocalDate
 import java.util.UUID
 
@@ -34,6 +37,15 @@ sealed interface PaperFetchState {
     data class Error(val notFound: Boolean) : PaperFetchState
 }
 
+sealed interface DailyPaperFeedState {
+    data object Idle : DailyPaperFeedState
+    data class Loading(val field: String) : DailyPaperFeedState
+    data class Added(val count: Int, val field: String) : DailyPaperFeedState
+    data class NoResults(val field: String) : DailyPaperFeedState
+    data class Unavailable(val field: String) : DailyPaperFeedState
+    data class RateLimited(val field: String) : DailyPaperFeedState
+}
+
 /**
  * Papers reading log. Room is the source of truth, same as every other module; mutations are
  * mirrored to Firestore when signed in and safely remain local when offline or signed out.
@@ -43,6 +55,8 @@ class PapersViewModel(application: Application) : AndroidViewModel(application) 
     private val paperDao = AppDatabase.getDatabase(application).paperDao()
     private val client = SemanticScholarClient()
     private val firebaseManager = FirebaseManager(application)
+    private val discoveryPrefs = PapersDiscoveryPrefs(application)
+    private val dailyFetchMutex = Mutex()
 
     val uiState: StateFlow<PapersUiState> = paperDao.getAllPapers()
         .map { papers ->
@@ -58,6 +72,22 @@ class PapersViewModel(application: Application) : AndroidViewModel(application) 
 
     private val _fetchState = MutableStateFlow<PaperFetchState>(PaperFetchState.Idle)
     val fetchState: StateFlow<PaperFetchState> = _fetchState
+
+    val discoveryPreferences: StateFlow<PapersDiscoveryPreferences> = discoveryPrefs.preferences
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PapersDiscoveryPreferences())
+
+    private val _dailyFeedState = MutableStateFlow<DailyPaperFeedState>(DailyPaperFeedState.Idle)
+    val dailyFeedState: StateFlow<DailyPaperFeedState> = _dailyFeedState
+
+    init {
+        viewModelScope.launch {
+            // Ordered collection matters: recordAttempt() updates this same flow. collectLatest
+            // would cancel the handler at that emission and strand the UI in Loading.
+            discoveryPrefs.preferences.collect { preferences ->
+                fetchDailyPapersIfNeeded(preferences)
+            }
+        }
+    }
 
     /** Resolve pasted input to metadata for the add dialog's preview step. */
     fun fetchForAdd(input: String) {
@@ -83,6 +113,75 @@ class PapersViewModel(application: Application) : AndroidViewModel(application) 
 
     fun resetFetch() {
         _fetchState.value = PaperFetchState.Idle
+    }
+
+    fun setDiscoveryFields(fields: Set<String>) {
+        viewModelScope.launch { discoveryPrefs.setFields(fields) }
+    }
+
+    private suspend fun fetchDailyPapersIfNeeded(preferences: PapersDiscoveryPreferences) {
+        dailyFetchMutex.withLock {
+            val today = LocalDate.now()
+            val now = System.currentTimeMillis()
+            if (preferences.fields.isEmpty()) {
+                _dailyFeedState.value = DailyPaperFeedState.Idle
+                return
+            }
+            if (!shouldFetchDailyPapers(preferences, today, now)) return
+            val field = dailyPaperField(preferences.fields, today) ?: return
+            _dailyFeedState.value = DailyPaperFeedState.Loading(field)
+
+            val result = client.searchRecent(field, today)
+            if (result.isSuccess) {
+                val added = mutableListOf<Paper>()
+                result.getOrThrow().forEach { fetched ->
+                    if (added.size < DAILY_PAPER_LIMIT && paperDao.getByS2Id(fetched.s2Id) == null) {
+                        val paper = Paper(
+                            s2Id = fetched.s2Id,
+                            title = fetched.title,
+                            authors = fetched.authors,
+                            year = fetched.year,
+                            venue = fetched.venue,
+                            abstractText = fetched.abstractText,
+                            tldr = fetched.tldr,
+                            url = fetched.url,
+                            pdfUrl = fetched.pdfUrl,
+                            source = PaperSource.DAILY,
+                            addedDate = today,
+                            cloudId = UUID.randomUUID().toString(),
+                            modifiedAt = System.currentTimeMillis()
+                        )
+                        paperDao.insertPaper(paper)
+                        added += paper
+                    }
+                }
+                _dailyFeedState.value = if (added.isEmpty()) {
+                    DailyPaperFeedState.NoResults(field)
+                } else {
+                    DailyPaperFeedState.Added(added.size, field)
+                }
+                discoveryPrefs.recordAttempt(today)
+                // Room and the visible state complete first; cloud failures never hold back the feed.
+                viewModelScope.launch {
+                    added.forEach { paper ->
+                        safeCloudCall(TAG, "pushPaper") { firebaseManager.pushPaper(paper) }
+                    }
+                }
+            } else {
+                val error = result.exceptionOrNull()
+                if (error is SemanticScholarRateLimitedException) {
+                    _dailyFeedState.value = DailyPaperFeedState.RateLimited(field)
+                    discoveryPrefs.recordAttempt(
+                        today,
+                        semanticScholarBlockedUntil(error.retryAfterSeconds, now)
+                    )
+                } else {
+                    // Network/server failures are quiet and still count as today's single attempt.
+                    _dailyFeedState.value = DailyPaperFeedState.Unavailable(field)
+                    discoveryPrefs.recordAttempt(today)
+                }
+            }
+        }
     }
 
     /** Confirm the previewed paper into the queue. */
@@ -198,5 +297,6 @@ class PapersViewModel(application: Application) : AndroidViewModel(application) 
 
     companion object {
         private const val TAG = "PapersViewModel"
+        private const val DAILY_PAPER_LIMIT = 3
     }
 }

@@ -312,7 +312,10 @@ unit-tested in `SemanticScholarTest` — note the unauthenticated S2 pool rate-l
 (`BackupData.papers`). **Firestore sync shipped in Issue #151**: papers use the standard
 `users/{uid}/papers/{cloudId}` last-writer-wins path, participate in initial sync and live
 snapshot listeners, and every Papers mutation mirrors to the cloud while Room remains the source
-of truth. Daily topic fetch and recommendations remain tracked as #149/#150.
+of truth. **Daily discovery shipped in Issue #149**: `PapersDiscoverySettings.kt` stores selected
+Semantic Scholar fields, the last attempt date, and shared 429 backoff in DataStore. Opening
+Reading rotates through one field per day, makes at most one `/paper/search` request, deduplicates
+by `s2Id`, and inserts at most three `PaperSource.DAILY` rows. Recommendations remain #150.
 
 ## 2026-07-30 Graphite identity (Plan.md Phase 2, branch `redesign/graphite`)
 

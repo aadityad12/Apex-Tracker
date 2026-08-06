@@ -6,6 +6,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.time.LocalDate
 
 /**
  * Semantic Scholar Graph API — the single metadata backbone for the Papers feature (Plan.md
@@ -92,6 +93,14 @@ fun parseS2PaperJson(json: String): FetchedPaper {
     )
 }
 
+/** Parses the `data` array returned by paper relevance search, skipping malformed individual rows. */
+fun parseS2SearchJson(json: String): List<FetchedPaper> {
+    val data = JSONObject(json).getJSONArray("data")
+    return (0 until data.length()).mapNotNull { index ->
+        data.optJSONObject(index)?.let { row -> runCatching { parseS2PaperJson(row.toString()) }.getOrNull() }
+    }
+}
+
 private const val S2_FIELDS = "title,authors,year,venue,abstract,tldr,url,openAccessPdf"
 
 class SemanticScholarClient {
@@ -121,6 +130,50 @@ class SemanticScholarClient {
             }
         }
     }
+
+    /**
+     * One relevance-search request for today's selected field. The caller caps inserted rows and
+     * persists the daily gate. Results cover the last 12 months so a quiet field can still return
+     * useful work without turning this into a broad historical search.
+     */
+    suspend fun searchRecent(field: String, today: LocalDate): Result<List<FetchedPaper>> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val query = URLEncoder.encode(field, "UTF-8").replace("+", "%20")
+                val encodedField = URLEncoder.encode(field, "UTF-8").replace("+", "%20")
+                val dateRange = "${today.minusYears(1)}:"
+                val url = URL(
+                    "https://api.semanticscholar.org/graph/v1/paper/search" +
+                        "?query=$query&fields=$S2_FIELDS&limit=10" +
+                        "&publicationDateOrYear=$dateRange&fieldsOfStudy=$encodedField"
+                )
+                val conn = url.openConnection() as HttpURLConnection
+                try {
+                    conn.connectTimeout = 10_000
+                    conn.readTimeout = 15_000
+                    conn.setRequestProperty("Accept", "application/json")
+                    when (val code = conn.responseCode) {
+                        HttpURLConnection.HTTP_OK ->
+                            parseS2SearchJson(conn.inputStream.bufferedReader().use { it.readText() })
+                        429 -> {
+                            val retrySeconds = conn.getHeaderField("Retry-After")?.toLongOrNull()
+                            throw SemanticScholarRateLimitedException(retrySeconds)
+                        }
+                        else -> throw IllegalStateException("Semantic Scholar HTTP $code")
+                    }
+                } finally {
+                    conn.disconnect()
+                }
+            }
+        }
 }
 
 class PaperNotFoundException : Exception("Paper not found")
+
+class SemanticScholarRateLimitedException(val retryAfterSeconds: Long?) :
+    Exception("Semantic Scholar rate limited the request")
+
+fun semanticScholarBlockedUntil(
+    retryAfterSeconds: Long?,
+    nowMillis: Long
+): Long = nowMillis + (retryAfterSeconds ?: 21_600L).coerceIn(60L, 86_400L) * 1_000L
