@@ -35,14 +35,14 @@ sealed interface PaperFetchState {
 }
 
 /**
- * Papers reading log. Room is the source of truth, same as every other module. Cloud sync is
- * deliberately not wired in v1 (Plan.md decision 13 — filed as a follow-up issue); rows still
- * get cloudId/modifiedAt at creation so the sync lands as a pure FirebaseManager change later.
+ * Papers reading log. Room is the source of truth, same as every other module; mutations are
+ * mirrored to Firestore when signed in and safely remain local when offline or signed out.
  */
 class PapersViewModel(application: Application) : AndroidViewModel(application) {
 
     private val paperDao = AppDatabase.getDatabase(application).paperDao()
     private val client = SemanticScholarClient()
+    private val firebaseManager = FirebaseManager(application)
 
     val uiState: StateFlow<PapersUiState> = paperDao.getAllPapers()
         .map { papers ->
@@ -89,23 +89,23 @@ class PapersViewModel(application: Application) : AndroidViewModel(application) 
     fun addFetched(fetched: FetchedPaper) {
         viewModelScope.launch {
             if (paperDao.getByS2Id(fetched.s2Id) == null) {
-                paperDao.insertPaper(
-                    Paper(
-                        s2Id = fetched.s2Id,
-                        title = fetched.title,
-                        authors = fetched.authors,
-                        year = fetched.year,
-                        venue = fetched.venue,
-                        abstractText = fetched.abstractText,
-                        tldr = fetched.tldr,
-                        url = fetched.url,
-                        pdfUrl = fetched.pdfUrl,
-                        source = PaperSource.MANUAL,
-                        addedDate = LocalDate.now(),
-                        cloudId = UUID.randomUUID().toString(),
-                        modifiedAt = System.currentTimeMillis()
-                    )
+                val paper = Paper(
+                    s2Id = fetched.s2Id,
+                    title = fetched.title,
+                    authors = fetched.authors,
+                    year = fetched.year,
+                    venue = fetched.venue,
+                    abstractText = fetched.abstractText,
+                    tldr = fetched.tldr,
+                    url = fetched.url,
+                    pdfUrl = fetched.pdfUrl,
+                    source = PaperSource.MANUAL,
+                    addedDate = LocalDate.now(),
+                    cloudId = UUID.randomUUID().toString(),
+                    modifiedAt = System.currentTimeMillis()
                 )
+                paperDao.insertPaper(paper)
+                safeCloudCall(TAG, "pushPaper") { firebaseManager.pushPaper(paper) }
             }
             _fetchState.value = PaperFetchState.Idle
         }
@@ -114,24 +114,30 @@ class PapersViewModel(application: Application) : AndroidViewModel(application) 
     /** Import the bundled starter list, skipping any seed already present (by landing URL). */
     fun importSeeds() {
         viewModelScope.launch {
+            val added = mutableListOf<Paper>()
             PAPER_SEEDS.forEach { seed ->
                 if (paperDao.getByUrl(seed.url) == null) {
-                    paperDao.insertPaper(
-                        Paper(
-                            title = seed.title,
-                            authors = seed.authors,
-                            year = seed.year,
-                            venue = seed.venue,
-                            tldr = seed.tldr,
-                            url = seed.url,
-                            pdfUrl = seed.pdfUrl,
-                            source = PaperSource.SEED,
-                            addedDate = LocalDate.now(),
-                            cloudId = UUID.randomUUID().toString(),
-                            modifiedAt = System.currentTimeMillis()
-                        )
+                    val paper = Paper(
+                        title = seed.title,
+                        authors = seed.authors,
+                        year = seed.year,
+                        venue = seed.venue,
+                        tldr = seed.tldr,
+                        url = seed.url,
+                        pdfUrl = seed.pdfUrl,
+                        source = PaperSource.SEED,
+                        addedDate = LocalDate.now(),
+                        cloudId = UUID.randomUUID().toString(),
+                        modifiedAt = System.currentTimeMillis()
                     )
+                    paperDao.insertPaper(paper)
+                    added += paper
                 }
+            }
+            // Complete the local import before touching the network so a signed-in but offline
+            // user still gets the whole starter list immediately.
+            added.forEach { paper ->
+                safeCloudCall(TAG, "pushPaper") { firebaseManager.pushPaper(paper) }
             }
         }
     }
@@ -142,45 +148,55 @@ class PapersViewModel(application: Application) : AndroidViewModel(application) 
      */
     fun markRead(paper: Paper, memo: String, signal: Int?) {
         viewModelScope.launch {
-            paperDao.updatePaper(
-                paper.copy(
-                    status = PaperStatus.READ,
-                    readDate = paper.readDate ?: LocalDate.now(),
-                    memo = memo.trim(),
-                    signal = normalizeSignal(signal),
-                    modifiedAt = System.currentTimeMillis()
-                )
+            val updated = paper.copy(
+                status = PaperStatus.READ,
+                readDate = paper.readDate ?: LocalDate.now(),
+                memo = memo.trim(),
+                signal = normalizeSignal(signal),
+                cloudId = paper.cloudId.ifEmpty { UUID.randomUUID().toString() },
+                modifiedAt = System.currentTimeMillis()
             )
+            paperDao.updatePaper(updated)
+            safeCloudCall(TAG, "pushPaper") { firebaseManager.pushPaper(updated) }
         }
     }
 
     /** Drop a paper from the queue without pretending it was read. Memo optional ("why I bailed"). */
     fun abandon(paper: Paper, memo: String) {
         viewModelScope.launch {
-            paperDao.updatePaper(
-                paper.copy(
-                    status = PaperStatus.ABANDONED,
-                    memo = memo.trim(),
-                    modifiedAt = System.currentTimeMillis()
-                )
+            val updated = paper.copy(
+                status = PaperStatus.ABANDONED,
+                memo = memo.trim(),
+                cloudId = paper.cloudId.ifEmpty { UUID.randomUUID().toString() },
+                modifiedAt = System.currentTimeMillis()
             )
+            paperDao.updatePaper(updated)
+            safeCloudCall(TAG, "pushPaper") { firebaseManager.pushPaper(updated) }
         }
     }
 
     /** Send a history item back to the queue (re-read / gave-up-too-soon). Clears the read mark. */
     fun requeue(paper: Paper) {
         viewModelScope.launch {
-            paperDao.updatePaper(
-                paper.copy(
-                    status = PaperStatus.WANT,
-                    readDate = null,
-                    modifiedAt = System.currentTimeMillis()
-                )
+            val updated = paper.copy(
+                status = PaperStatus.WANT,
+                readDate = null,
+                cloudId = paper.cloudId.ifEmpty { UUID.randomUUID().toString() },
+                modifiedAt = System.currentTimeMillis()
             )
+            paperDao.updatePaper(updated)
+            safeCloudCall(TAG, "pushPaper") { firebaseManager.pushPaper(updated) }
         }
     }
 
     fun deletePaper(paper: Paper) {
-        viewModelScope.launch { paperDao.deletePaper(paper) }
+        viewModelScope.launch {
+            paperDao.deletePaper(paper)
+            safeCloudCall(TAG, "deletePaper") { firebaseManager.deletePaper(paper.cloudId) }
+        }
+    }
+
+    companion object {
+        private const val TAG = "PapersViewModel"
     }
 }
