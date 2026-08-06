@@ -40,7 +40,10 @@ class ApexTipViewModel(application: Application) : AndroidViewModel(application)
 
     fun updateSnapshot(snapshot: ApexTipSnapshot) {
         latestSnapshot = snapshot
-        if (preferences != null) generateIfNeeded()
+        if (preferences != null) {
+            renderStoredState()
+            generateIfNeeded()
+        }
     }
 
     fun setEnabled(enabled: Boolean) {
