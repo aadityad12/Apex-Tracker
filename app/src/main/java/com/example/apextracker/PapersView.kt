@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -70,6 +71,9 @@ fun PapersView(
     var showAdd by remember { mutableStateOf(false) }
     var detailPaper by remember { mutableStateOf<Paper?>(null) }
     var memoTarget by remember { mutableStateOf<Paper?>(null) }
+    var showExport by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val allPapers = remember(state.queue, state.history) { state.queue + state.history }
 
     Scaffold(
         topBar = {
@@ -81,6 +85,9 @@ fun PapersView(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showExport = true }) {
+                        Icon(Icons.Default.Share, contentDescription = stringResource(R.string.cd_papers_export))
+                    }
                     IconButton(onClick = { showAdd = true }) {
                         Icon(Icons.Default.Add, contentDescription = stringResource(R.string.cd_papers_add))
                     }
@@ -155,6 +162,24 @@ fun PapersView(
             }
         )
     }
+    if (showExport) {
+        PapersExportDialog(
+            onDismiss = { showExport = false },
+            onExportBibtex = {
+                shareFile(
+                    context,
+                    buildPapersBibtex(allPapers),
+                    "papers_${java.time.LocalDate.now()}.bib",
+                    "application/x-bibtex"
+                )
+                showExport = false
+            },
+            onExportCsv = {
+                shareCsv(context, buildPapersCsv(allPapers), "papers_${java.time.LocalDate.now()}.csv")
+                showExport = false
+            }
+        )
+    }
     detailPaper?.let { paper ->
         PaperDetailSheet(
             paper = paper,
@@ -187,6 +212,32 @@ fun PapersView(
             }
         )
     }
+}
+
+@Composable
+private fun PapersExportDialog(
+    onDismiss: () -> Unit,
+    onExportBibtex: () -> Unit,
+    onExportCsv: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.papers_export_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(ApexSpacing.s)) {
+                Button(onClick = onExportBibtex, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.papers_export_bibtex))
+                }
+                Button(onClick = onExportCsv, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.papers_export_csv))
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        }
+    )
 }
 
 /** authors · venue, elided naturally by the row. Year is the row's mono value, not repeated here. */
