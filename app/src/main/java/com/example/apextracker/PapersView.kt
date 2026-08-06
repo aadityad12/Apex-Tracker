@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -21,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -68,10 +71,13 @@ fun PapersView(
     viewModel: PapersViewModel = viewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
+    val discoveryPreferences by viewModel.discoveryPreferences.collectAsState()
+    val dailyFeedState by viewModel.dailyFeedState.collectAsState()
     var showAdd by remember { mutableStateOf(false) }
     var detailPaper by remember { mutableStateOf<Paper?>(null) }
     var memoTarget by remember { mutableStateOf<Paper?>(null) }
     var showExport by remember { mutableStateOf(false) }
+    var showDiscoverySettings by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val allPapers = remember(state.queue, state.history) { state.queue + state.history }
 
@@ -85,6 +91,9 @@ fun PapersView(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showDiscoverySettings = true }) {
+                        Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.cd_papers_discovery))
+                    }
                     IconButton(onClick = { showExport = true }) {
                         Icon(Icons.Default.Share, contentDescription = stringResource(R.string.cd_papers_export))
                     }
@@ -108,12 +117,16 @@ fun PapersView(
                     actionLabel = stringResource(R.string.papers_import_seeds),
                     onAction = { viewModel.importSeeds() }
                 )
+                DailyPaperFeedMessage(dailyFeedState)
             }
         } else {
             LazyColumn(
                 modifier = Modifier.padding(innerPadding).fillMaxSize(),
                 contentPadding = PaddingValues(horizontal = ApexSpacing.l, vertical = ApexSpacing.s)
             ) {
+                item(key = "daily-feed-status") {
+                    DailyPaperFeedMessage(dailyFeedState)
+                }
                 state.todayPick?.let { pick ->
                     item(key = "pick") {
                         TodayPickCard(
@@ -180,6 +193,16 @@ fun PapersView(
             }
         )
     }
+    if (showDiscoverySettings) {
+        PapersDiscoveryDialog(
+            initialFields = discoveryPreferences.fields,
+            onDismiss = { showDiscoverySettings = false },
+            onSave = { fields ->
+                viewModel.setDiscoveryFields(fields)
+                showDiscoverySettings = false
+            }
+        )
+    }
     detailPaper?.let { paper ->
         PaperDetailSheet(
             paper = paper,
@@ -212,6 +235,76 @@ fun PapersView(
             }
         )
     }
+}
+
+@Composable
+private fun DailyPaperFeedMessage(state: DailyPaperFeedState) {
+    val field = when (state) {
+        is DailyPaperFeedState.Loading -> state.field
+        is DailyPaperFeedState.Added -> state.field
+        is DailyPaperFeedState.NoResults -> state.field
+        is DailyPaperFeedState.Unavailable -> state.field
+        is DailyPaperFeedState.RateLimited -> state.field
+        DailyPaperFeedState.Idle -> null
+    }
+    val fieldLabel = field?.let { PAPER_DISCOVERY_FIELD_LABELS[it] }?.let { stringResource(it) }
+    val message = when (state) {
+        DailyPaperFeedState.Idle -> null
+        is DailyPaperFeedState.Loading -> stringResource(R.string.papers_daily_loading, fieldLabel.orEmpty())
+        is DailyPaperFeedState.Added -> stringResource(R.string.papers_daily_added, state.count, fieldLabel.orEmpty())
+        is DailyPaperFeedState.NoResults -> stringResource(R.string.papers_daily_no_results, fieldLabel.orEmpty())
+        is DailyPaperFeedState.Unavailable -> stringResource(R.string.papers_daily_unavailable)
+        is DailyPaperFeedState.RateLimited -> stringResource(R.string.papers_daily_rate_limited)
+    }
+    if (message != null) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth().padding(vertical = ApexSpacing.s)
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PapersDiscoveryDialog(
+    initialFields: Set<String>,
+    onDismiss: () -> Unit,
+    onSave: (Set<String>) -> Unit
+) {
+    var selected by remember(initialFields) { mutableStateOf(initialFields) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.papers_discovery_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(ApexSpacing.m)) {
+                Text(stringResource(R.string.papers_discovery_description))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(ApexSpacing.s),
+                    verticalArrangement = Arrangement.spacedBy(ApexSpacing.xs)
+                ) {
+                    PAPER_DISCOVERY_FIELDS.forEach { field ->
+                        FilterChip(
+                            selected = field in selected,
+                            onClick = {
+                                selected = if (field in selected) selected - field else selected + field
+                            },
+                            label = { Text(stringResource(PAPER_DISCOVERY_FIELD_LABELS.getValue(field))) }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(selected) }) {
+                Text(stringResource(R.string.papers_discovery_save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        }
+    )
 }
 
 @Composable

@@ -11,10 +11,11 @@ object PaperStatus {
     const val ABANDONED = "ABANDONED" // deliberately dropped; kept in history, never resurfaces
 }
 
-/** Where a paper entered the app. DAILY/RECOMMENDED are reserved for the v2/v3 sources. */
+/** Where a paper entered the app. RECOMMENDED is reserved for the v3 source. */
 object PaperSource {
     const val MANUAL = "MANUAL" // pasted link / id
     const val SEED = "SEED"     // the bundled starter list
+    const val DAILY = "DAILY"   // daily Semantic Scholar topic discovery
 }
 
 /**
