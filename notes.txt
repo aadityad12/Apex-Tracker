@@ -9,7 +9,7 @@ Reminders
 1. Review notifications from the app 
 2. Recurring reminders
 Study Timer
-1. Always on display 
+1. Always on display — shipped as the dimmed in-app ambient display (Issue #171)
 2.
 Overview: 
 1. The amount spent needs to be in dollars and cents (it should not be rounded up/down)

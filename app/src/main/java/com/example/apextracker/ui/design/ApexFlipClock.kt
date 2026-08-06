@@ -74,6 +74,8 @@ import kotlin.math.roundToInt
  * @param active selects the card tone. Under GRAPHITE `primary` and `onSurface` are the same colour,
  *   so a running/idle distinction cannot be carried by ink; it is carried by lifting the card one
  *   step further from the background instead.
+ * @param ambient selects the fixed dark, low-power palette and disables flap animation. It is used
+ *   only by Study's in-app ambient display, independent of the app's light/dark theme.
  */
 @Composable
 fun ApexFlipClock(
@@ -81,15 +83,20 @@ fun ApexFlipClock(
     modifier: Modifier = Modifier,
     style: TextStyle = ApexNumerals.hero,
     active: Boolean = false,
+    ambient: Boolean = false,
 ) {
     val value = seconds()
     val metrics = rememberFlipMetrics(style)
-    val colors = FlipClockColors(
-        card = if (active) MaterialTheme.colorScheme.surfaceContainerHighest
-        else MaterialTheme.colorScheme.surfaceVariant,
-        edge = MaterialTheme.colorScheme.outlineVariant,
-        ink = MaterialTheme.colorScheme.onSurface,
-    )
+    val colors = if (ambient) {
+        FlipClockColors(card = GraphiteSurface, edge = GraphiteLineFaint, ink = FrostDim)
+    } else {
+        FlipClockColors(
+            card = if (active) MaterialTheme.colorScheme.surfaceContainerHighest
+            else MaterialTheme.colorScheme.surfaceVariant,
+            edge = MaterialTheme.colorScheme.outlineVariant,
+            ink = MaterialTheme.colorScheme.onSurface,
+        )
+    }
 
     // Only a +1s tick is a flap. Everything else is a jump and snaps: the asynchronous restore after
     // process death (the flow starts at 0 and fills in a moment later, which would otherwise flip
@@ -97,7 +104,7 @@ fun ApexFlipClock(
     // midnight rollover, and resuming after the screen was off. One predicate covers all of them,
     // and it makes the very first render instant by construction rather than by a first-frame flag.
     var lastValue by remember { mutableStateOf<Long?>(null) }
-    val animate = lastValue?.let { value - it == 1L } == true
+    val animate = !ambient && lastValue?.let { value - it == 1L } == true
     SideEffect { lastValue = value }
 
     val groups = flipClockGroups(value)
