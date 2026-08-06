@@ -120,6 +120,9 @@ class MainActivity : FragmentActivity() {
         // splash-gating on top of navigation.
         installSplashScreen()
         super.onCreate(savedInstanceState)
+        // Variant-specific: debug builds use App Check's local debug provider, while release
+        // builds use Play Integrity. Configure it before any Firebase AI request can run.
+        configureAppCheck()
         enableEdgeToEdge()
         pendingRoute = sanitizeRequestedRoute(intent?.getStringExtra(EXTRA_NAVIGATE_TO))
 

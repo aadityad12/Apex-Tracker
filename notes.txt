@@ -20,4 +20,4 @@ Some More Additions:
 1. Home Screen Widgets: Create a sleek, themed widget so users can see their "Budget" or "Tasks" without opening the app.
 2. Interactive Data Visualization: Instead of just text, use Canvas (like you did for your logo) to create beautiful, animated ring charts for Budgeting or Screen Time.
 3. Biometric Lock: Add a "Lock Settings" feature using Fingerprint/Face ID to protect the "Budget" or "Notes" modules.
-4. AI Insights: Use a simple Gemini API integration to look at their "Budget" and "Tasks" and give them a "Daily Apex Tip" (e.g., "You've spent 20% more on coffee this week than last week, try to focus on your Study module today!").
+4. AI Insights: Implemented as the opt-in, privacy-minimized "Daily Apex Tip" on Dashboard (Issue #168).

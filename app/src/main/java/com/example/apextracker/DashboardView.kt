@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -35,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.apextracker.ui.design.ApexDivider
 import com.example.apextracker.ui.design.ApexEmptyState
+import com.example.apextracker.ui.design.ApexGroup
 import com.example.apextracker.ui.design.ApexNumerals
 import com.example.apextracker.ui.design.ApexSectionHeader
 import com.example.apextracker.ui.design.ApexShapes
@@ -54,9 +56,18 @@ fun DashboardView(
     onOpenSettings: () -> Unit,
     signedIn: Boolean,
     isSyncing: Boolean,
-    viewModel: DashboardViewModel = viewModel()
+    viewModel: DashboardViewModel = viewModel(),
+    tipViewModel: ApexTipViewModel = viewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
+    val tipState by tipViewModel.uiState.collectAsState()
+    val currencyCode = LocalCurrencyCode.current
+    val tipSnapshot = remember(state, currencyCode) {
+        state.takeIf { it.loaded }?.toApexTipSnapshot(currencyCode)
+    }
+    LaunchedEffect(tipSnapshot) {
+        tipSnapshot?.let(tipViewModel::updateSnapshot)
+    }
     var selectedDay by remember { mutableStateOf<LocalDate?>(null) }
     // Saved as a plain Int so it survives process death: -1 = Recent, 0 = Rolling12Months,
     // anything else = that calendar year. A sealed type isn't Parcelable without extra ceremony.
@@ -124,6 +135,15 @@ fun DashboardView(
             Spacer(Modifier.height(ApexSpacing.l))
             ApexDivider()
             Spacer(Modifier.height(ApexSpacing.l))
+            DailyApexTipSection(
+                state = tipState,
+                onEnable = { tipViewModel.setEnabled(true) },
+                onDisable = { tipViewModel.setEnabled(false) },
+                onRetry = tipViewModel::retry
+            )
+            Spacer(Modifier.height(ApexSpacing.l))
+            ApexDivider()
+            Spacer(Modifier.height(ApexSpacing.l))
             HeatmapSection(
                 state = state,
                 window = window,
@@ -141,6 +161,94 @@ fun DashboardView(
             onToggle = { goal -> viewModel.toggleGoalForDate(goal, day) },
             onDismiss = { selectedDay = null }
         )
+    }
+}
+
+/** Opt-in AI summary. The disclosure is shown before the first request, beside the enable action. */
+@Composable
+private fun DailyApexTipSection(
+    state: ApexTipUiState,
+    onEnable: () -> Unit,
+    onDisable: () -> Unit,
+    onRetry: () -> Unit
+) {
+    if (!state.loaded) return
+
+    Column(Modifier.fillMaxWidth()) {
+        ApexSectionHeader(
+            stringResource(R.string.apex_tip_title),
+            trailing = {
+                if (state.enabled) {
+                    TextButton(onClick = onDisable) {
+                        Text(stringResource(R.string.apex_tip_turn_off))
+                    }
+                }
+            }
+        )
+        Spacer(Modifier.height(ApexSpacing.s))
+        ApexGroup {
+            Row(verticalAlignment = Alignment.Top) {
+                Icon(
+                    Icons.Outlined.AutoAwesome,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.width(ApexSpacing.m))
+                Column(Modifier.weight(1f)) {
+                    when {
+                        !state.enabled -> {
+                            Text(
+                                stringResource(R.string.apex_tip_opt_in),
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Spacer(Modifier.height(ApexSpacing.s))
+                            Text(
+                                stringResource(R.string.apex_tip_privacy),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(ApexSpacing.m))
+                            Button(onClick = onEnable) {
+                                Text(stringResource(R.string.apex_tip_enable))
+                            }
+                        }
+                        state.loading -> {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(ApexSpacing.xl),
+                                    strokeWidth = ApexSpacing.hairline
+                                )
+                                Spacer(Modifier.width(ApexSpacing.m))
+                                Text(
+                                    stringResource(R.string.apex_tip_loading),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        }
+                        state.text != null -> {
+                            Text(state.text, style = MaterialTheme.typography.bodyLarge)
+                            Spacer(Modifier.height(ApexSpacing.s))
+                            Text(
+                                stringResource(R.string.apex_tip_attribution),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        state.failed -> {
+                            Text(
+                                stringResource(R.string.apex_tip_failed),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(ApexSpacing.s))
+                            TextButton(onClick = onRetry) {
+                                Text(stringResource(R.string.action_retry))
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -368,7 +368,7 @@ clock") digit display, and added a focus mode.
 - Budget: "Extract from receipt" (OCR/receipt-parsing) — not started.
 - Study Timer: "Always on display" support — not started; the 2026-08-01 flip clock's focus mode
   covers keep-screen-on but not true ambient/AOD rendering — see issue #171.
-- Ideas floated for later: home screen widgets (Glance — issues #44, #130–#132), animated ring-chart visualizations (Canvas-based, like `ApexLogo`), Gemini API "Daily Apex Tip" insights. (Biometric lock shipped 2026-07-20 — see the Issue #45 section above.)
+- Ideas floated for later: home screen widgets (Glance — issue #44; the focused widgets in #130/#131/#167 have shipped) and animated ring-chart visualizations (Canvas-based, like `ApexLogo`). (Biometric lock and Daily Apex Tip have shipped.)
 
 ## 2026-07-29 Redesign foundation (branch `redesign/foundation`, not yet merged)
 
