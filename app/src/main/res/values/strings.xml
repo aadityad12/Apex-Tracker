@@ -463,6 +463,10 @@
     <string name="papers_save">Save</string>
     <string name="papers_cancel">Cancel</string>
     <string name="cd_papers_add">Add a paper</string>
+    <string name="cd_papers_export">Export paper citations</string>
+    <string name="papers_export_title">Export citations</string>
+    <string name="papers_export_bibtex">BibTeX (.bib)</string>
+    <string name="papers_export_csv">CSV (.csv)</string>
     <string name="cd_papers_signal">Rate %1$d of 5</string>
     <string name="goal_metric_papers">Papers</string>
     <string name="goal_threshold_papers">Papers</string>

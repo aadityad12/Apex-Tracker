@@ -45,17 +45,20 @@ fun buildBudgetCsv(items: List<BudgetItem>, categories: List<Category>): String 
     return (listOf(header) + rows).joinToString("\n")
 }
 
-/** Writes CSV to the app cache dir and launches a share sheet via FileProvider — no storage permissions needed. */
-fun shareCsv(context: Context, csv: String, fileName: String) {
-    val exportDir = File(context.cacheDir, "csv_exports").apply { mkdirs() }
+/** Writes a generated file to app cache and shares it through FileProvider — no storage permission needed. */
+fun shareFile(context: Context, contents: String, fileName: String, mimeType: String) {
+    val exportDir = File(context.cacheDir, "exports").apply { mkdirs() }
     val file = File(exportDir, fileName)
-    file.writeText(csv)
+    file.writeText(contents)
 
     val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
     val intent = Intent(Intent.ACTION_SEND).apply {
-        type = "text/csv"
+        type = mimeType
         putExtra(Intent.EXTRA_STREAM, uri)
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
     context.startActivity(Intent.createChooser(intent, fileName))
 }
+
+fun shareCsv(context: Context, csv: String, fileName: String) =
+    shareFile(context, csv, fileName, "text/csv")
