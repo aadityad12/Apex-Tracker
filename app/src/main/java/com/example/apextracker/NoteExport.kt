@@ -19,7 +19,7 @@ fun buildNoteShareText(title: String, content: String, untitledLabel: String): S
 }
 
 /**
- * Fires a `text/plain` share sheet for one note. Unlike `shareBudgetCsv` this sends the body inline
+ * Fires a `text/plain` share sheet for one note. Unlike `shareCsv` this sends the body inline
  * via `EXTRA_TEXT` (no FileProvider) — a single note's plain text drops straight into an email/message
  * body, which a file attachment can't. `EXTRA_SUBJECT` carries the heading for targets that use it
  * (e.g. email clients).

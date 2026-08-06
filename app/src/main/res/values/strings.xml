@@ -162,6 +162,7 @@
     <!-- Spoken form of the study stopwatch. Minute resolution deliberately: a seconds-precise
          description would change sixty times a minute and is unusable to listen to. -->
     <string name="cd_study_elapsed">%1$s studied today</string>
+    <string name="cd_export_study_csv">Export study history as CSV</string>
     <string name="duration_joined">%1$s %2$s</string>
     <plurals name="duration_hours">
         <item quantity="one">%1$d hour</item>
@@ -202,6 +203,7 @@
     <string name="screen_grant_permission">Grant Permission</string>
     <string name="screen_app_excluded">Excluded</string>
     <string name="screen_app_tracking">Tracking</string>
+    <string name="cd_export_screen_time_csv">Export screen time history as CSV</string>
 
     <!-- Reminders -->
     <string name="reminders_title">TASK LIST</string>

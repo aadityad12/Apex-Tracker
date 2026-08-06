@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -50,6 +51,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.res.stringResource
@@ -96,6 +98,7 @@ fun StudyTrackerView(
     val dailyGoalMinutes by viewModel.dailyGoalMinutes.collectAsState()
     val todayTotalSeconds by viewModel.todayTotalSeconds.collectAsState()
     val studyStreak by viewModel.studyStreak.collectAsState()
+    val context = LocalContext.current
 
     // Hoisted above the focus swap so scroll position survives a focus round trip.
     val scrollState = rememberScrollState()
@@ -222,6 +225,20 @@ fun StudyTrackerView(
                         }
                     },
                     actions = {
+                        IconButton(
+                            onClick = {
+                                shareCsv(
+                                    context,
+                                    buildStudyCsv(allSessions),
+                                    "study_sessions_${LocalDate.now()}.csv"
+                                )
+                            }
+                        ) {
+                            Icon(
+                                Icons.Default.Share,
+                                contentDescription = stringResource(R.string.cd_export_study_csv)
+                            )
+                        }
                         IconButton(onClick = { showGoalDialog = true }) {
                             Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.study_goal_setting))
                         }

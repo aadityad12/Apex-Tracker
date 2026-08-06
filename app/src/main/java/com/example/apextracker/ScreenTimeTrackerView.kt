@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,6 +27,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -50,6 +52,7 @@ fun ScreenTimeTrackerView(onBackToMenu: () -> Unit, viewModel: ScreenTimeViewMod
     val allSessions by viewModel.getAllSessions().collectAsState(initial = emptyList())
     val apps by viewModel.installedApps.collectAsState()
     val aggregatedUsage by viewModel.aggregatedUsage.collectAsState()
+    val context = LocalContext.current
     
     var showSettings by remember { mutableStateOf(false) }
     var showAllApps by rememberSaveable { mutableStateOf(false) }
@@ -84,9 +87,25 @@ fun ScreenTimeTrackerView(onBackToMenu: () -> Unit, viewModel: ScreenTimeViewMod
                     }
                 },
                 actions = {
-                    if (hasPermission && !showSettings) {
-                        IconButton(onClick = { showSettings = true }) {
-                            Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.cd_exclude_apps))
+                    if (!showSettings) {
+                        IconButton(
+                            onClick = {
+                                shareCsv(
+                                    context,
+                                    buildScreenTimeCsv(allSessions),
+                                    "screen_time_sessions_${LocalDate.now()}.csv"
+                                )
+                            }
+                        ) {
+                            Icon(
+                                Icons.Default.Share,
+                                contentDescription = stringResource(R.string.cd_export_screen_time_csv)
+                            )
+                        }
+                        if (hasPermission) {
+                            IconButton(onClick = { showSettings = true }) {
+                                Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.cd_exclude_apps))
+                            }
                         }
                     }
                 },
@@ -461,4 +480,3 @@ fun LifecycleEffect(onEvent: () -> Unit) {
         }
     }
 }
-
