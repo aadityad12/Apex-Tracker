@@ -377,4 +377,55 @@ class FirebaseDocParsingTest {
     fun `goal completion doc id is goalCloudId piped with date`() {
         assertEquals("g1|2026-07-21", goalCompletionDocId("g1", LocalDate.of(2026, 7, 21)))
     }
+
+    // ── Papers ───────────────────────────────────────────────────────────────
+
+    @Test
+    fun `paper doc round-trips all fields`() {
+        val parsed = parsePaperDoc(
+            mapOf(
+                "cloudId" to "p1", "s2Id" to "s2-1", "title" to "A Paper",
+                "authors" to "Ada, Grace", "year" to 2026L, "venue" to "TestConf",
+                "abstractText" to "Abstract", "tldr" to "Summary", "url" to "https://example.test",
+                "pdfUrl" to "https://example.test/p.pdf", "source" to "SEED", "status" to "READ",
+                "addedDate" to "2026-08-01", "readDate" to "2026-08-05", "memo" to "Useful",
+                "signal" to 5L, "modifiedAt" to 1234L
+            )
+        )
+        assertEquals("p1", parsed.cloudId)
+        assertEquals("s2-1", parsed.s2Id)
+        assertEquals("A Paper", parsed.title)
+        assertEquals(2026, parsed.year)
+        assertEquals(PaperStatus.READ, parsed.status)
+        assertEquals(LocalDate.of(2026, 8, 5), parsed.readDate)
+        assertEquals(5, parsed.signal)
+        assertEquals(1234L, parsed.modifiedAt)
+    }
+
+    @Test
+    fun `paper doc tolerates absent optional fields`() {
+        val parsed = parsePaperDoc(
+            mapOf("cloudId" to "p1", "title" to "Minimal", "addedDate" to "2026-08-01")
+        )
+        assertEquals("", parsed.authors)
+        assertNull(parsed.year)
+        assertEquals(PaperSource.MANUAL, parsed.source)
+        assertEquals(PaperStatus.WANT, parsed.status)
+        assertNull(parsed.readDate)
+        assertNull(parsed.signal)
+    }
+
+    @Test
+    fun `paper doc without title throws`() {
+        assertThrows(IllegalStateException::class.java) {
+            parsePaperDoc(mapOf("cloudId" to "p1", "addedDate" to "2026-08-01"))
+        }
+    }
+
+    @Test
+    fun `paper doc with blank cloudId throws`() {
+        assertThrows(IllegalStateException::class.java) {
+            parsePaperDoc(mapOf("cloudId" to "", "title" to "X", "addedDate" to "2026-08-01"))
+        }
+    }
 }

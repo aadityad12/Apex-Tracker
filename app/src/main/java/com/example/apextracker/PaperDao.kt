@@ -22,6 +22,10 @@ interface PaperDao {
     @Query("SELECT * FROM papers WHERE url = :url AND url != '' LIMIT 1")
     suspend fun getByUrl(url: String): Paper?
 
+    /** Stable cross-device identity used by Firestore reconciliation. */
+    @Query("SELECT * FROM papers WHERE cloudId = :cloudId LIMIT 1")
+    suspend fun getByCloudId(cloudId: String): Paper?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPaper(paper: Paper): Long
 

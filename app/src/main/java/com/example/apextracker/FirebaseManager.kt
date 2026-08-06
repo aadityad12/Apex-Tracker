@@ -259,6 +259,26 @@ internal fun parseGoalCompletionDoc(data: Map<String, Any?>): GoalCompletion = G
     modifiedAt = data.optLong("modifiedAt")
 )
 
+internal fun parsePaperDoc(data: Map<String, Any?>): Paper = Paper(
+    s2Id = data.optString("s2Id") ?: "",
+    title = data.requireString("title"),
+    authors = data.optString("authors") ?: "",
+    year = (data["year"] as? Number)?.toInt(),
+    venue = data.optString("venue") ?: "",
+    abstractText = data.optString("abstractText") ?: "",
+    tldr = data.optString("tldr") ?: "",
+    url = data.optString("url") ?: "",
+    pdfUrl = data.optString("pdfUrl") ?: "",
+    source = data.optString("source") ?: PaperSource.MANUAL,
+    status = data.optString("status") ?: PaperStatus.WANT,
+    addedDate = LocalDate.parse(data.requireString("addedDate")),
+    readDate = data.optString("readDate")?.let { LocalDate.parse(it) },
+    memo = data.optString("memo") ?: "",
+    signal = (data["signal"] as? Number)?.toInt(),
+    cloudId = data.requireCloudId(),
+    modifiedAt = data.optLong("modifiedAt")
+)
+
 /**
  * Firestore doc id for a manual completion: "{goalCloudId}|{date}". goalCloudId is a UUID (only
  * hex + hyphens, all id-legal, and its leading digit can't match the reserved `__.*__` pattern),
@@ -657,6 +677,111 @@ class FirebaseManager(private val context: Context) {
         }
     }
 
+    // ── Papers ────────────────────────────────────────────────────────────────
+
+    suspend fun pushPaper(paper: Paper) {
+        val uid = userId ?: return
+        if (paper.cloudId.isEmpty()) return
+        firestore.collection("users").document(uid)
+            .collection("papers").document(paper.cloudId)
+            .set(
+                mapOf(
+                    "cloudId" to paper.cloudId,
+                    "s2Id" to paper.s2Id,
+                    "title" to paper.title,
+                    "authors" to paper.authors,
+                    "year" to paper.year,
+                    "venue" to paper.venue,
+                    "abstractText" to paper.abstractText,
+                    "tldr" to paper.tldr,
+                    "url" to paper.url,
+                    "pdfUrl" to paper.pdfUrl,
+                    "source" to paper.source,
+                    "status" to paper.status,
+                    "addedDate" to paper.addedDate.toString(),
+                    "readDate" to paper.readDate?.toString(),
+                    "memo" to paper.memo,
+                    "signal" to paper.signal,
+                    "modifiedAt" to paper.modifiedAt
+                ),
+                SetOptions.merge()
+            ).await()
+    }
+
+    suspend fun deletePaper(cloudId: String) {
+        val uid = userId ?: return
+        if (cloudId.isEmpty()) return
+        firestore.collection("users").document(uid)
+            .collection("papers").document(cloudId)
+            .delete().await()
+    }
+
+    private suspend fun pullAllPapers(): List<Pair<String, Map<String, Any>>> {
+        val uid = userId ?: return emptyList()
+        return firestore.collection("users").document(uid)
+            .collection("papers")
+            .get().await()
+            .documents.mapNotNull { d -> d.data?.let { d.id to it } }
+    }
+
+    private suspend fun applyPaperDoc(db: AppDatabase, docId: String, data: Map<String, Any?>) {
+        try {
+            val parsed = parsePaperDoc(data)
+            val local = db.paperDao().getByCloudId(parsed.cloudId)
+            if (local == null) {
+                db.paperDao().insertPaper(parsed)
+            } else if (parsed.modifiedAt > local.modifiedAt) {
+                db.paperDao().updatePaper(parsed.copy(id = local.id))
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Skipping malformed paper doc $docId", e)
+        }
+    }
+
+    private suspend fun removePaperByCloudId(db: AppDatabase, cloudId: String) {
+        val local = db.paperDao().getByCloudId(cloudId) ?: return
+        db.paperDao().deletePaper(local)
+    }
+
+    private fun paperChangesFlow(): Flow<List<DocumentChange>> = callbackFlow {
+        val uid = userId ?: return@callbackFlow awaitClose { }
+        val listener = firestore.collection("users").document(uid)
+            .collection("papers")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) { Log.w(TAG, "Paper listener error", error); return@addSnapshotListener }
+                if (snapshot == null || snapshot.metadata.hasPendingWrites()) return@addSnapshotListener
+                trySend(snapshot.documentChanges)
+            }
+        awaitClose { listener.remove() }
+    }
+
+    suspend fun collectPaperChanges(db: AppDatabase) {
+        paperChangesFlow().collect { changes ->
+            for (change in changes) {
+                val docId = change.document.id
+                when (change.type) {
+                    DocumentChange.Type.ADDED, DocumentChange.Type.MODIFIED ->
+                        applyPaperDoc(db, docId, change.document.data)
+                    DocumentChange.Type.REMOVED -> removePaperByCloudId(db, docId)
+                }
+            }
+        }
+    }
+
+    private suspend fun syncPapers(db: AppDatabase) {
+        for ((docId, data) in pullAllPapers()) {
+            applyPaperDoc(db, docId, data)
+        }
+        // Assign cloudIds where missing, then push every local row so signed-out edits reconcile.
+        for (paper in db.paperDao().getAllPapersOneShot()) {
+            val toPush = if (paper.cloudId.isEmpty()) {
+                paper.copy(cloudId = UUID.randomUUID().toString(), modifiedAt = System.currentTimeMillis())
+                    .also { db.paperDao().updatePaper(it) }
+            } else paper
+            pushPaper(toPush)
+        }
+    }
+
     // ── Goal Completions ──────────────────────────────────────────────────────
 
     suspend fun pushGoalCompletion(completion: GoalCompletion) {
@@ -809,6 +934,7 @@ class FirebaseManager(private val context: Context) {
         syncStep("excluded apps") { syncExcludedApps(db) }
         syncStep("goals") { syncGoals(db) }
         syncStep("goal completions") { syncGoalCompletions(db) }
+        syncStep("papers") { syncPapers(db) }
         refreshBudgetWidget(context)
     }
 

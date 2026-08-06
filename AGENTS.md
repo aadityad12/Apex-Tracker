@@ -309,8 +309,10 @@ unit-tested in `SemanticScholarTest` — note the unauthenticated S2 pool rate-l
 `PapersLogic.kt` (pure queue/daily-pick/read-counts, `PapersLogicTest`), `PaperSeeds.kt`
 (offline starter list), route `papers` (More sheet). Reading feeds the heatmap via
 `GoalMetric.PAPERS` (`DayMetrics.papersRead`); papers ride the full-dataset backup
-(`BackupData.papers`). **No Firestore sync yet** — rows carry cloudId/modifiedAt, sync is
-issue #151; daily topic fetch and recommendations are #149/#150.
+(`BackupData.papers`). **Firestore sync shipped in Issue #151**: papers use the standard
+`users/{uid}/papers/{cloudId}` last-writer-wins path, participate in initial sync and live
+snapshot listeners, and every Papers mutation mirrors to the cloud while Room remains the source
+of truth. Daily topic fetch and recommendations remain tracked as #149/#150.
 
 ## 2026-07-30 Graphite identity (Plan.md Phase 2, branch `redesign/graphite`)
 
