@@ -45,8 +45,8 @@ fun buildBudgetCsv(items: List<BudgetItem>, categories: List<Category>): String 
     return (listOf(header) + rows).joinToString("\n")
 }
 
-/** Writes the CSV to the app cache dir and launches a share sheet via FileProvider — no storage permissions needed. */
-fun shareBudgetCsv(context: Context, csv: String, fileName: String) {
+/** Writes CSV to the app cache dir and launches a share sheet via FileProvider — no storage permissions needed. */
+fun shareCsv(context: Context, csv: String, fileName: String) {
     val exportDir = File(context.cacheDir, "csv_exports").apply { mkdirs() }
     val file = File(exportDir, fileName)
     file.writeText(csv)

@@ -147,7 +147,7 @@ fun BudgetSettingsDialog(
                 }
                 val csv = buildBudgetCsv(exportItems, categories)
                 val fileName = if (scopeToCurrentMonth) "budget_$currentMonth.csv" else "budget_all_time.csv"
-                shareBudgetCsv(context, csv, fileName)
+                shareCsv(context, csv, fileName)
                 showExportDialog = false
             }
         )
