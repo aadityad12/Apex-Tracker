@@ -38,28 +38,40 @@ class PapersLogicTest {
 
     @Test
     fun `daily pick is null on empty queue`() {
-        assertNull(dailyPick(emptyList(), LocalDate.of(2026, 7, 30)))
+        assertNull(dailyPick(emptyList(), emptyList()))
     }
 
     @Test
-    fun `daily pick is deterministic for a date`() {
-        val queue = paperQueue(listOf(paper(1), paper(2), paper(3)))
-        val day = LocalDate.of(2026, 7, 30)
-        assertEquals(dailyPick(queue, day)!!.id, dailyPick(queue, day)!!.id)
+    fun `daily pick ties break to the oldest queued paper`() {
+        // No topics at all -> every paper scores the neutral default, so the tie goes to
+        // paperQueue's own oldest-first order.
+        val queue = paperQueue(listOf(paper(1, added = LocalDate.of(2026, 7, 3)), paper(2, added = LocalDate.of(2026, 7, 1))))
+        assertEquals(2L, dailyPick(queue, emptyList())!!.id)
     }
 
     @Test
-    fun `daily pick rotates across consecutive days`() {
-        val queue = paperQueue(listOf(paper(1), paper(2), paper(3)))
-        val picks = (0L..2L).map { dailyPick(queue, LocalDate.of(2026, 7, 1).plusDays(it))!!.id }
-        assertEquals(3, picks.toSet().size) // three days, three distinct papers
+    fun `daily pick prefers the paper from the higher-engagement topic`() {
+        val good = PaperTopic(id = 1, field = "Computer Science", keyword = "diffusion", cloudId = "good", readCount = 4, abandonedCount = 0)
+        val bad = PaperTopic(id = 2, field = "Computer Science", keyword = "obscure topic", cloudId = "bad", readCount = 0, abandonedCount = 4)
+        val queue = paperQueue(
+            listOf(
+                paper(1, added = LocalDate.of(2026, 7, 1)).copy(topicCloudId = "bad"),
+                paper(2, added = LocalDate.of(2026, 7, 5)).copy(topicCloudId = "good")
+            )
+        )
+        assertEquals(2L, dailyPick(queue, listOf(good, bad))!!.id)
     }
 
     @Test
-    fun `single-item queue is picked every day`() {
+    fun `daily pick falls back to neutral score for an unresolved topic`() {
+        val queue = paperQueue(listOf(paper(1).copy(topicCloudId = "deleted-topic")))
+        assertEquals(1L, dailyPick(queue, emptyList())!!.id)
+    }
+
+    @Test
+    fun `single-item queue is always picked`() {
         val queue = paperQueue(listOf(paper(7)))
-        assertEquals(7L, dailyPick(queue, LocalDate.of(2026, 7, 1))!!.id)
-        assertEquals(7L, dailyPick(queue, LocalDate.of(2026, 7, 2))!!.id)
+        assertEquals(7L, dailyPick(queue, emptyList())!!.id)
     }
 
     @Test

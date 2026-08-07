@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Last full audit: 2026-07-07 (Firebase/auth follow-up: 2026-07-08; Known Issues fix pass + dependency bumps: 2026-07-09, branch `fix/known-issues-3-through-10`; Firebase sync unification (Issue #4): 2026-07-09, branch `fix/issue-4-firebase-sync`, merged as PR #16; bug-fix pass for issues #18–#31: 2026-07-10, merged as PRs #48/#50 — see "2026-07-10 Bug-Fix Pass" below; feature pass for issues #17/#32–#41/#53: 2026-07-11 → 2026-07-14, see "2026-07-11 → 2026-07-14 Feature Pass" below; doc-accuracy pass reconciling this file with the code: 2026-07-17; feature+verification pass 2026-07-18 → 2026-07-20: currency setting #76, category limits #75, notes export #77, screen-time app-list+chart #43, overview drill-in #47, subscriptions-colour #82, study subjects #78, and biometric lock #45 all merged, with the DB-migration (#78, v14) and biometric (#45) changes verified on-device — see the dated sections below; **Dashboard goal-tracking feature 2026-07-21 → 2026-07-22**, PRs #100–#103 merged + sync in progress, making the Dashboard the app home and bumping the DB to **v15** — see the "2026-07-21 → 2026-07-22 Dashboard" section; **bug/a11y/docs pass 2026-07-23** on branch `fix/issues-2026-07-23` covering issues #105–#120 and #97 — see the dated section at the end; **UI redesign foundation 2026-07-28 → 2026-07-29** on branch `redesign/foundation`, which replaced the whole theming layer, bundled real typefaces, and added a design-system skill — see "2026-07-29 Redesign foundation" at the end and **`Design.md` at the repo root**; **study timer flip clock 2026-08-01** on branch `feature/study-flip-clock`, which replaced the stopwatch readout with a split-flap digit display and added a focus mode — see "2026-08-01 Study timer flip clock" below). If you make significant architectural changes, update this file in the same session.
+Last full audit: 2026-07-07 (Firebase/auth follow-up: 2026-07-08; Known Issues fix pass + dependency bumps: 2026-07-09, branch `fix/known-issues-3-through-10`; Firebase sync unification (Issue #4): 2026-07-09, branch `fix/issue-4-firebase-sync`, merged as PR #16; bug-fix pass for issues #18–#31: 2026-07-10, merged as PRs #48/#50 — see "2026-07-10 Bug-Fix Pass" below; feature pass for issues #17/#32–#41/#53: 2026-07-11 → 2026-07-14, see "2026-07-11 → 2026-07-14 Feature Pass" below; doc-accuracy pass reconciling this file with the code: 2026-07-17; feature+verification pass 2026-07-18 → 2026-07-20: currency setting #76, category limits #75, notes export #77, screen-time app-list+chart #43, overview drill-in #47, subscriptions-colour #82, study subjects #78, and biometric lock #45 all merged, with the DB-migration (#78, v14) and biometric (#45) changes verified on-device — see the dated sections below; **Dashboard goal-tracking feature 2026-07-21 → 2026-07-22**, PRs #100–#103 merged + sync in progress, making the Dashboard the app home and bumping the DB to **v15** — see the "2026-07-21 → 2026-07-22 Dashboard" section; **bug/a11y/docs pass 2026-07-23** on branch `fix/issues-2026-07-23` covering issues #105–#120 and #97 — see the dated section at the end; **UI redesign foundation 2026-07-28 → 2026-07-29** on branch `redesign/foundation`, which replaced the whole theming layer, bundled real typefaces, and added a design-system skill — see "2026-07-29 Redesign foundation" at the end and **`Design.md` at the repo root**; **study timer flip clock 2026-08-01** on branch `feature/study-flip-clock`, which replaced the stopwatch readout with a split-flap digit display and added a focus mode — see "2026-08-01 Study timer flip clock" below; **Papers discovery redesign 2026-08-07**, which replaced the bare-field rotation with keyword topics and an engagement-weighted recommender, bumping the DB to **v22** — see "2026-08-07 Papers discovery redesign" below). If you make significant architectural changes, update this file in the same session.
 
 **Doc-accuracy note (2026-07-17)**: issues #68–#74 were all filed against *this file* for drifting out of sync with the code — stale DB version, a test roster missing three files, shipped features listed as open work. Enumerated lists here rot; prefer pointing at the source of truth (`gh issue list`, `find app/src/test -name '*Test.kt'`) over restating it.
 
@@ -64,7 +64,7 @@ Note: unit tests cover the pure logic extracted during the fix passes — run `f
 | `screen_time` | `ScreenTimeTrackerView.kt` | `ScreenTimeViewModel.kt` | `ScreenTimeSession`, `ExcludedApp`, `AppUsageLimit` |
 | `reminders` | `ReminderView.kt` | `ReminderViewModel.kt` | `Reminder` |
 | `notes` | `NoteView.kt` | `NoteViewModel.kt` | `Note` |
-| `papers` | `PapersView.kt` | `PapersViewModel.kt` | `Paper` |
+| `papers` | `PapersView.kt` | `PapersViewModel.kt` | `Paper`, `PaperTopic` |
 
 Settings dialogs for each module live in `*Settings.kt` files (e.g., `BudgetSettings.kt`, `ReminderSettings.kt`).
 
@@ -370,6 +370,63 @@ clock") digit display, and added a focus mode.
   and disables flap animation to reduce light and motion. Pausing restores the exact prior window
   brightness and normal theme. This is deliberately an in-app always-on surface; Android does not
   let a normal phone app replace the system/lock-screen AOD.
+
+## 2026-08-07 Papers discovery redesign
+
+Replaced the old bare-field discovery (pick from 8 umbrella fields, one rotates per day, the S2
+query was literally the field name as text) with keyword-scoped topics and an engagement-weighted
+recommender. Scoped via a 14-question `/grill-me` interview before implementation; DB bumped to
+**v22** (`MIGRATION_21_22`).
+
+- **`PaperTopic`** (new entity, `paper_topics` table) — a user-added `(field, keyword)` pair, e.g.
+  Computer Science + "diffusion models"; `keyword` is the real S2 search query now, `field` stays
+  only as the `fieldsOfStudy` filter. Max **8** topics (`MAX_PAPER_TOPICS`). Each topic accumulates
+  `readCount`/`abandonedCount`/`ratingSum`/`ratingCount`/`consecutiveAbandons` and a
+  `lastCheckedDate`; `pausedAt` (non-null = muted) excludes it from rotation while keeping history.
+  `Paper` gained `topicCloudId` (the topic's *cloudId*, not local Room id — same
+  cross-device-reference reasoning as `resolveReminderParentLinks`; "" = MANUAL/SEED/deleted-topic,
+  falls back to neutral weight, no cleanup needed).
+- **Pure logic in `PapersDiscoveryScoring.kt`** (unit-tested in `PapersDiscoveryScoringTest`):
+  `topicEngagementScore` (0.5 neutral with no outcomes yet, else a blend of read-ratio and average
+  rating), `guaranteedSlotTopic` (oldest/never-checked topic — the "every topic gets covered"
+  guarantee), `bonusSlotTopics` (weighted-random by engagement, floor-weighted so a
+  consistently-abandoned topic is never fully unreachable — "healthy rotation" without starving
+  anyone), `dailyTopicFetchPlan` (1 guaranteed + up to 2 bonus slots/day), `shouldPromptMute` (3
+  consecutive abandons). `PapersLogic.dailyPick` changed signature to `(queue, topics)` — no longer
+  epoch-day-indexed; it's just "the WANT paper whose topic has the best track record," so
+  **same-day chaining is free**: marking the current pick READ/ABANDONED removes it from the WANT
+  queue, Room re-emits, and the next-best paper is promoted automatically without waiting for
+  tomorrow.
+- **Fetch volume**: up to 3 topic-slots/day, hard-capped at **5 new papers/day total** across
+  whichever slots run (`PapersViewModel.PER_SLOT_LIMIT`/`DAILY_TOTAL_CAP`). A slot's
+  `lastCheckedDate` only advances if its request actually ran — hitting the daily cap or a network
+  failure skips the slot without falsely marking it checked, so it stays "most overdue" and gets
+  priority next time.
+- **Reactivity gotcha, caught by on-device testing**: the daily-fetch trigger (`PapersViewModel`
+  init) must recompute on **both** `discoveryPrefs.preferences` *and* `discoveryTopics` changes —
+  adding your first topic doesn't touch the DataStore prefs, so a collector keyed only on
+  `preferences` (as the old bare-field version was, since fields lived in that same DataStore)
+  silently never fires until the next cold start. Fixed by `combine(discoveryPrefs.preferences,
+  discoveryTopics) { preferences, _ -> preferences }.collect { ... }` — verified end-to-end on the
+  emulator (add topic → immediate fetch attempt → real Semantic Scholar 429 handled cleanly, topic
+  correctly left unchecked for retry).
+- **Onboarding** — first opening Reading with zero topics shows a front-and-center "What do you
+  want to read about?" prompt (`PapersView.OnboardingPrompt`) ahead of the old "Import starter
+  list" empty-state action, with a `discoveryOnboardingDismissed`-style DataStore flag so it
+  doesn't nag once dismissed. Existing installs are **reset, not migrated** — the old
+  `PapersDiscoveryPrefs.fields` key is simply no longer read, and `paper_topics` starts empty for
+  everyone, which was an explicit decision in the grill-me interview.
+- **Mute nudge** — an inline dismissible row (not a snackbar) surfaces after 3 straight abandons
+  from one topic, offering Mute (pauses, doesn't delete) or Keep it.
+- **Sync** — `PaperTopic` follows the standard 5-part Firestore shape at
+  `users/{uid}/paper_topics/{cloudId}`, registered in `performInitialSync` and `SyncCoordinator`
+  alongside `papers`. Included in the full-dataset backup (`BackupData.paperTopics`).
+- **Verified on-device (2026-08-07, Medium_Phone emulator)**: onboarding prompt, topic
+  add/list/mute UI (including the `apexMenuBorder()` field dropdown), the reactive fetch-trigger
+  fix, real Semantic Scholar network integration (hit the documented unauthenticated rate limit
+  cleanly, no crash), seed import, mark-read with same-day chaining to the next queue item — all
+  confirmed working, no crashes in logcat throughout. Schema diffed against the exported
+  `app/schemas/…/22.json`.
 
 ## Developer's own TODO list (from notes.txt, still current)
 - Budget: "Extract from receipt" (OCR/receipt-parsing) — not started.

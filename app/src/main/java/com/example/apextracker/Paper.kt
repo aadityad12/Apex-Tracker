@@ -11,7 +11,7 @@ object PaperStatus {
     const val ABANDONED = "ABANDONED" // deliberately dropped; kept in history, never resurfaces
 }
 
-/** Where a paper entered the app. RECOMMENDED is reserved for the v3 source. */
+/** Where a paper entered the app. */
 object PaperSource {
     const val MANUAL = "MANUAL" // pasted link / id
     const val SEED = "SEED"     // the bundled starter list
@@ -27,6 +27,13 @@ object PaperSource {
  * seeds) and is the dedup key for re-adds. [readDate] is set when [status] becomes READ and is
  * what the Dashboard's PAPERS goal metric counts (see DashboardScoring). [memo] and [signal]
  * (1–5, null = unrated) are the structured "what I learned" layer written at completion time.
+ *
+ * [topicCloudId] links a DAILY-sourced paper back to the [PaperTopic] that fetched it — "" for
+ * MANUAL/SEED papers or once the topic is deleted. Deliberately the topic's *cloudId*, not its
+ * local Room id: a local autoincrement id means nothing across devices (same reasoning as
+ * FirebaseManager's resolveReminderParentLinks). Resolved to a PaperTopic by the ViewModel when
+ * scoring engagement (PapersDiscoveryScoring.kt); an unresolved id just falls back to neutral
+ * weight, no cleanup required.
  */
 @Entity(tableName = "papers")
 data class Paper(
@@ -46,7 +53,8 @@ data class Paper(
     val addedDate: LocalDate = LocalDate.now(),
     val readDate: LocalDate? = null,
     val memo: String = "",
-    val signal: Int? = null,       // 1..5; feeds the v3 recommender
+    val signal: Int? = null,       // 1..5; feeds PapersDiscoveryScoring's topicEngagementScore
+    val topicCloudId: String = "", // PaperTopic.cloudId that fetched this paper; "" for MANUAL/SEED
     val cloudId: String = "",
     val modifiedAt: Long = 0L
 )

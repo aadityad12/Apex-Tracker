@@ -428,4 +428,63 @@ class FirebaseDocParsingTest {
             parsePaperDoc(mapOf("cloudId" to "", "title" to "X", "addedDate" to "2026-08-01"))
         }
     }
+
+    @Test
+    fun `paper doc round-trips topicCloudId`() {
+        val parsed = parsePaperDoc(
+            mapOf("cloudId" to "p1", "title" to "X", "addedDate" to "2026-08-01", "topicCloudId" to "t1")
+        )
+        assertEquals("t1", parsed.topicCloudId)
+    }
+
+    @Test
+    fun `paper doc without topicCloudId defaults to empty (not topic-sourced)`() {
+        val parsed = parsePaperDoc(mapOf("cloudId" to "p1", "title" to "X", "addedDate" to "2026-08-01"))
+        assertEquals("", parsed.topicCloudId)
+    }
+
+    // ── Paper Topics ─────────────────────────────────────────────────────────
+
+    @Test
+    fun `paper topic doc round-trips all fields`() {
+        val parsed = parsePaperTopicDoc(
+            mapOf(
+                "cloudId" to "t1", "field" to "Computer Science", "keyword" to "diffusion models",
+                "pausedAt" to "2026-08-05", "createdDate" to "2026-08-01", "lastCheckedDate" to "2026-08-04",
+                "readCount" to 3L, "abandonedCount" to 1L, "ratingSum" to 12L, "ratingCount" to 3L,
+                "consecutiveAbandons" to 1L, "modifiedAt" to 999L
+            )
+        )
+        assertEquals("t1", parsed.cloudId)
+        assertEquals("Computer Science", parsed.field)
+        assertEquals("diffusion models", parsed.keyword)
+        assertEquals(LocalDate.of(2026, 8, 5), parsed.pausedAt)
+        assertEquals(LocalDate.of(2026, 8, 1), parsed.createdDate)
+        assertEquals(LocalDate.of(2026, 8, 4), parsed.lastCheckedDate)
+        assertEquals(3, parsed.readCount)
+        assertEquals(1, parsed.abandonedCount)
+        assertEquals(12, parsed.ratingSum)
+        assertEquals(3, parsed.ratingCount)
+        assertEquals(1, parsed.consecutiveAbandons)
+        assertEquals(999L, parsed.modifiedAt)
+    }
+
+    @Test
+    fun `paper topic doc tolerates absent optional fields`() {
+        val parsed = parsePaperTopicDoc(
+            mapOf("cloudId" to "t1", "field" to "Physics", "keyword" to "quantum", "createdDate" to "2026-08-01")
+        )
+        assertNull(parsed.pausedAt)
+        assertNull(parsed.lastCheckedDate)
+        assertEquals(0, parsed.readCount)
+        assertEquals(0, parsed.abandonedCount)
+        assertEquals(0, parsed.consecutiveAbandons)
+    }
+
+    @Test
+    fun `paper topic doc without field throws`() {
+        assertThrows(IllegalStateException::class.java) {
+            parsePaperTopicDoc(mapOf("cloudId" to "t1", "keyword" to "quantum", "createdDate" to "2026-08-01"))
+        }
+    }
 }

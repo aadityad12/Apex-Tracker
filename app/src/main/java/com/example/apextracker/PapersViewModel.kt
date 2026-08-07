@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -37,13 +37,14 @@ sealed interface PaperFetchState {
     data class Error(val notFound: Boolean) : PaperFetchState
 }
 
+/** A day-level summary across however many topic slots ran — no per-topic naming (up to 3 now). */
 sealed interface DailyPaperFeedState {
     data object Idle : DailyPaperFeedState
-    data class Loading(val field: String) : DailyPaperFeedState
-    data class Added(val count: Int, val field: String) : DailyPaperFeedState
-    data class NoResults(val field: String) : DailyPaperFeedState
-    data class Unavailable(val field: String) : DailyPaperFeedState
-    data class RateLimited(val field: String) : DailyPaperFeedState
+    data object Loading : DailyPaperFeedState
+    data class Added(val count: Int) : DailyPaperFeedState
+    data object NoResults : DailyPaperFeedState
+    data object Unavailable : DailyPaperFeedState
+    data object RateLimited : DailyPaperFeedState
 }
 
 /**
@@ -53,22 +54,24 @@ sealed interface DailyPaperFeedState {
 class PapersViewModel(application: Application) : AndroidViewModel(application) {
 
     private val paperDao = AppDatabase.getDatabase(application).paperDao()
+    private val paperTopicDao = AppDatabase.getDatabase(application).paperTopicDao()
     private val client = SemanticScholarClient()
     private val firebaseManager = FirebaseManager(application)
     private val discoveryPrefs = PapersDiscoveryPrefs(application)
     private val dailyFetchMutex = Mutex()
 
-    val uiState: StateFlow<PapersUiState> = paperDao.getAllPapers()
-        .map { papers ->
-            val queue = paperQueue(papers)
-            PapersUiState(
-                todayPick = dailyPick(queue, LocalDate.now()),
-                queue = queue,
-                history = paperHistory(papers),
-                loaded = true
-            )
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PapersUiState.EMPTY)
+    val discoveryTopics: StateFlow<List<PaperTopic>> = paperTopicDao.getAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val uiState: StateFlow<PapersUiState> = combine(paperDao.getAllPapers(), discoveryTopics) { papers, topics ->
+        val queue = paperQueue(papers)
+        PapersUiState(
+            todayPick = dailyPick(queue, topics),
+            queue = queue,
+            history = paperHistory(papers),
+            loaded = true
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PapersUiState.EMPTY)
 
     private val _fetchState = MutableStateFlow<PaperFetchState>(PaperFetchState.Idle)
     val fetchState: StateFlow<PaperFetchState> = _fetchState
@@ -79,13 +82,23 @@ class PapersViewModel(application: Application) : AndroidViewModel(application) 
     private val _dailyFeedState = MutableStateFlow<DailyPaperFeedState>(DailyPaperFeedState.Idle)
     val dailyFeedState: StateFlow<DailyPaperFeedState> = _dailyFeedState
 
+    /** Set right after an abandon trips [shouldPromptMute]; null once dismissed or acted on. */
+    private val _muteSuggestion = MutableStateFlow<PaperTopic?>(null)
+    val muteSuggestion: StateFlow<PaperTopic?> = _muteSuggestion
+
     init {
         viewModelScope.launch {
-            // Ordered collection matters: recordAttempt() updates this same flow. collectLatest
-            // would cancel the handler at that emission and strand the UI in Loading.
-            discoveryPrefs.preferences.collect { preferences ->
-                fetchDailyPapersIfNeeded(preferences)
-            }
+            // Also keyed on discoveryTopics: adding/resuming a topic must retrigger the check
+            // immediately (not wait for tomorrow), same as the old setFields() did by clearing
+            // lastFetchDate. Plain collect, not collectLatest: recordAttempt() and per-topic
+            // lastCheckedDate writes both feed back into this combine, and collectLatest would
+            // cancel an in-flight fetch on its own feedback emission and strand the UI in
+            // Loading. The dailyFetchMutex plus the day-level gate keep the feedback benign — a
+            // re-entrant trigger just re-checks shouldFetchDailyPapers and no-ops once it's false.
+            combine(discoveryPrefs.preferences, discoveryTopics) { preferences, _ -> preferences }
+                .collect { preferences ->
+                    fetchDailyPapersIfNeeded(preferences)
+                }
         }
     }
 
@@ -115,70 +128,147 @@ class PapersViewModel(application: Application) : AndroidViewModel(application) 
         _fetchState.value = PaperFetchState.Idle
     }
 
-    fun setDiscoveryFields(fields: Set<String>) {
-        viewModelScope.launch { discoveryPrefs.setFields(fields) }
+    fun dismissOnboarding() {
+        viewModelScope.launch { discoveryPrefs.dismissOnboarding() }
+    }
+
+    /** Adds a topic; silently refuses a blank keyword, an unknown field, or the 8-topic cap. */
+    fun addTopic(field: String, keyword: String) {
+        val trimmedKeyword = keyword.trim()
+        if (trimmedKeyword.isEmpty() || field !in PAPER_DISCOVERY_FIELDS) return
+        if (discoveryTopics.value.size >= MAX_PAPER_TOPICS) return
+        viewModelScope.launch {
+            val topic = PaperTopic(
+                field = field,
+                keyword = trimmedKeyword,
+                createdDate = LocalDate.now(),
+                cloudId = UUID.randomUUID().toString(),
+                modifiedAt = System.currentTimeMillis()
+            )
+            paperTopicDao.insertTopic(topic)
+            safeCloudCall(TAG, "pushPaperTopic") { firebaseManager.pushPaperTopic(topic) }
+        }
+    }
+
+    /** Excludes the topic from fetch rotation and pick-weighting, keeping its history. Also the mute action. */
+    fun pauseTopic(topic: PaperTopic) {
+        viewModelScope.launch {
+            val updated = topic.copy(pausedAt = LocalDate.now(), modifiedAt = System.currentTimeMillis())
+            paperTopicDao.updateTopic(updated)
+            safeCloudCall(TAG, "pushPaperTopic") { firebaseManager.pushPaperTopic(updated) }
+        }
+        if (_muteSuggestion.value?.id == topic.id) _muteSuggestion.value = null
+    }
+
+    fun resumeTopic(topic: PaperTopic) {
+        viewModelScope.launch {
+            val updated = topic.copy(pausedAt = null, modifiedAt = System.currentTimeMillis())
+            paperTopicDao.updateTopic(updated)
+            safeCloudCall(TAG, "pushPaperTopic") { firebaseManager.pushPaperTopic(updated) }
+        }
+    }
+
+    fun deleteTopic(topic: PaperTopic) {
+        viewModelScope.launch {
+            paperTopicDao.deleteTopic(topic)
+            safeCloudCall(TAG, "deletePaperTopic") { firebaseManager.deletePaperTopic(topic.cloudId) }
+        }
+    }
+
+    fun dismissMuteSuggestion() {
+        _muteSuggestion.value = null
     }
 
     private suspend fun fetchDailyPapersIfNeeded(preferences: PapersDiscoveryPreferences) {
         dailyFetchMutex.withLock {
             val today = LocalDate.now()
             val now = System.currentTimeMillis()
-            if (preferences.fields.isEmpty()) {
+            val active = activeTopics(paperTopicDao.getAllOneShot())
+            if (active.isEmpty()) {
                 _dailyFeedState.value = DailyPaperFeedState.Idle
                 return
             }
             if (!shouldFetchDailyPapers(preferences, today, now)) return
-            val field = dailyPaperField(preferences.fields, today) ?: return
-            _dailyFeedState.value = DailyPaperFeedState.Loading(field)
+            val plan = dailyTopicFetchPlan(active)
+            _dailyFeedState.value = DailyPaperFeedState.Loading
 
-            val result = client.searchRecent(field, today)
-            if (result.isSuccess) {
-                val added = mutableListOf<Paper>()
-                result.getOrThrow().forEach { fetched ->
-                    if (added.size < DAILY_PAPER_LIMIT && paperDao.getByS2Id(fetched.s2Id) == null) {
+            var totalInserted = 0
+            var anyRequestSucceeded = false
+            val allAdded = mutableListOf<Paper>()
+            var rateLimited: SemanticScholarRateLimitedException? = null
+
+            for (topic in plan) {
+                if (totalInserted >= DAILY_TOTAL_CAP) break
+                val result = client.searchRecent(topic.field, topic.keyword, today)
+                val results = result.getOrNull()
+                if (results == null) {
+                    val error = result.exceptionOrNull()
+                    if (error is SemanticScholarRateLimitedException) {
+                        rateLimited = error
+                        break
+                    }
+                    // Network/server failure for this slot: leave lastCheckedDate untouched so it
+                    // stays "most overdue" and gets first crack at tomorrow's guaranteed slot,
+                    // rather than being unfairly marked checked for a request that never landed.
+                    continue
+                }
+                anyRequestSucceeded = true
+                val slotBudget = minOf(PER_SLOT_LIMIT, DAILY_TOTAL_CAP - totalInserted)
+                val slotAdded = mutableListOf<Paper>()
+                results.forEach { candidate ->
+                    if (slotAdded.size < slotBudget && paperDao.getByS2Id(candidate.s2Id) == null) {
                         val paper = Paper(
-                            s2Id = fetched.s2Id,
-                            title = fetched.title,
-                            authors = fetched.authors,
-                            year = fetched.year,
-                            venue = fetched.venue,
-                            abstractText = fetched.abstractText,
-                            tldr = fetched.tldr,
-                            url = fetched.url,
-                            pdfUrl = fetched.pdfUrl,
+                            s2Id = candidate.s2Id,
+                            title = candidate.title,
+                            authors = candidate.authors,
+                            year = candidate.year,
+                            venue = candidate.venue,
+                            abstractText = candidate.abstractText,
+                            tldr = candidate.tldr,
+                            url = candidate.url,
+                            pdfUrl = candidate.pdfUrl,
                             source = PaperSource.DAILY,
                             addedDate = today,
+                            topicCloudId = topic.cloudId,
                             cloudId = UUID.randomUUID().toString(),
                             modifiedAt = System.currentTimeMillis()
                         )
                         paperDao.insertPaper(paper)
-                        added += paper
+                        slotAdded += paper
                     }
                 }
-                _dailyFeedState.value = if (added.isEmpty()) {
-                    DailyPaperFeedState.NoResults(field)
-                } else {
-                    DailyPaperFeedState.Added(added.size, field)
-                }
-                discoveryPrefs.recordAttempt(today)
-                // Room and the visible state complete first; cloud failures never hold back the feed.
-                viewModelScope.launch {
-                    added.forEach { paper ->
-                        safeCloudCall(TAG, "pushPaper") { firebaseManager.pushPaper(paper) }
-                    }
-                }
-            } else {
-                val error = result.exceptionOrNull()
-                if (error is SemanticScholarRateLimitedException) {
-                    _dailyFeedState.value = DailyPaperFeedState.RateLimited(field)
+                totalInserted += slotAdded.size
+                allAdded += slotAdded
+                paperTopicDao.updateTopic(topic.copy(lastCheckedDate = today, modifiedAt = System.currentTimeMillis()))
+            }
+
+            when {
+                rateLimited != null -> {
+                    _dailyFeedState.value = DailyPaperFeedState.RateLimited
                     discoveryPrefs.recordAttempt(
                         today,
-                        semanticScholarBlockedUntil(error.retryAfterSeconds, now)
+                        semanticScholarBlockedUntil(rateLimited.retryAfterSeconds, now)
                     )
-                } else {
-                    // Network/server failures are quiet and still count as today's single attempt.
-                    _dailyFeedState.value = DailyPaperFeedState.Unavailable(field)
+                }
+                allAdded.isNotEmpty() -> {
+                    _dailyFeedState.value = DailyPaperFeedState.Added(allAdded.size)
                     discoveryPrefs.recordAttempt(today)
+                }
+                anyRequestSucceeded -> {
+                    _dailyFeedState.value = DailyPaperFeedState.NoResults
+                    discoveryPrefs.recordAttempt(today)
+                }
+                else -> {
+                    // Every slot's request failed at the network/HTTP level — quiet, still counts
+                    // as today's single attempt (matches the pre-existing whole-day semantics).
+                    _dailyFeedState.value = DailyPaperFeedState.Unavailable
+                    discoveryPrefs.recordAttempt(today)
+                }
+            }
+            // Room and the visible state complete first; cloud failures never hold back the feed.
+            viewModelScope.launch {
+                allAdded.forEach { paper ->
+                    safeCloudCall(TAG, "pushPaper") { firebaseManager.pushPaper(paper) }
                 }
             }
         }
@@ -246,17 +336,19 @@ class PapersViewModel(application: Application) : AndroidViewModel(application) 
      * structured memo. Also the edit path for a paper already read — readDate is only set once.
      */
     fun markRead(paper: Paper, memo: String, signal: Int?) {
+        val normalizedSignal = normalizeSignal(signal)
         viewModelScope.launch {
             val updated = paper.copy(
                 status = PaperStatus.READ,
                 readDate = paper.readDate ?: LocalDate.now(),
                 memo = memo.trim(),
-                signal = normalizeSignal(signal),
+                signal = normalizedSignal,
                 cloudId = paper.cloudId.ifEmpty { UUID.randomUUID().toString() },
                 modifiedAt = System.currentTimeMillis()
             )
             paperDao.updatePaper(updated)
             safeCloudCall(TAG, "pushPaper") { firebaseManager.pushPaper(updated) }
+            recordTopicOutcome(paper.topicCloudId, read = true, signal = normalizedSignal)
         }
     }
 
@@ -271,6 +363,37 @@ class PapersViewModel(application: Application) : AndroidViewModel(application) 
             )
             paperDao.updatePaper(updated)
             safeCloudCall(TAG, "pushPaper") { firebaseManager.pushPaper(updated) }
+            recordTopicOutcome(paper.topicCloudId, read = false, signal = null)
+        }
+    }
+
+    /**
+     * Shared by markRead/abandon: updates the paper's origin topic's engagement counters (a no-op
+     * for MANUAL/SEED papers or a since-deleted topic) and surfaces [muteSuggestion] when an
+     * abandon trips the 3-in-a-row threshold (see shouldPromptMute in PapersDiscoveryScoring.kt).
+     */
+    private suspend fun recordTopicOutcome(topicCloudId: String, read: Boolean, signal: Int?) {
+        if (topicCloudId.isEmpty()) return
+        val topic = paperTopicDao.getByCloudId(topicCloudId) ?: return
+        val updated = if (read) {
+            topic.copy(
+                readCount = topic.readCount + 1,
+                ratingSum = topic.ratingSum + (signal ?: 0),
+                ratingCount = topic.ratingCount + (if (signal != null) 1 else 0),
+                consecutiveAbandons = 0,
+                modifiedAt = System.currentTimeMillis()
+            )
+        } else {
+            topic.copy(
+                abandonedCount = topic.abandonedCount + 1,
+                consecutiveAbandons = topic.consecutiveAbandons + 1,
+                modifiedAt = System.currentTimeMillis()
+            )
+        }
+        paperTopicDao.updateTopic(updated)
+        safeCloudCall(TAG, "pushPaperTopic") { firebaseManager.pushPaperTopic(updated) }
+        if (!read && shouldPromptMute(updated)) {
+            _muteSuggestion.value = updated
         }
     }
 
@@ -297,6 +420,7 @@ class PapersViewModel(application: Application) : AndroidViewModel(application) 
 
     companion object {
         private const val TAG = "PapersViewModel"
-        private const val DAILY_PAPER_LIMIT = 3
+        private const val PER_SLOT_LIMIT = 3
+        private const val DAILY_TOTAL_CAP = 5
     }
 }

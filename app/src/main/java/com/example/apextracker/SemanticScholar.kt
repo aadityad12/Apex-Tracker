@@ -103,6 +103,21 @@ fun parseS2SearchJson(json: String): List<FetchedPaper> {
 
 private const val S2_FIELDS = "title,authors,year,venue,abstract,tldr,url,openAccessPdf"
 
+/**
+ * The `/paper/search` URL for a topic: [keyword] is the actual query text (a PaperTopic's free-text
+ * interest, e.g. "diffusion models"), [field] narrows via `fieldsOfStudy`. Pulled out as a pure
+ * function — same convention as the rest of this file — so query construction is unit-tested
+ * without a network call.
+ */
+fun buildSearchUrl(field: String, keyword: String, today: LocalDate): String {
+    val query = URLEncoder.encode(keyword, "UTF-8").replace("+", "%20")
+    val encodedField = URLEncoder.encode(field, "UTF-8").replace("+", "%20")
+    val dateRange = "${today.minusYears(1)}:"
+    return "https://api.semanticscholar.org/graph/v1/paper/search" +
+        "?query=$query&fields=$S2_FIELDS&limit=10" +
+        "&publicationDateOrYear=$dateRange&fieldsOfStudy=$encodedField"
+}
+
 class SemanticScholarClient {
     /**
      * One GET against `/graph/v1/paper/{id}`. Returns a failed Result (never throws) so the
@@ -132,21 +147,14 @@ class SemanticScholarClient {
     }
 
     /**
-     * One relevance-search request for today's selected field. The caller caps inserted rows and
-     * persists the daily gate. Results cover the last 12 months so a quiet field can still return
+     * One relevance-search request for a topic's field+keyword. The caller caps inserted rows and
+     * persists the daily gate. Results cover the last 12 months so a quiet topic can still return
      * useful work without turning this into a broad historical search.
      */
-    suspend fun searchRecent(field: String, today: LocalDate): Result<List<FetchedPaper>> =
+    suspend fun searchRecent(field: String, keyword: String, today: LocalDate): Result<List<FetchedPaper>> =
         withContext(Dispatchers.IO) {
             runCatching {
-                val query = URLEncoder.encode(field, "UTF-8").replace("+", "%20")
-                val encodedField = URLEncoder.encode(field, "UTF-8").replace("+", "%20")
-                val dateRange = "${today.minusYears(1)}:"
-                val url = URL(
-                    "https://api.semanticscholar.org/graph/v1/paper/search" +
-                        "?query=$query&fields=$S2_FIELDS&limit=10" +
-                        "&publicationDateOrYear=$dateRange&fieldsOfStudy=$encodedField"
-                )
+                val url = URL(buildSearchUrl(field, keyword, today))
                 val conn = url.openConnection() as HttpURLConnection
                 try {
                     conn.connectTimeout = 10_000

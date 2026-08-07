@@ -20,15 +20,19 @@ fun paperHistory(papers: List<Paper>): List<Paper> =
         )
 
 /**
- * Today's pick: one queue item promoted per day, rotating deterministically so an unread pick
- * changes each day instead of nagging (Plan.md decision 5). Index is the epoch day modulo the
- * queue size — no stored state, no Random. Adding/removing queue items can move the pick
- * mid-day; accepted, the pick is an invitation rather than an assignment.
+ * Today's pick: the WANT-queue item whose topic has the best engagement track record (see
+ * PapersDiscoveryScoring.topicEngagementScore) — ties (most papers have no topic, or an
+ * unstarted one, and so share the neutral score) broken by [queue]'s own oldest-first order.
+ *
+ * No date parameter, unlike the old epoch-day rotation: this is a pure function of current queue
+ * state. Marking the current pick READ/ABANDONED removes it from [queue] (paperQueue filters by
+ * status), so the next call naturally promotes the next-best paper — same-day chaining falls out
+ * of this for free. Adding/removing queue items can still move the pick mid-day; accepted, same
+ * as before — the pick is an invitation, not an assignment.
  */
-fun dailyPick(queue: List<Paper>, today: LocalDate): Paper? {
+fun dailyPick(queue: List<Paper>, topics: List<PaperTopic>): Paper? {
     if (queue.isEmpty()) return null
-    val index = (today.toEpochDay() % queue.size).toInt()
-    return queue[index]
+    return queue.maxByOrNull { engagementScoreFor(it, topics) }
 }
 
 /** Papers marked read per day — the PAPERS goal metric's input (see DashboardScoring). */

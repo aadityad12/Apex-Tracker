@@ -275,6 +275,22 @@ internal fun parsePaperDoc(data: Map<String, Any?>): Paper = Paper(
     readDate = data.optString("readDate")?.let { LocalDate.parse(it) },
     memo = data.optString("memo") ?: "",
     signal = (data["signal"] as? Number)?.toInt(),
+    topicCloudId = data.optString("topicCloudId") ?: "",
+    cloudId = data.requireCloudId(),
+    modifiedAt = data.optLong("modifiedAt")
+)
+
+internal fun parsePaperTopicDoc(data: Map<String, Any?>): PaperTopic = PaperTopic(
+    field = data.requireString("field"),
+    keyword = data.requireString("keyword"),
+    pausedAt = data.optString("pausedAt")?.let { LocalDate.parse(it) },
+    createdDate = LocalDate.parse(data.requireString("createdDate")),
+    lastCheckedDate = data.optString("lastCheckedDate")?.let { LocalDate.parse(it) },
+    readCount = (data["readCount"] as? Number)?.toInt() ?: 0,
+    abandonedCount = (data["abandonedCount"] as? Number)?.toInt() ?: 0,
+    ratingSum = (data["ratingSum"] as? Number)?.toInt() ?: 0,
+    ratingCount = (data["ratingCount"] as? Number)?.toInt() ?: 0,
+    consecutiveAbandons = (data["consecutiveAbandons"] as? Number)?.toInt() ?: 0,
     cloudId = data.requireCloudId(),
     modifiedAt = data.optLong("modifiedAt")
 )
@@ -702,6 +718,7 @@ class FirebaseManager(private val context: Context) {
                     "readDate" to paper.readDate?.toString(),
                     "memo" to paper.memo,
                     "signal" to paper.signal,
+                    "topicCloudId" to paper.topicCloudId,
                     "modifiedAt" to paper.modifiedAt
                 ),
                 SetOptions.merge()
@@ -779,6 +796,106 @@ class FirebaseManager(private val context: Context) {
                     .also { db.paperDao().updatePaper(it) }
             } else paper
             pushPaper(toPush)
+        }
+    }
+
+    // ── Paper Topics ──────────────────────────────────────────────────────────
+
+    suspend fun pushPaperTopic(topic: PaperTopic) {
+        val uid = userId ?: return
+        if (topic.cloudId.isEmpty()) return
+        firestore.collection("users").document(uid)
+            .collection("paper_topics").document(topic.cloudId)
+            .set(
+                mapOf(
+                    "cloudId" to topic.cloudId,
+                    "field" to topic.field,
+                    "keyword" to topic.keyword,
+                    "pausedAt" to topic.pausedAt?.toString(),
+                    "createdDate" to topic.createdDate.toString(),
+                    "lastCheckedDate" to topic.lastCheckedDate?.toString(),
+                    "readCount" to topic.readCount,
+                    "abandonedCount" to topic.abandonedCount,
+                    "ratingSum" to topic.ratingSum,
+                    "ratingCount" to topic.ratingCount,
+                    "consecutiveAbandons" to topic.consecutiveAbandons,
+                    "modifiedAt" to topic.modifiedAt
+                ),
+                SetOptions.merge()
+            ).await()
+    }
+
+    suspend fun deletePaperTopic(cloudId: String) {
+        val uid = userId ?: return
+        if (cloudId.isEmpty()) return
+        firestore.collection("users").document(uid)
+            .collection("paper_topics").document(cloudId)
+            .delete().await()
+    }
+
+    private suspend fun pullAllPaperTopics(): List<Pair<String, Map<String, Any>>> {
+        val uid = userId ?: return emptyList()
+        return firestore.collection("users").document(uid)
+            .collection("paper_topics")
+            .get().await()
+            .documents.mapNotNull { d -> d.data?.let { d.id to it } }
+    }
+
+    private suspend fun applyPaperTopicDoc(db: AppDatabase, docId: String, data: Map<String, Any?>) {
+        try {
+            val parsed = parsePaperTopicDoc(data)
+            val local = db.paperTopicDao().getByCloudId(parsed.cloudId)
+            if (local == null) {
+                db.paperTopicDao().insertTopic(parsed)
+            } else if (parsed.modifiedAt > local.modifiedAt) {
+                db.paperTopicDao().updateTopic(parsed.copy(id = local.id))
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Skipping malformed paper topic doc $docId", e)
+        }
+    }
+
+    private suspend fun removePaperTopicByCloudId(db: AppDatabase, cloudId: String) {
+        val local = db.paperTopicDao().getByCloudId(cloudId) ?: return
+        db.paperTopicDao().deleteTopic(local)
+    }
+
+    private fun paperTopicChangesFlow(): Flow<List<DocumentChange>> = callbackFlow {
+        val uid = userId ?: return@callbackFlow awaitClose { }
+        val listener = firestore.collection("users").document(uid)
+            .collection("paper_topics")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) { Log.w(TAG, "Paper topic listener error", error); return@addSnapshotListener }
+                if (snapshot == null || snapshot.metadata.hasPendingWrites()) return@addSnapshotListener
+                trySend(snapshot.documentChanges)
+            }
+        awaitClose { listener.remove() }
+    }
+
+    suspend fun collectPaperTopicChanges(db: AppDatabase) {
+        paperTopicChangesFlow().collect { changes ->
+            for (change in changes) {
+                val docId = change.document.id
+                when (change.type) {
+                    DocumentChange.Type.ADDED, DocumentChange.Type.MODIFIED ->
+                        applyPaperTopicDoc(db, docId, change.document.data)
+                    DocumentChange.Type.REMOVED -> removePaperTopicByCloudId(db, docId)
+                }
+            }
+        }
+    }
+
+    private suspend fun syncPaperTopics(db: AppDatabase) {
+        for ((docId, data) in pullAllPaperTopics()) {
+            applyPaperTopicDoc(db, docId, data)
+        }
+        // Assign cloudIds where missing, then push every local row so signed-out edits reconcile.
+        for (topic in db.paperTopicDao().getAllOneShot()) {
+            val toPush = if (topic.cloudId.isEmpty()) {
+                topic.copy(cloudId = UUID.randomUUID().toString(), modifiedAt = System.currentTimeMillis())
+                    .also { db.paperTopicDao().updateTopic(it) }
+            } else topic
+            pushPaperTopic(toPush)
         }
     }
 
@@ -934,6 +1051,7 @@ class FirebaseManager(private val context: Context) {
         syncStep("excluded apps") { syncExcludedApps(db) }
         syncStep("goals") { syncGoals(db) }
         syncStep("goal completions") { syncGoalCompletions(db) }
+        syncStep("paper topics") { syncPaperTopics(db) }
         syncStep("papers") { syncPapers(db) }
         refreshBudgetWidget(context)
     }

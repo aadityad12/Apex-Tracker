@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -28,7 +26,10 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -45,6 +46,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.width
 import androidx.core.net.toUri
@@ -57,6 +59,7 @@ import com.example.apextracker.ui.design.ApexNumerals
 import com.example.apextracker.ui.design.ApexSectionHeader
 import com.example.apextracker.ui.design.ApexSpacing
 import com.example.apextracker.ui.design.ApexStatRow
+import com.example.apextracker.ui.design.apexMenuBorder
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
@@ -72,14 +75,17 @@ fun PapersView(
 ) {
     val state by viewModel.uiState.collectAsState()
     val discoveryPreferences by viewModel.discoveryPreferences.collectAsState()
+    val discoveryTopics by viewModel.discoveryTopics.collectAsState()
     val dailyFeedState by viewModel.dailyFeedState.collectAsState()
+    val muteSuggestion by viewModel.muteSuggestion.collectAsState()
     var showAdd by remember { mutableStateOf(false) }
     var detailPaper by remember { mutableStateOf<Paper?>(null) }
     var memoTarget by remember { mutableStateOf<Paper?>(null) }
     var showExport by remember { mutableStateOf(false) }
-    var showDiscoverySettings by remember { mutableStateOf(false) }
+    var showTopics by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val allPapers = remember(state.queue, state.history) { state.queue + state.history }
+    val showOnboarding = discoveryTopics.isEmpty() && !discoveryPreferences.onboardingDismissed
 
     Scaffold(
         topBar = {
@@ -91,7 +97,7 @@ fun PapersView(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showDiscoverySettings = true }) {
+                    IconButton(onClick = { showTopics = true }) {
                         Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.cd_papers_discovery))
                     }
                     IconButton(onClick = { showExport = true }) {
@@ -112,11 +118,19 @@ fun PapersView(
                 Modifier.padding(innerPadding).fillMaxSize().padding(horizontal = ApexSpacing.l),
                 verticalArrangement = Arrangement.Center
             ) {
-                ApexEmptyState(
-                    message = stringResource(R.string.papers_empty),
-                    actionLabel = stringResource(R.string.papers_import_seeds),
-                    onAction = { viewModel.importSeeds() }
-                )
+                if (showOnboarding) {
+                    OnboardingPrompt(
+                        onSetTopics = { showTopics = true },
+                        onImportSeeds = { viewModel.importSeeds() },
+                        onSkip = { viewModel.dismissOnboarding() }
+                    )
+                } else {
+                    ApexEmptyState(
+                        message = stringResource(R.string.papers_empty),
+                        actionLabel = stringResource(R.string.papers_import_seeds),
+                        onAction = { viewModel.importSeeds() }
+                    )
+                }
                 DailyPaperFeedMessage(dailyFeedState)
             }
         } else {
@@ -124,6 +138,16 @@ fun PapersView(
                 modifier = Modifier.padding(innerPadding).fillMaxSize(),
                 contentPadding = PaddingValues(horizontal = ApexSpacing.l, vertical = ApexSpacing.s)
             ) {
+                muteSuggestion?.let { topic ->
+                    item(key = "mute-suggestion") {
+                        MuteSuggestionRow(
+                            topic = topic,
+                            onMute = { viewModel.pauseTopic(topic); viewModel.dismissMuteSuggestion() },
+                            onDismiss = { viewModel.dismissMuteSuggestion() }
+                        )
+                        Spacer(Modifier.height(ApexSpacing.s))
+                    }
+                }
                 item(key = "daily-feed-status") {
                     DailyPaperFeedMessage(dailyFeedState)
                 }
@@ -193,14 +217,14 @@ fun PapersView(
             }
         )
     }
-    if (showDiscoverySettings) {
-        PapersDiscoveryDialog(
-            initialFields = discoveryPreferences.fields,
-            onDismiss = { showDiscoverySettings = false },
-            onSave = { fields ->
-                viewModel.setDiscoveryFields(fields)
-                showDiscoverySettings = false
-            }
+    if (showTopics) {
+        PapersTopicsSheet(
+            topics = discoveryTopics,
+            onDismiss = { showTopics = false },
+            onAdd = { field, keyword -> viewModel.addTopic(field, keyword) },
+            onPause = { viewModel.pauseTopic(it) },
+            onResume = { viewModel.resumeTopic(it) },
+            onDelete = { viewModel.deleteTopic(it) }
         )
     }
     detailPaper?.let { paper ->
@@ -239,22 +263,13 @@ fun PapersView(
 
 @Composable
 private fun DailyPaperFeedMessage(state: DailyPaperFeedState) {
-    val field = when (state) {
-        is DailyPaperFeedState.Loading -> state.field
-        is DailyPaperFeedState.Added -> state.field
-        is DailyPaperFeedState.NoResults -> state.field
-        is DailyPaperFeedState.Unavailable -> state.field
-        is DailyPaperFeedState.RateLimited -> state.field
-        DailyPaperFeedState.Idle -> null
-    }
-    val fieldLabel = field?.let { PAPER_DISCOVERY_FIELD_LABELS[it] }?.let { stringResource(it) }
     val message = when (state) {
         DailyPaperFeedState.Idle -> null
-        is DailyPaperFeedState.Loading -> stringResource(R.string.papers_daily_loading, fieldLabel.orEmpty())
-        is DailyPaperFeedState.Added -> stringResource(R.string.papers_daily_added, state.count, fieldLabel.orEmpty())
-        is DailyPaperFeedState.NoResults -> stringResource(R.string.papers_daily_no_results, fieldLabel.orEmpty())
-        is DailyPaperFeedState.Unavailable -> stringResource(R.string.papers_daily_unavailable)
-        is DailyPaperFeedState.RateLimited -> stringResource(R.string.papers_daily_rate_limited)
+        DailyPaperFeedState.Loading -> stringResource(R.string.papers_daily_loading)
+        is DailyPaperFeedState.Added -> stringResource(R.string.papers_daily_added, state.count)
+        DailyPaperFeedState.NoResults -> stringResource(R.string.papers_daily_no_results)
+        DailyPaperFeedState.Unavailable -> stringResource(R.string.papers_daily_unavailable)
+        DailyPaperFeedState.RateLimited -> stringResource(R.string.papers_daily_rate_limited)
     }
     if (message != null) {
         Text(
@@ -266,45 +281,187 @@ private fun DailyPaperFeedMessage(state: DailyPaperFeedState) {
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+/** Front-and-center first-run prompt (Q4): setting topics is the primary action, not the seed list. */
 @Composable
-private fun PapersDiscoveryDialog(
-    initialFields: Set<String>,
-    onDismiss: () -> Unit,
-    onSave: (Set<String>) -> Unit
+private fun OnboardingPrompt(
+    onSetTopics: () -> Unit,
+    onImportSeeds: () -> Unit,
+    onSkip: () -> Unit
 ) {
-    var selected by remember(initialFields) { mutableStateOf(initialFields) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.papers_discovery_title)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(ApexSpacing.m)) {
-                Text(stringResource(R.string.papers_discovery_description))
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(ApexSpacing.s),
-                    verticalArrangement = Arrangement.spacedBy(ApexSpacing.xs)
-                ) {
-                    PAPER_DISCOVERY_FIELDS.forEach { field ->
-                        FilterChip(
-                            selected = field in selected,
-                            onClick = {
-                                selected = if (field in selected) selected - field else selected + field
-                            },
-                            label = { Text(stringResource(PAPER_DISCOVERY_FIELD_LABELS.getValue(field))) }
-                        )
-                    }
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            stringResource(R.string.papers_onboarding_title),
+            style = MaterialTheme.typography.headlineSmall,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Spacer(Modifier.height(ApexSpacing.s))
+        Text(
+            stringResource(R.string.papers_onboarding_description),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(ApexSpacing.l))
+        Button(onClick = onSetTopics) { Text(stringResource(R.string.papers_onboarding_set_topics)) }
+        Spacer(Modifier.height(ApexSpacing.s))
+        TextButton(onClick = onImportSeeds) { Text(stringResource(R.string.papers_import_seeds)) }
+        TextButton(onClick = onSkip) {
+            Text(stringResource(R.string.papers_onboarding_skip), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/** Inline decision row (Q7-C) after 3 straight abandons from one topic — not a fire-and-forget toast. */
+@Composable
+private fun MuteSuggestionRow(topic: PaperTopic, onMute: () -> Unit, onDismiss: () -> Unit) {
+    Column(Modifier.fillMaxWidth()) {
+        Text(
+            stringResource(R.string.papers_mute_prompt, topic.keyword),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Spacer(Modifier.height(ApexSpacing.xs))
+        Row(horizontalArrangement = Arrangement.spacedBy(ApexSpacing.s)) {
+            TextButton(onClick = onMute) { Text(stringResource(R.string.papers_mute_action)) }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.papers_mute_dismiss)) }
+        }
+        Spacer(Modifier.height(ApexSpacing.s))
+        ApexDivider()
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PapersTopicsSheet(
+    topics: List<PaperTopic>,
+    onDismiss: () -> Unit,
+    onAdd: (field: String, keyword: String) -> Unit,
+    onPause: (PaperTopic) -> Unit,
+    onResume: (PaperTopic) -> Unit,
+    onDelete: (PaperTopic) -> Unit
+) {
+    var field by remember { mutableStateOf(PAPER_DISCOVERY_FIELDS.first()) }
+    var keyword by remember { mutableStateOf("") }
+    var fieldExpanded by remember { mutableStateOf(false) }
+    val atCap = topics.size >= MAX_PAPER_TOPICS
+
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = ApexSpacing.l)
+                .padding(bottom = ApexSpacing.xl)
+        ) {
+            ApexSectionHeader(stringResource(R.string.papers_topics_title))
+            Spacer(Modifier.height(ApexSpacing.xs))
+            Text(
+                stringResource(R.string.papers_topics_description),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(ApexSpacing.l))
+
+            if (topics.isEmpty()) {
+                Text(
+                    stringResource(R.string.papers_topics_empty),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                topics.forEachIndexed { i, topic ->
+                    if (i > 0) ApexDivider()
+                    TopicRow(
+                        topic = topic,
+                        onPause = { onPause(topic) },
+                        onResume = { onResume(topic) },
+                        onDelete = { onDelete(topic) }
+                    )
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = { onSave(selected) }) {
-                Text(stringResource(R.string.papers_discovery_save))
+
+            Spacer(Modifier.height(ApexSpacing.l))
+            ApexDivider()
+            Spacer(Modifier.height(ApexSpacing.l))
+
+            if (atCap) {
+                Text(
+                    stringResource(R.string.papers_topics_cap_reached, MAX_PAPER_TOPICS),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                ApexSectionHeader(stringResource(R.string.papers_topics_add))
+                Spacer(Modifier.height(ApexSpacing.s))
+                ExposedDropdownMenuBox(expanded = fieldExpanded, onExpandedChange = { fieldExpanded = it }) {
+                    OutlinedTextField(
+                        value = stringResource(PAPER_DISCOVERY_FIELD_LABELS.getValue(field)),
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text(stringResource(R.string.papers_topics_field_label)) },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = fieldExpanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = fieldExpanded,
+                        onDismissRequest = { fieldExpanded = false },
+                        border = apexMenuBorder()
+                    ) {
+                        PAPER_DISCOVERY_FIELDS.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(stringResource(PAPER_DISCOVERY_FIELD_LABELS.getValue(option))) },
+                                onClick = { field = option; fieldExpanded = false }
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(ApexSpacing.s))
+                OutlinedTextField(
+                    value = keyword,
+                    onValueChange = { keyword = it },
+                    label = { Text(stringResource(R.string.papers_topics_keyword_label)) },
+                    placeholder = { Text(stringResource(R.string.papers_topics_keyword_hint)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(ApexSpacing.s))
+                Button(
+                    onClick = { onAdd(field, keyword); keyword = "" },
+                    enabled = keyword.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text(stringResource(R.string.papers_topics_add_action)) }
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
         }
-    )
+    }
+}
+
+@Composable
+private fun TopicRow(
+    topic: PaperTopic,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val paused = topic.pausedAt != null
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = ApexSpacing.s),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(topic.keyword, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+            val fieldLabel = stringResource(PAPER_DISCOVERY_FIELD_LABELS.getValue(topic.field))
+            Text(
+                if (paused) fieldLabel + " · " + stringResource(R.string.papers_topics_paused) else fieldLabel,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        TextButton(onClick = if (paused) onResume else onPause) {
+            Text(stringResource(if (paused) R.string.papers_topics_resume else R.string.papers_topics_pause))
+        }
+        TextButton(onClick = onDelete) {
+            Text(stringResource(R.string.papers_delete), color = MaterialTheme.colorScheme.error)
+        }
+    }
 }
 
 @Composable

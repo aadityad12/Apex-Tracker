@@ -3,10 +3,10 @@ package com.example.apextracker
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -14,7 +14,7 @@ import java.time.LocalDate
 
 val Context.papersDiscoveryDataStore: DataStore<Preferences> by preferencesDataStore(name = "papers_discovery")
 
-/** Canonical Semantic Scholar fieldsOfStudy values exposed as Papers topic chips. */
+/** Canonical Semantic Scholar fieldsOfStudy values — a PaperTopic narrows one of these with a keyword. */
 val PAPER_DISCOVERY_FIELDS = listOf(
     "Computer Science",
     "Mathematics",
@@ -37,35 +37,30 @@ val PAPER_DISCOVERY_FIELD_LABELS = mapOf(
     "Psychology" to R.string.papers_field_psychology
 )
 
+/**
+ * Whole-day bookkeeping only — per-topic state (which topic, when it was last checked, its
+ * engagement track record) lives on [PaperTopic] rows in Room, not here. This just gates "have we
+ * already run today's fetch routine" and carries the shared 429 backoff window.
+ */
 data class PapersDiscoveryPreferences(
-    val fields: Set<String> = emptySet(),
     val lastFetchDate: LocalDate? = null,
-    val blockedUntilMillis: Long = 0L
+    val blockedUntilMillis: Long = 0L,
+    val onboardingDismissed: Boolean = false
 )
 
 class PapersDiscoveryPrefs(private val context: Context) {
-    private val fieldsKey = stringSetPreferencesKey("fields")
     private val lastFetchDateKey = stringPreferencesKey("last_fetch_date")
     private val blockedUntilKey = longPreferencesKey("blocked_until_millis")
+    private val onboardingDismissedKey = booleanPreferencesKey("onboarding_dismissed")
 
     val preferences: Flow<PapersDiscoveryPreferences> = context.papersDiscoveryDataStore.data.map { prefs ->
         PapersDiscoveryPreferences(
-            fields = prefs[fieldsKey].orEmpty().filterTo(linkedSetOf()) { it in PAPER_DISCOVERY_FIELDS },
             lastFetchDate = prefs[lastFetchDateKey]?.let { value ->
                 runCatching { LocalDate.parse(value) }.getOrNull()
             },
-            blockedUntilMillis = prefs[blockedUntilKey] ?: 0L
+            blockedUntilMillis = prefs[blockedUntilKey] ?: 0L,
+            onboardingDismissed = prefs[onboardingDismissedKey] ?: false
         )
-    }
-
-    suspend fun setFields(fields: Set<String>) {
-        val valid = fields.filterTo(linkedSetOf()) { it in PAPER_DISCOVERY_FIELDS }
-        context.papersDiscoveryDataStore.edit { prefs ->
-            val changed = prefs[fieldsKey].orEmpty() != valid
-            prefs[fieldsKey] = valid
-            // A changed selection gets one immediate fetch, independent of the previous topic's run.
-            if (changed) prefs.remove(lastFetchDateKey)
-        }
     }
 
     suspend fun recordAttempt(date: LocalDate, blockedUntilMillis: Long = 0L) {
@@ -75,20 +70,19 @@ class PapersDiscoveryPrefs(private val context: Context) {
             else prefs.remove(blockedUntilKey)
         }
     }
+
+    suspend fun dismissOnboarding() {
+        context.papersDiscoveryDataStore.edit { prefs -> prefs[onboardingDismissedKey] = true }
+    }
 }
 
-/** One request per date. A stored 429 window is shared with the later recommendations feed. */
+/**
+ * The whole-day gate: at most one fetch routine per day, and never before a stored 429 window has
+ * passed. Whether there's anything to actually check (active topics) is decided by the ViewModel
+ * from Room, not here — this only knows about the day/backoff bookkeeping.
+ */
 fun shouldFetchDailyPapers(
     preferences: PapersDiscoveryPreferences,
     today: LocalDate,
     nowMillis: Long
-): Boolean = preferences.fields.isNotEmpty() &&
-    preferences.lastFetchDate != today &&
-    nowMillis >= preferences.blockedUntilMillis
-
-/** Rotate deterministically through selected fields so daily discovery stays to one API request. */
-fun dailyPaperField(fields: Set<String>, date: LocalDate): String? {
-    val ordered = fields.sorted()
-    if (ordered.isEmpty()) return null
-    return ordered[(date.toEpochDay().mod(ordered.size.toLong())).toInt()]
-}
+): Boolean = preferences.lastFetchDate != today && nowMillis >= preferences.blockedUntilMillis

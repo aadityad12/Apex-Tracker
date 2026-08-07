@@ -3,6 +3,7 @@ package com.example.apextracker
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SemanticScholarTest {
@@ -162,5 +163,20 @@ class SemanticScholarTest {
         assertEquals(1_060_000L, semanticScholarBlockedUntil(1L, 1_000_000L))
         assertEquals(87_400_000L, semanticScholarBlockedUntil(999_999L, 1_000_000L))
         assertEquals(22_600_000L, semanticScholarBlockedUntil(null, 1_000_000L))
+    }
+
+    // --- buildSearchUrl ---
+
+    @Test
+    fun `search url queries the keyword, not the field name`() {
+        val url = buildSearchUrl("Computer Science", "diffusion models", java.time.LocalDate.of(2026, 8, 7))
+        assertTrue(url.contains("query=diffusion%20models"))
+        assertTrue(url.contains("fieldsOfStudy=Computer%20Science"))
+    }
+
+    @Test
+    fun `search url covers the trailing 12 months`() {
+        val url = buildSearchUrl("Physics", "quantum error correction", java.time.LocalDate.of(2026, 8, 7))
+        assertTrue(url.contains("publicationDateOrYear=2025-08-07:"))
     }
 }

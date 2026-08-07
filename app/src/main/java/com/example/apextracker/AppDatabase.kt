@@ -126,7 +126,25 @@ val MIGRATION_20_21 = object : Migration(20, 21) {
     }
 }
 
-@Database(entities = [BudgetItem::class, Category::class, Subscription::class, StudySession::class, ScreenTimeSession::class, ExcludedApp::class, Reminder::class, Note::class, Goal::class, GoalCompletion::class, AppUsageLimit::class, Paper::class], version = 21, exportSchema = true)
+// Papers discovery redesign: keyword-scoped topics replace the bare-field rotation. New table,
+// additive — mirrors MIGRATION_19_20. topicCloudId is nullable-free ('' sentinel, matching every
+// other cross-device reference column in this schema) so old papers just read as "not
+// topic-sourced" with no backfill needed. DDL diffed against app/schemas/…/22.json.
+val MIGRATION_21_22 = object : Migration(21, 22) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `paper_topics` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`field` TEXT NOT NULL, `keyword` TEXT NOT NULL, `pausedAt` TEXT, " +
+                "`createdDate` TEXT NOT NULL, `lastCheckedDate` TEXT, `readCount` INTEGER NOT NULL, " +
+                "`abandonedCount` INTEGER NOT NULL, `ratingSum` INTEGER NOT NULL, " +
+                "`ratingCount` INTEGER NOT NULL, `consecutiveAbandons` INTEGER NOT NULL, " +
+                "`cloudId` TEXT NOT NULL, `modifiedAt` INTEGER NOT NULL)"
+        )
+        db.execSQL("ALTER TABLE papers ADD COLUMN topicCloudId TEXT NOT NULL DEFAULT ''")
+    }
+}
+
+@Database(entities = [BudgetItem::class, Category::class, Subscription::class, StudySession::class, ScreenTimeSession::class, ExcludedApp::class, Reminder::class, Note::class, Goal::class, GoalCompletion::class, AppUsageLimit::class, Paper::class, PaperTopic::class], version = 22, exportSchema = true)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun budgetDao(): BudgetDao
@@ -141,6 +159,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun goalCompletionDao(): GoalCompletionDao
     abstract fun appUsageLimitDao(): AppUsageLimitDao
     abstract fun paperDao(): PaperDao
+    abstract fun paperTopicDao(): PaperTopicDao
 
     companion object {
         @Volatile
@@ -153,7 +172,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "budget_database"
                 )
-                .addMigrations(MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21)
+                .addMigrations(MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22)
                 .fallbackToDestructiveMigration()
                 .build()
                 INSTANCE = instance

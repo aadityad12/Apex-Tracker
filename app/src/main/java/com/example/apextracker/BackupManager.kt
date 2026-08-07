@@ -24,7 +24,8 @@ suspend fun exportBackup(db: AppDatabase, now: String): BackupData = withContext
         goals = db.goalDao().getAllGoalsOneShot(),
         goalCompletions = db.goalCompletionDao().getAllCompletionsOneShot(),
         appUsageLimits = db.appUsageLimitDao().getLimitsOneShot(),
-        papers = db.paperDao().getAllPapersOneShot()
+        papers = db.paperDao().getAllPapersOneShot(),
+        paperTopics = db.paperTopicDao().getAllOneShot()
     )
 }
 
@@ -49,6 +50,7 @@ suspend fun restoreBackup(db: AppDatabase, data: BackupData) = withContext(Dispa
         db.goalDao().clearAll()
         db.goalCompletionDao().clearAll()
         db.appUsageLimitDao().clearAll()
+        db.paperTopicDao().clearAll()
         db.paperDao().clearAll()
 
         data.categories.forEach { db.categoryDao().insertCategory(it) }
@@ -62,6 +64,7 @@ suspend fun restoreBackup(db: AppDatabase, data: BackupData) = withContext(Dispa
         data.goals.forEach { db.goalDao().insertGoal(it) }
         data.goalCompletions.forEach { db.goalCompletionDao().upsert(it) }
         data.appUsageLimits.forEach { db.appUsageLimitDao().setLimit(it) }
+        data.paperTopics.forEach { db.paperTopicDao().insertTopic(it) }
         data.papers.forEach { db.paperDao().insertPaper(it) }
     }
 }

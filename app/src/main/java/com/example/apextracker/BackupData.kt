@@ -21,7 +21,7 @@ import java.time.LocalTime
  */
 data class BackupData(
     val formatVersion: Int = 2,
-    val appDbVersion: Int = 21,
+    val appDbVersion: Int = 22,
     val exportedAt: String = "",
     val budgetItems: List<BudgetItem> = emptyList(),
     val categories: List<Category> = emptyList(),
@@ -35,7 +35,9 @@ data class BackupData(
     val goalCompletions: List<GoalCompletion> = emptyList(),
     val appUsageLimits: List<AppUsageLimit> = emptyList(),
     // Absent in pre-Papers backups; Gson leaves the default, so old files restore cleanly.
-    val papers: List<Paper> = emptyList()
+    val papers: List<Paper> = emptyList(),
+    // Absent in pre-discovery-redesign backups; Gson leaves the default, so old files restore cleanly.
+    val paperTopics: List<PaperTopic> = emptyList()
 )
 
 /**
@@ -70,7 +72,8 @@ fun parseBackupJson(json: String): BackupData? {
     // constructing entities so newly-added collections stay empty and pre-#166 goals stay DAILY.
     listOf(
         "budgetItems", "categories", "subscriptions", "studySessions", "screenTimeSessions",
-        "excludedApps", "reminders", "notes", "goals", "goalCompletions", "appUsageLimits", "papers"
+        "excludedApps", "reminders", "notes", "goals", "goalCompletions", "appUsageLimits", "papers",
+        "paperTopics"
     ).forEach { field ->
         if (!objectRoot.has(field) || objectRoot.get(field).isJsonNull) objectRoot.add(field, JsonArray())
     }
