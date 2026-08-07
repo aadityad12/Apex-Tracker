@@ -11,5 +11,9 @@
     <exclude domain="database" path="budget_database-wal" />
     <exclude domain="database" path="budget_database-shm" />
     <exclude domain="sharedpref" path="device_identity.xml" />
+    <exclude domain="file" path="note_attachments" />
     <exclude domain="file" path="datastore/daily_apex_tip.preferences_pb" />
+    <exclude domain="file" path="datastore/budget_settings.preferences_pb" />
+    <exclude domain="file" path="datastore/papers_discovery.preferences_pb" />
+    <exclude domain="file" path="datastore/account_identity.preferences_pb" />
 </full-backup-content>

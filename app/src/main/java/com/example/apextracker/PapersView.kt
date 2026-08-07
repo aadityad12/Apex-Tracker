@@ -3,6 +3,7 @@ package com.example.apextracker
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -494,10 +495,22 @@ private fun PapersExportDialog(
 private fun paperMetaLine(paper: Paper): String =
     listOf(paper.authors, paper.venue).filter { it.isNotBlank() }.joinToString(" · ")
 
-/** Opens the paper outside the app — PDF when known, else the landing page. */
+/**
+ * Opens the paper outside the app — PDF when known, else the landing page.
+ *
+ * The URL is not the user's: it comes from the Semantic Scholar response (the daily fetch inserts
+ * papers without anyone ever seeing the link), from another device via Firestore, or from a
+ * restored backup file. Handing an arbitrary scheme to ACTION_VIEW launches whatever app claims
+ * it, and a `file:` URI throws FileUriExposedException — a RuntimeException, so the
+ * ActivityNotFoundException catch below never saw it and the app crashed on tap (Issue #190).
+ */
 private fun openPaper(context: Context, paper: Paper) {
-    val target = paper.pdfUrl.ifBlank { paper.url }
-    if (target.isBlank()) return
+    val raw = paper.pdfUrl.ifBlank { paper.url }
+    val target = sanitizeWebUrl(raw)
+    if (target.isEmpty()) {
+        if (raw.isNotBlank()) Log.w("PapersView", "Refusing to open non-web paper URL")
+        return
+    }
     try {
         context.startActivity(Intent(Intent.ACTION_VIEW, target.toUri()))
     } catch (_: ActivityNotFoundException) {

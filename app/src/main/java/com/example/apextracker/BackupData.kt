@@ -86,5 +86,16 @@ fun parseBackupJson(json: String): BackupData? {
             goal.addProperty("cadence", GoalCadence.DAILY)
         }
     }
+
+    // Attachment names are resolved as paths under the note-attachments directory, so a
+    // hand-edited backup could point them at anything in the sandbox — including the Room DB,
+    // which deleting the note would then delete (Issue #193). Strip them here, at the boundary,
+    // rather than relying on every consumer to be careful.
+    objectRoot.getAsJsonArray("notes").forEach { element ->
+        val note = element.asJsonObject
+        val attachments = note.get("attachments")?.takeUnless { it.isJsonNull }?.asString ?: return@forEach
+        val safe = sanitizeAttachments(attachments)
+        if (safe != attachments) note.addProperty("attachments", safe)
+    }
     return backupGson().fromJson(objectRoot, BackupData::class.java)
 }

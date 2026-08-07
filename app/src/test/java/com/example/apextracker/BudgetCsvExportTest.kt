@@ -1,6 +1,7 @@
 package com.example.apextracker
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 
@@ -93,5 +94,41 @@ class BudgetCsvExportTest {
             "date,title,amount,category,description\n2026-01-01,Item,1.0,,",
             csv
         )
+    }
+
+    @Test
+    fun `csvEscape neutralizes spreadsheet formula triggers`() {
+        // Issue #192. Quoting alone does not help — Excel evaluates "=1+1" from a quoted field
+        // just the same — so the leading apostrophe is the actual fix.
+        assertEquals("'+1", csvEscape("+1"))
+        assertEquals("'@SUM(A1)", csvEscape("@SUM(A1)"))
+        assertEquals("'-2+3", csvEscape("-2+3"))
+        assertEquals("'=1+1", csvEscape("=1+1"))
+    }
+
+    @Test
+    fun `a formula field is both neutralized and quoted`() {
+        // The dangerous real-world payload: contains quotes, so it needs RFC 4180 quoting too.
+        // The apostrophe goes inside the quotes, ahead of the '='.
+        assertEquals(
+            "\"'=HYPERLINK(\"\"http://evil\"\")\"",
+            csvEscape("=HYPERLINK(\"http://evil\")")
+        )
+    }
+
+    @Test
+    fun `csvEscape leaves ordinary text alone`() {
+        assertEquals("Groceries", csvEscape("Groceries"))
+        assertEquals("\"a,b\"", csvEscape("a,b"))
+    }
+
+    @Test
+    fun `negative amounts are not neutralized`() {
+        // Amounts bypass csvEscape precisely so a refund stays a number in the spreadsheet.
+        val items = listOf(
+            BudgetItem(title = "Refund", amount = -12.5, description = null, date = LocalDate.of(2026, 1, 1), categoryId = null)
+        )
+        val csv = buildBudgetCsv(items, emptyList())
+        assertTrue(csv.contains("Refund,-12.5,"))
     }
 }

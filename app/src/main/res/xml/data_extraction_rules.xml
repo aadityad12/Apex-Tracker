@@ -12,8 +12,23 @@
    - device_identity holds the per-install UUID that keys this device's screen-time docs
      at users/{uid}/devices/{deviceId}. Restoring it onto a second device would make both
      devices write to the same doc and clobber each other's screen time.
+   - note_attachments holds the images the user attached to notes (Issue #191). The rationale
+     for excluding the DB applies verbatim: a photographed receipt or document is at least as
+     sensitive as the note text it belongs to, and backing the image up while withholding the
+     caption is the worst of both — the payload leaves the device while the user's mental model
+     says notes aren't backed up. It also cannot restore usefully on its own: without the notes
+     table these are orphaned bytes no row points at.
    - daily_apex_tip is a local cache of AI-generated text based on personal tracker totals.
      It is deliberately device-local and a dated response would be stale after restore.
+   - budget_settings holds the overall monthly spending ceiling — a financial figure, and the
+     one DataStore value that is data about the user rather than a device preference.
+   - papers_discovery carries reading-interest bookkeeping.
+   - account_identity records which Firebase account the local Room data belongs to (Issue #186).
+     Restoring it onto a device whose Room data came from elsewhere would make the account-switch
+     guard believe the data is already the right user's and skip the wipe.
+
+   Deliberately still backed up: reminder/note/study/currency/security settings. Those are device
+   preferences, not personal data, and carrying them to a new device is the point of a backup.
 -->
 <data-extraction-rules>
     <cloud-backup>
@@ -21,7 +36,11 @@
         <exclude domain="database" path="budget_database-wal" />
         <exclude domain="database" path="budget_database-shm" />
         <exclude domain="sharedpref" path="device_identity.xml" />
+        <exclude domain="file" path="note_attachments" />
         <exclude domain="file" path="datastore/daily_apex_tip.preferences_pb" />
+        <exclude domain="file" path="datastore/budget_settings.preferences_pb" />
+        <exclude domain="file" path="datastore/papers_discovery.preferences_pb" />
+        <exclude domain="file" path="datastore/account_identity.preferences_pb" />
     </cloud-backup>
     <!-- Declared explicitly: an absent <device-transfer> silently falls back to the
          <cloud-backup> rules above, which is right today, but that coupling is not
@@ -31,6 +50,10 @@
         <exclude domain="database" path="budget_database-wal" />
         <exclude domain="database" path="budget_database-shm" />
         <exclude domain="sharedpref" path="device_identity.xml" />
+        <exclude domain="file" path="note_attachments" />
         <exclude domain="file" path="datastore/daily_apex_tip.preferences_pb" />
+        <exclude domain="file" path="datastore/budget_settings.preferences_pb" />
+        <exclude domain="file" path="datastore/papers_discovery.preferences_pb" />
+        <exclude domain="file" path="datastore/account_identity.preferences_pb" />
     </device-transfer>
 </data-extraction-rules>

@@ -204,7 +204,13 @@ internal fun parseReminderDoc(data: Map<String, Any?>, gson: Gson): Reminder = R
     time = data.optString("time")?.let { LocalTime.parse(it) },
     description = data.optString("description"),
     isCompleted = data["isCompleted"] as? Boolean ?: false,
-    recurrence = data.optString("recurrence")?.let { gson.fromJson(it, Recurrence::class.java) },
+    // parseRecurrenceSafe, not a raw fromJson: Gson bypasses Kotlin null-safety, so a malformed
+    // cloud value deserializes to a Recurrence whose non-null frequency/endType are actually
+    // null, with no exception for the per-doc catch to see. That object then reaches
+    // calculateNextDate's `when (recurrence.frequency)` and throws — inside ReminderCompleteWorker,
+    // from a notification tap, with the app possibly in the background. Issue #22 hardened the
+    // Room converter against exactly this; the cloud path had been missed (Issue #194).
+    recurrence = data.optString("recurrence")?.let { parseRecurrenceSafe(gson, it) },
     occurrencesCompleted = (data["occurrencesCompleted"] as? Number)?.toInt() ?: 0,
     cloudId = data.requireCloudId(),
     parentCloudId = data.optString("parentCloudId"),
@@ -267,8 +273,10 @@ internal fun parsePaperDoc(data: Map<String, Any?>): Paper = Paper(
     venue = data.optString("venue") ?: "",
     abstractText = data.optString("abstractText") ?: "",
     tldr = data.optString("tldr") ?: "",
-    url = data.optString("url") ?: "",
-    pdfUrl = data.optString("pdfUrl") ?: "",
+    // Another device (or anything that can write these docs) is not a trusted source for a URI
+    // that ends up in ACTION_VIEW — same guard as parseS2PaperJson (Issue #190).
+    url = sanitizeWebUrl(data.optString("url") ?: ""),
+    pdfUrl = sanitizeWebUrl(data.optString("pdfUrl") ?: ""),
     source = data.optString("source") ?: PaperSource.MANUAL,
     status = data.optString("status") ?: PaperStatus.WANT,
     addedDate = LocalDate.parse(data.requireString("addedDate")),
