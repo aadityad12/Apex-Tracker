@@ -1066,6 +1066,111 @@ class FirebaseManager(private val context: Context) {
         refreshBudgetWidget(context)
     }
 
+    /**
+     * Deletes every document in `users/{uid}/[collection]` whose id is not in [keepDocIds].
+     *
+     * Generic on purpose: the only thing that differs per entity is how a local row's document id
+     * is derived, and the caller already knows that. Doing this per-entity would be eleven copies
+     * of the same four lines.
+     */
+    private suspend fun deleteStaleDocs(collection: String, keepDocIds: Set<String>) {
+        val uid = userId ?: return
+        val col = firestore.collection("users").document(uid).collection(collection)
+        for (doc in col.get().await().documents) {
+            if (doc.id !in keepDocIds) col.document(doc.id).delete().await()
+        }
+    }
+
+    /**
+     * Makes the cloud match local Room exactly: prune what local no longer has, then push what it
+     * does. The counterpart to [performInitialSync], which merges in both directions.
+     *
+     * Exists for backup restore (Issue #189). A restore clears Room and re-inserts from a file,
+     * but said nothing to Firestore — so the listeners and the next initial sync pulled every
+     * cleared row straight back and re-pushed the union. "Restore" produced the backup's data
+     * *plus* everything it was supposed to replace, irreversibly, while the confirmation dialog
+     * promised it "replaces all local data".
+     *
+     * Deliberately not a general-purpose sync: it is destructive in the cloud direction and is
+     * only correct when local has just been established as the authority. Stop [SyncCoordinator]
+     * around it, or its listeners will race the prune.
+     *
+     * Rows whose cloudId is still empty (possible in a pre-cloudId backup file) are skipped by the
+     * push half — `pushX` no-ops on a blank cloudId. They are picked up by the next
+     * `performInitialSync`, which already has the assign-then-push logic for exactly that case.
+     */
+    suspend fun replaceCloudWithLocal(db: AppDatabase) {
+        if (userId == null) return
+
+        syncStep("replace categories") {
+            val local = db.categoryDao().getAllCategoriesOneShot()
+            deleteStaleDocs("categories", local.mapNotNullTo(mutableSetOf()) { it.cloudId.ifEmpty { null } })
+            local.forEach { pushCategory(it) }
+        }
+        syncStep("replace budget items") {
+            val local = db.budgetDao().getAllItemsOneShot()
+            val cats = db.categoryDao().getAllCategoriesOneShot()
+            deleteStaleDocs("budget", local.mapNotNullTo(mutableSetOf()) { it.cloudId.ifEmpty { null } })
+            local.forEach { item ->
+                pushBudgetItem(item, item.categoryId?.let { id -> cats.find { it.id == id }?.cloudId?.ifEmpty { null } })
+            }
+        }
+        syncStep("replace subscriptions") {
+            val local = db.subscriptionDao().getAllSubscriptionsSync()
+            deleteStaleDocs("subscriptions", local.mapNotNullTo(mutableSetOf()) { it.cloudId.ifEmpty { null } })
+            local.forEach { pushSubscription(it) }
+        }
+        syncStep("replace notes") {
+            val local = db.noteDao().getAllNotesOneShot()
+            deleteStaleDocs("notes", local.mapNotNullTo(mutableSetOf()) { it.cloudId.ifEmpty { null } })
+            local.forEach { pushNote(it) }
+        }
+        syncStep("replace reminders") {
+            val local = db.reminderDao().getAllRemindersOneShot()
+            deleteStaleDocs("reminders", local.mapNotNullTo(mutableSetOf()) { it.cloudId.ifEmpty { null } })
+            local.forEach { pushReminder(it) }
+        }
+        syncStep("replace goals") {
+            val local = db.goalDao().getAllGoalsOneShot()
+            deleteStaleDocs("goals", local.mapNotNullTo(mutableSetOf()) { it.cloudId.ifEmpty { null } })
+            local.forEach { pushGoal(it) }
+        }
+        syncStep("replace goal completions") {
+            val local = db.goalCompletionDao().getAllCompletionsOneShot()
+            deleteStaleDocs(
+                "goal_completions",
+                local.mapTo(mutableSetOf()) { goalCompletionDocId(it.goalCloudId, it.date) }
+            )
+            local.forEach { pushGoalCompletion(it) }
+        }
+        syncStep("replace study sessions") {
+            val local = db.studySessionDao().getAllSessionsOneShot()
+            deleteStaleDocs(
+                "study_sessions",
+                local.mapTo(mutableSetOf()) { studySessionDocId(it.date, it.subject) }
+            )
+            local.forEach { pushStudySession(it) }
+        }
+        syncStep("replace paper topics") {
+            val local = db.paperTopicDao().getAllOneShot()
+            deleteStaleDocs("paper_topics", local.mapNotNullTo(mutableSetOf()) { it.cloudId.ifEmpty { null } })
+            local.forEach { pushPaperTopic(it) }
+        }
+        syncStep("replace papers") {
+            val local = db.paperDao().getAllPapersOneShot()
+            deleteStaleDocs("papers", local.mapNotNullTo(mutableSetOf()) { it.cloudId.ifEmpty { null } })
+            local.forEach { pushPaper(it) }
+        }
+        syncStep("replace excluded apps") {
+            val local = db.excludedAppDao().getAllExcludedAppsOneShot()
+            deleteStaleDocs("excluded_apps", local.mapTo(mutableSetOf()) { it.packageName })
+            local.forEach { pushExcludedApp(it.packageName) }
+        }
+        // Screen time is deliberately untouched: it is per-device measurement
+        // (devices/{deviceId}/screen_time), not user-authored content, and another device's
+        // readings are not this device's to delete.
+    }
+
     private suspend fun syncStep(name: String, block: suspend () -> Unit) {
         try {
             block()

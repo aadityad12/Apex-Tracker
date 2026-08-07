@@ -82,6 +82,46 @@ suspend fun restoreBackup(context: Context, db: AppDatabase, data: BackupData) =
         .onFailure { Log.w(BACKUP_TAG, "Restored reminders, but failed to re-arm their alarms", it) }
 }
 
+/**
+ * Restores [data] and makes the cloud match, so "replace all local data" means the same thing
+ * signed in as it does signed out (Issue #189).
+ *
+ * The ordering is the whole point:
+ *  1. Stop the live listeners. They are watching the exact collections the restore clears, and
+ *     would re-insert the cleared rows mid-transaction.
+ *  2. Restore locally.
+ *  3. Prune-and-push the cloud, so the deletions the restore implies actually happen remotely.
+ *     Skipped when signed out — there is nothing to reconcile.
+ *  4. Restart the listeners.
+ *
+ * Step 3 failing (offline, permission error) leaves local correct and the cloud stale, which the
+ * next `performInitialSync` will partially undo. That is reported to the caller rather than
+ * swallowed, so the UI can tell the user the restore did not fully reach their other devices.
+ */
+suspend fun restoreBackupAndReconcile(
+    context: Context,
+    db: AppDatabase,
+    data: BackupData,
+    firebaseManager: FirebaseManager
+): Boolean {
+    SyncCoordinator.stop()
+    try {
+        restoreBackup(context, db, data)
+        if (firebaseManager.userId == null) return true
+        return try {
+            firebaseManager.replaceCloudWithLocal(db)
+            true
+        } catch (e: Exception) {
+            Log.w(BACKUP_TAG, "Restored locally, but failed to reconcile the cloud", e)
+            false
+        }
+    } finally {
+        if (firebaseManager.userId != null) {
+            SyncCoordinator.start(firebaseManager, db)
+        }
+    }
+}
+
 /** Writes backup JSON to the SAF [uri] the user chose (ACTION_CREATE_DOCUMENT). */
 suspend fun writeBackupToUri(context: Context, uri: Uri, json: String): Boolean = withContext(Dispatchers.IO) {
     try {

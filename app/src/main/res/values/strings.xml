@@ -31,8 +31,12 @@
     <string name="backup_restore_done">Data restored.</string>
     <string name="backup_failed">Couldn\'t access that file.</string>
     <string name="backup_invalid">That file isn\'t a valid backup.</string>
+    <!-- Cloud reconciliation failed but the local restore succeeded (Issue #189). -->
+    <string name="backup_restore_cloud_failed">Data restored on this device, but syncing the change to your other devices failed. Reconnect and restore again, or your other devices may put the old data back.</string>
     <string name="backup_restore_confirm_title">Restore backup?</string>
-    <string name="backup_restore_confirm_text">This replaces all current data on this device with the backup\'s contents. This can\'t be undone.</string>
+    <!-- Says "and your other devices" because the restore now prunes the cloud too (Issue #189);
+         it used to quietly merge instead, which is what the old wording mis-promised. -->
+    <string name="backup_restore_confirm_text">This replaces all current data on this device — and, if you\'re signed in, on your other devices — with the backup\'s contents. This can\'t be undone.</string>
     <string name="backup_restore_action">Replace</string>
     <string name="menu_currency">Currency</string>
     <string name="menu_currency_label">Display currency</string>

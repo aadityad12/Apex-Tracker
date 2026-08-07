@@ -244,6 +244,9 @@ private fun BackupRestoreControls() {
     val restoreDoneMsg = stringResource(R.string.backup_restore_done)
     val failedMsg = stringResource(R.string.backup_failed)
     val invalidMsg = stringResource(R.string.backup_invalid)
+    val restoreCloudFailedMsg = stringResource(R.string.backup_restore_cloud_failed)
+
+    val firebaseManager = remember { FirebaseManager(context) }
 
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -294,9 +297,11 @@ private fun BackupRestoreControls() {
                         if (data == null) {
                             status = invalidMsg
                         } else {
-                            restoreBackup(context, db, data)
+                            val fullySynced = restoreBackupAndReconcile(context, db, data, firebaseManager)
                             refreshBudgetWidget(context)
-                            status = restoreDoneMsg
+                            // The local restore succeeded either way; say so honestly when the
+                            // cloud half didn't land, since the next sync will partly undo it.
+                            status = if (fullySynced) restoreDoneMsg else restoreCloudFailedMsg
                         }
                     }
                 }) { Text(stringResource(R.string.backup_restore_action)) }
