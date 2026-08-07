@@ -1380,7 +1380,13 @@ class FirebaseManager(private val context: Context) {
             } else if (parsed.modifiedAt > local.modifiedAt) {
                 db.subscriptionDao().updateSubscription(
                     local.copy(
-                        name = parsed.name, amount = parsed.amount, renewalDate = parsed.renewalDate,
+                        name = parsed.name, amount = parsed.amount,
+                        // renewalDate is a cursor that only ever moves forward — it marks how far
+                        // the catch-up has generated. Last-writer-wins doesn't know that, so a
+                        // remote doc from a device that hasn't caught up yet would rewind it and
+                        // make checkAndAddSubscriptions re-walk months it already billed
+                        // (Issue #196). Take the later of the two.
+                        renewalDate = maxOf(local.renewalDate, parsed.renewalDate),
                         notes = parsed.notes, lastAddedDate = parsed.lastAddedDate, modifiedAt = parsed.modifiedAt
                     )
                 )

@@ -69,9 +69,20 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
                 val today = LocalDate.now()
                 var insertedBudgetItem = false
 
-                subscriptions.forEach { subscription ->
+                subscriptions.forEach { rawSubscription ->
                     // Paused subscriptions generate nothing and don't advance (Issue #79).
-                    if (subscription.isPaused) return@forEach
+                    if (rawSubscription.isPaused) return@forEach
+
+                    // The generated items' identities are derived from this, so a subscription
+                    // still missing a cloudId has to get one before it can produce anything
+                    // stable (Issue #196).
+                    val subscription = if (rawSubscription.cloudId.isEmpty()) {
+                        rawSubscription.copy(
+                            cloudId = UUID.randomUUID().toString(),
+                            modifiedAt = System.currentTimeMillis()
+                        ).also { subscriptionDao.updateSubscription(it) }
+                    } else rawSubscription
+
                     var currentRenewal = subscription.renewalDate
                     var updatedSub = subscription
                     val subscriptionCategoryId = -1L
@@ -85,13 +96,20 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
                             description = updatedSub.notes,
                             date = currentRenewal,
                             categoryId = subscriptionCategoryId,
-                            cloudId = UUID.randomUUID().toString(),
+                            // Derived, not random: another device generating this same charge
+                            // lands on the same document instead of a duplicate (Issue #196).
+                            cloudId = subscriptionItemCloudId(subscription.cloudId, currentRenewal),
                             modifiedAt = System.currentTimeMillis()
                         )
-                        budgetDao.insertItem(item)
-                        insertedBudgetItem = true
-                        safeCloudCall(TAG, "push subscription budget item") {
-                            firebaseManager.pushBudgetItem(item, null)
+                        // Skip if this renewal already produced an item — on this device or, via
+                        // sync, on another one. The per-instance mutex above cannot see across
+                        // devices; the deterministic cloudId is what makes that checkable.
+                        if (budgetDao.getItemByCloudId(item.cloudId) == null) {
+                            budgetDao.insertItem(item)
+                            insertedBudgetItem = true
+                            safeCloudCall(TAG, "push subscription budget item") {
+                                firebaseManager.pushBudgetItem(item, null)
+                            }
                         }
 
                         currentRenewal = currentRenewal.plusMonths(1)
