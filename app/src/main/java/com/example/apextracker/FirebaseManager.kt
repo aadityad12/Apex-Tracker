@@ -1059,6 +1059,10 @@ class FirebaseManager(private val context: Context) {
         syncStep("goal completions") { syncGoalCompletions(db) }
         syncStep("paper topics") { syncPaperTopics(db) }
         syncStep("papers") { syncPapers(db) }
+        // Belt-and-braces after applyReminderDoc's per-row scheduling: a reminder whose doc was
+        // skipped as malformed, or one whose alarm was lost to a destructive migration, still
+        // gets armed here. Idempotent (Issue #188).
+        syncStep("reminder alarms") { rescheduleAllReminders(context, db) }
         refreshBudgetWidget(context)
     }
 
@@ -1386,18 +1390,26 @@ class FirebaseManager(private val context: Context) {
         try {
             val parsed = parseReminderDoc(data, gson)
             val local = db.reminderDao().getReminderByCloudId(parsed.cloudId)
+            // A reminder written straight to Room by sync used to have no alarm armed for it, so
+            // a reminder created on another device showed up in the list and never fired
+            // (Issue #188). Schedule against the row's real id — `parsed` carries id 0 until the
+            // insert assigns one.
             if (local == null) {
-                db.reminderDao().insertReminder(parsed)
+                val newId = db.reminderDao().insertReminder(parsed)
+                scheduleReminderIfNeeded(context, parsed.copy(id = newId))
             } else if (parsed.modifiedAt > local.modifiedAt) {
-                db.reminderDao().updateReminder(
-                    local.copy(
-                        name = parsed.name, date = parsed.date, time = parsed.time,
-                        description = parsed.description, isCompleted = parsed.isCompleted,
-                        recurrence = parsed.recurrence,
-                        occurrencesCompleted = parsed.occurrencesCompleted,
-                        parentCloudId = parsed.parentCloudId, modifiedAt = parsed.modifiedAt
-                    )
+                val updated = local.copy(
+                    name = parsed.name, date = parsed.date, time = parsed.time,
+                    description = parsed.description, isCompleted = parsed.isCompleted,
+                    recurrence = parsed.recurrence,
+                    occurrencesCompleted = parsed.occurrencesCompleted,
+                    parentCloudId = parsed.parentCloudId, modifiedAt = parsed.modifiedAt
                 )
+                db.reminderDao().updateReminder(updated)
+                // Also covers a remote *completion*: scheduleReminderIfNeeded cancels the alarm
+                // when isCompleted flipped true, so finishing a reminder on one device stops the
+                // other device notifying about it.
+                scheduleReminderIfNeeded(context, updated)
             }
         } catch (e: Exception) {
             Log.w(TAG, "Skipping malformed reminder doc $docId", e)
@@ -1407,6 +1419,9 @@ class FirebaseManager(private val context: Context) {
     private suspend fun removeReminderByCloudId(db: AppDatabase, cloudId: String) {
         val local = db.reminderDao().getReminderByCloudId(cloudId)
         if (local == null || local.cloudId.isEmpty()) return
+        // Cancel before deleting: once the row is gone its id is unrecoverable and the alarm
+        // would fire for a reminder that no longer exists.
+        ReminderScheduler.cancel(context, local.id)
         db.reminderDao().deleteReminder(local)
     }
 

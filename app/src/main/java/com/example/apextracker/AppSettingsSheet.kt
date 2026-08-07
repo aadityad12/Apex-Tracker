@@ -294,7 +294,7 @@ private fun BackupRestoreControls() {
                         if (data == null) {
                             status = invalidMsg
                         } else {
-                            restoreBackup(db, data)
+                            restoreBackup(context, db, data)
                             refreshBudgetWidget(context)
                             status = restoreDoneMsg
                         }

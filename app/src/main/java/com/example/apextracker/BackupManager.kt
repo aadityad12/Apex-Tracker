@@ -5,6 +5,7 @@ import android.net.Uri
 import android.util.Log
 import androidx.room.withTransaction
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 
 private const val BACKUP_TAG = "BackupManager"
@@ -37,7 +38,13 @@ suspend fun exportBackup(db: AppDatabase, now: String): BackupData = withContext
  * files (those aren't in the DB); the note rows survive but their attachment thumbnails will be
  * missing, same device-local caveat as Issue #127.
  */
-suspend fun restoreBackup(db: AppDatabase, data: BackupData) = withContext(Dispatchers.IO) {
+suspend fun restoreBackup(context: Context, db: AppDatabase, data: BackupData) = withContext(Dispatchers.IO) {
+    // Alarms are keyed on Room row ids, which this restore reassigns wholesale. Cancel the
+    // outgoing set first or their alarms fire against whatever rows inherit those ids
+    // (Issue #188).
+    val outgoingIds = runCatching { db.reminderDao().getActiveReminders().first().map { it.id } }
+        .getOrElse { emptyList() }
+
     db.withTransaction {
         db.budgetDao().clearAll()
         db.categoryDao().clearAll()
@@ -67,6 +74,12 @@ suspend fun restoreBackup(db: AppDatabase, data: BackupData) = withContext(Dispa
         data.paperTopics.forEach { db.paperTopicDao().insertTopic(it) }
         data.papers.forEach { db.paperDao().insertPaper(it) }
     }
+
+    // Outside the transaction: AlarmManager is not transactional, so arming alarms for rows that
+    // a rollback would have discarded is exactly the wrong order.
+    outgoingIds.forEach { ReminderScheduler.cancel(context, it) }
+    runCatching { rescheduleAllReminders(context, db) }
+        .onFailure { Log.w(BACKUP_TAG, "Restored reminders, but failed to re-arm their alarms", it) }
 }
 
 /** Writes backup JSON to the SAF [uri] the user chose (ACTION_CREATE_DOCUMENT). */
