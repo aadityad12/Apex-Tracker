@@ -325,6 +325,8 @@
     <string name="security_prompt_title">Unlock %1$s</string>
     <string name="security_locked_message">Unlock to view this section</string>
     <string name="security_unlock_button">Unlock</string>
+    <!-- Backup export/import reads and replaces the locked modules' data (Issue #187). -->
+    <string name="security_backup_prompt_title">Unlock to back up or restore</string>
 
     <!-- Dashboard (goal-tracking heatmap) -->
     <string name="dashboard_title">DASHBOARD</string>
@@ -411,6 +413,9 @@
     <string name="widget_budget_remaining">%1$s left</string>
     <string name="widget_budget_over">%1$s over</string>
     <string name="widget_budget_desc">Monthly spending versus budget</string>
+    <!-- Shown instead of any figure while the Budget module lock is on (Issue #187). -->
+    <string name="widget_budget_locked">Locked</string>
+    <string name="widget_budget_locked_hint">Tap to unlock in the app</string>
     <string name="cd_dashboard_day">%1$s: %2$s</string>
     <string name="cd_dashboard_day_today">Today, %1$s</string>
     <string name="cd_dashboard_day_untracked">no goals tracked</string>

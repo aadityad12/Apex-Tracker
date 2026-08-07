@@ -31,6 +31,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.apextracker.ui.design.ApexDatePickerDialog
 import com.example.apextracker.ui.design.ApexSpacing
+import com.example.apextracker.widget.refreshBudgetWidget
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.YearMonth
@@ -111,7 +112,16 @@ fun BudgetSettingsDialog(
                             ModuleLockSetting(
                                 checked = budgetLocked,
                                 titleRes = R.string.security_lock_budget_title,
-                                onCheckedChange = { scope.launch { securitySettings.setBudgetLock(it) } }
+                                onCheckedChange = {
+                                    scope.launch {
+                                        securitySettings.setBudgetLock(it)
+                                        // The widget reads this flag to decide whether to show
+                                        // figures at all (Issue #187). Without this, enabling the
+                                        // lock leaves the last-rendered amounts sitting on the
+                                        // launcher until something else happens to redraw it.
+                                        refreshBudgetWidget(context)
+                                    }
+                                }
                             )
                         }
                     }

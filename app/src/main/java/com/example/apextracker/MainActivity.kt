@@ -368,10 +368,22 @@ fun AppNavigation(
         }
     ) {
         composable("overview") {
-            OverviewView(
-                onBackToMenu = { navController.popBackStack() },
-                onNavigate = { route -> navController.navigate(route) }
-            )
+            // Overview aggregates every DAO, including a "total spent" stat card, so leaving it
+            // ungated let anyone read the Budget module's headline figure without meeting the
+            // prompt (Issue #187). Gated on the Budget flag specifically: Overview shows no note
+            // content, so the Notes lock has no claim on it.
+            LockGate(
+                route = "overview",
+                lockEnabled = budgetLockEnabled,
+                promptTitle = stringResource(R.string.security_prompt_title, stringResource(R.string.module_overview)),
+                promptSubtitle = stringResource(R.string.security_lock_subtitle),
+                onCancelled = { navController.popBackStack() }
+            ) {
+                OverviewView(
+                    onBackToMenu = { navController.popBackStack() },
+                    onNavigate = { route -> navController.navigate(route) }
+                )
+            }
         }
         composable("dashboard") {
             DashboardView(

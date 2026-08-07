@@ -68,4 +68,30 @@ class BudgetWidgetSnapshotTest {
 
         assertEquals(DEFAULT_CURRENCY_CODE, snapshot.currencyCode)
     }
+
+    @Test
+    fun `locked snapshot carries no figures at all`() {
+        // Issue #187: the widget renders on the launcher, outside anything the module lock can
+        // gate. Withholding the amounts must happen here, not in the layout — the snapshot is
+        // handed to the widget host's process, so "present but not drawn" would still put the
+        // numbers exactly where the lock is meant to keep them out of.
+        val snapshot = budgetWidgetSnapshot(
+            items = listOf(item(110.0)),
+            month = august,
+            limit = 100.0,
+            currencyCode = "EUR",
+            locked = true
+        )
+
+        assertTrue(snapshot.locked)
+        assertEquals(0.0, snapshot.spent, 0.0001)
+        assertNull(snapshot.limitStatus)
+        // The currency code is not sensitive and the widget still needs it if the lock is lifted.
+        assertEquals("EUR", snapshot.currencyCode)
+    }
+
+    @Test
+    fun `unlocked is the default so existing callers are unchanged`() {
+        assertFalse(budgetWidgetSnapshot(listOf(item(10.0)), august, null, "USD").locked)
+    }
 }
