@@ -144,7 +144,41 @@ val MIGRATION_21_22 = object : Migration(21, 22) {
     }
 }
 
-@Database(entities = [BudgetItem::class, Category::class, Subscription::class, StudySession::class, ScreenTimeSession::class, ExcludedApp::class, Reminder::class, Note::class, Goal::class, GoalCompletion::class, AppUsageLimit::class, Paper::class, PaperTopic::class], version = 22, exportSchema = true)
+/**
+ * Issue #197: indices on the sync join keys. There were none anywhere in the schema.
+ *
+ * `cloudId` is what every `applyXDoc` looks a row up by, once per document — from
+ * `performInitialSync` and again from each of SyncCoordinator's live listeners for the life of
+ * the session. Unindexed, each of those was a full table scan, so the cost of syncing grew with
+ * the square of the user's history. `papers.s2Id` and `papers.url` are the same story for the
+ * daily discovery fetch, which probes them once per candidate.
+ *
+ * **Not unique**, deliberately. `""` is the not-yet-assigned sentinel for `cloudId` throughout
+ * this schema (rows get a UUID on first push), and `papers.s2Id` is `""` for every offline seed —
+ * so multiple rows legitimately share those values and a unique index would reject them. That
+ * leaves the check-then-insert dedup in the ViewModels advisory rather than enforced; making it
+ * enforced means moving the sentinel to NULL across every entity and every `.ifEmpty { UUID… }`
+ * call site, which is a separate change.
+ *
+ * Index names and DDL must match Room's own generated form exactly or TableInfo validation fails
+ * at runtime — diffed against the exported app/schemas/…/23.json.
+ */
+val MIGRATION_22_23 = object : Migration(22, 23) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_budget_items_cloudId` ON `budget_items` (`cloudId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_categories_cloudId` ON `categories` (`cloudId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_subscriptions_cloudId` ON `subscriptions` (`cloudId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_notes_cloudId` ON `notes` (`cloudId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_reminders_cloudId` ON `reminders` (`cloudId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_goals_cloudId` ON `goals` (`cloudId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_papers_cloudId` ON `papers` (`cloudId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_papers_s2Id` ON `papers` (`s2Id`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_papers_url` ON `papers` (`url`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_paper_topics_cloudId` ON `paper_topics` (`cloudId`)")
+    }
+}
+
+@Database(entities = [BudgetItem::class, Category::class, Subscription::class, StudySession::class, ScreenTimeSession::class, ExcludedApp::class, Reminder::class, Note::class, Goal::class, GoalCompletion::class, AppUsageLimit::class, Paper::class, PaperTopic::class], version = 23, exportSchema = true)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun budgetDao(): BudgetDao
@@ -172,7 +206,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "budget_database"
                 )
-                .addMigrations(MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22)
+                .addMigrations(MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23)
                 .fallbackToDestructiveMigration()
                 .build()
                 INSTANCE = instance

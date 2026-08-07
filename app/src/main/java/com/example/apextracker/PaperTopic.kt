@@ -1,6 +1,7 @@
 package com.example.apextracker
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.time.LocalDate
 
@@ -16,7 +17,11 @@ import java.time.LocalDate
  * [pausedAt] (non-null = muted) excludes a topic from fetch rotation and pick-weighting without
  * losing its history — reversible, per the explicit decision not to delete on mute.
  */
-@Entity(tableName = "paper_topics")
+// Sync join keys — see the MIGRATION_22_23 note in AppDatabase.kt (Issue #197).
+@Entity(
+    tableName = "paper_topics",
+    indices = [Index(value = ["cloudId"])]
+)
 data class PaperTopic(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,

@@ -1,9 +1,14 @@
 package com.example.apextracker
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "categories")
+// Sync join keys — see the MIGRATION_22_23 note in AppDatabase.kt (Issue #197).
+@Entity(
+    tableName = "categories",
+    indices = [Index(value = ["cloudId"])]
+)
 data class Category(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,

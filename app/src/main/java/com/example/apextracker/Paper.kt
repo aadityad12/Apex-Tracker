@@ -1,6 +1,7 @@
 package com.example.apextracker
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.time.LocalDate
 
@@ -35,7 +36,11 @@ object PaperSource {
  * scoring engagement (PapersDiscoveryScoring.kt); an unresolved id just falls back to neutral
  * weight, no cleanup required.
  */
-@Entity(tableName = "papers")
+// Sync join keys — see the MIGRATION_22_23 note in AppDatabase.kt (Issue #197).
+@Entity(
+    tableName = "papers",
+    indices = [Index(value = ["cloudId"]), Index(value = ["s2Id"]), Index(value = ["url"])]
+)
 data class Paper(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
