@@ -153,7 +153,34 @@ class MainActivity : FragmentActivity() {
             // signed-in session was restored on cold start (Issue #17 — the transition
             // check alone never fires for returning users, so cross-device changes and
             // post-destructive-migration restores never arrived).
+            val accountIdentity = remember { AccountIdentity(applicationContext) }
+
             LaunchedEffect(user) {
+                // Account-switch guard (Issue #186). This MUST run before performInitialSync,
+                // which pushes every local row to whatever uid is signed in — so anything left
+                // in Room here would be uploaded into the new user's Firestore.
+                val uid = user?.uid
+                if (uid != null) {
+                    val previousUid = accountIdentity.lastSignedInUid()
+                    if (shouldResetLocalDataForUid(previousUid, uid)) {
+                        authViewModel.setSyncing(true)
+                        try {
+                            // Listeners would race the wipe and re-insert what it clears.
+                            SyncCoordinator.stop()
+                            clearLocalUserData(applicationContext, AppDatabase.getDatabase(applicationContext))
+                            // Room is now empty, so the new account MUST get a full pull. Normally
+                            // the sign-out/sign-in transition guarantees that, but if Firebase ever
+                            // reports a direct A->B switch with no null in between, wasSignedOut is
+                            // false and the process-scoped flag would suppress the sync, leaving
+                            // the user staring at an empty app.
+                            initialSyncRanThisProcess = false
+                        } finally {
+                            authViewModel.setSyncing(false)
+                        }
+                    }
+                    accountIdentity.setLastSignedInUid(uid)
+                }
+
                 if (shouldRunInitialSync(
                         signedIn = user != null,
                         wasSignedOut = previousUser == null,

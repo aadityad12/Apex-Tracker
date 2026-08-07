@@ -309,7 +309,13 @@ class FirebaseManager(private val context: Context) {
     }
 
     private val auth = FirebaseAuth.getInstance()
-    private val firestore = FirebaseFirestore.getInstance()
+
+    // Resolved per access, not cached at construction: the account-switch wipe (Issue #186)
+    // terminates the Firestore client to clear its on-disk cache, and a field captured here
+    // would leave every existing FirebaseManager holding a dead instance afterwards.
+    // getInstance() is itself cached by the SDK, so this is not a per-call allocation.
+    private val firestore: FirebaseFirestore get() = FirebaseFirestore.getInstance()
+
     private val gson = Gson()
 
     val currentUser: FirebaseUser? get() = auth.currentUser
