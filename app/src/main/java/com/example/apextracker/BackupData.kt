@@ -21,7 +21,11 @@ import java.time.LocalTime
  */
 data class BackupData(
     val formatVersion: Int = 2,
-    val appDbVersion: Int = 22,
+    // Diagnostic only — records which Room version the data came from. Must be bumped alongside
+    // the @Database version in AppDatabase.kt; an on-device export caught it still reading 22
+    // after the v23 index migration (Issue #197). Not load-bearing, which is exactly why it
+    // rots quietly.
+    val appDbVersion: Int = 23,
     val exportedAt: String = "",
     val budgetItems: List<BudgetItem> = emptyList(),
     val categories: List<Category> = emptyList(),
