@@ -26,6 +26,7 @@ glance = "1.1.1"
 coreSplashscreen = "1.0.1"
 composeScreenshot = "0.0.1-alpha16"
 mlkitTextRecognition = "19.0.1"
+sqlcipher = "4.6.1"
 
 [libraries]
 androidx-glance-appwidget = { group = "androidx.glance", name = "glance-appwidget", version.ref = "glance" }
@@ -72,6 +73,8 @@ coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coi
 # libraries, one copy per ABI); this thin wrapper adds 0.35MB, and the app already requires Play
 # Services for Firebase Auth and Credential Manager. Measured, not estimated.
 mlkit-text-recognition = { group = "com.google.android.gms", name = "play-services-mlkit-text-recognition", version.ref = "mlkitTextRecognition" }
+# At-rest encryption for the Room database (Issue #117).
+sqlcipher-android = { group = "net.zetetic", name = "sqlcipher-android", version.ref = "sqlcipher" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

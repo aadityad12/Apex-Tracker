@@ -107,6 +107,39 @@ Screen Time supports per-app daily limits (Issue #124): `AppUsageLimit` stores e
 - **When an alarm fires (`ReminderScheduler.resolveTriggerTime`, Issue #80, 2026-07-17)** — the single "when, if ever" decision, pure and unit-tested in `ReminderSchedulerTest`. The offset setting means "notify N minutes *before* the task", so for a task nearer than N minutes the raw `computeTriggerTime()` lands in the past. It used to be dropped silently (alarm cancelled, reminder still looking active, no feedback) — with the 30-minute default that meant **any reminder set less than 30 minutes out never notified**, which is exactly how the feature gets first tested. It now clamps to `now` and only gives up once the task's own due time has passed. All-day reminders take no offset, so their past trigger is the real notification time having gone by and is deliberately **not** clamped. `scheduleReminderIfNeeded` logs the give-up case — without it, "notifications are broken" is only diagnosable via `adb shell dumpsys alarm`.
 - `ReminderCompletion.kt` — **the shared completion path**: `completeReminder()` and `scheduleReminderIfNeeded()` are top-level functions used by *both* the in-app checkbox (`ReminderViewModel.toggleCompletion`) and the notification's Done action, so recurrence advancement / alarm cancel / cloud push can't drift apart. They're top-level precisely because a `BroadcastReceiver` has no `AndroidViewModel` to hang off. `completeReminder()` claims the completion with an atomic compare-and-set (`ReminderDao.markCompletedIfActive`, `WHERE id = :id AND isCompleted = 0`) and bails if it loses — the two call paths can race across *processes*, so `ReminderViewModel`'s in-memory `togglesInFlight` set can't cover it, and a lost race would insert a duplicate next occurrence for a recurring reminder (Issue #63). **Any new completion path must go through `completeReminder()`.**
 
+### Database encryption (Issue #117)
+`budget_database` is SQLCipher-encrypted under a 32-byte key wrapped by an Android Keystore
+AES-GCM key. `DatabaseEncryption.kt` owns all of it; `AppDatabase` just asks it for an
+`openHelperFactory`.
+
+- **What it protects**: the file once it leaves the device (a rooted pull, an offline image, a
+  file-access exploit). The Keystore key is deliberately **not** user-authentication-bound —
+  reminders, widgets and WorkManager all open the database while the screen is locked, and
+  requiring an unlock would break every one of them. Against someone holding the unlocked phone,
+  the biometric lock is the control, not this.
+- **Never destroys readable data.** Every failure path degrades instead: no Keystore key on a new
+  install → run unencrypted; conversion fails → the untouched plaintext file is opened as before;
+  an encrypted file with no key → renamed `.unreadable` and kept, never deleted, and the app
+  starts fresh (signed-in users re-pull, same guarantee `fallbackToDestructiveMigration` relies on).
+- **Existing installs convert once, in place**, before Room opens the file — that is the only
+  moment it can happen. `user_version` has to survive the copy or Room sees version 0 and runs the
+  destructive fallback.
+
+Four things about `net.zetetic:sqlcipher-android` that are not in the obvious docs, each of which
+cost a debug cycle here:
+1. **It does not load its own native library** and has no `loadLibs` helper (the old artifact did).
+   Without an explicit `System.loadLibrary("sqlcipher")` everything fails with `UnsatisfiedLinkError`.
+2. **Open flags propagate to `ATTACH`.** Opening the source without `CREATE_IF_NECESSARY` means the
+   attach cannot create the destination — `SQLITE_CANTOPEN`, or silently no file and no error.
+3. **A text key literal and the same bytes as a blob derive different keys.** `KEY 'text'` produces
+   a file that `SupportOpenHelperFactory(byte[])` then rejects as "file is not a database". Use the
+   `x'<hex>'` blob form everywhere, and verify by reopening through the byte[] overload.
+4. **`PRAGMA cipher_memory_security = OFF` is required in practice.** Its `mlock` of key pages fails
+   continuously against Android's small `RLIMIT_MEMLOCK` (`errno=12`), which ANR'd the app on first
+   load. Applied via an `SQLiteDatabaseHook` on every connection.
+
+Cost: **+0.35MB** of APK for the classes, plus ~4–6MB of `libsqlcipher.so` per ABI.
+
 ### Home-screen widgets (Glance)
 Everything lives in `widget/`; each provider is a `GlanceAppWidget` + a `GlanceAppWidgetReceiver`
 registered in the manifest against an `res/xml/*_widget_info.xml`. **Don't restate the roster here**
@@ -268,7 +301,7 @@ The UI-polish issues (#32–#36) are documented inline in the sections above (Na
 
 ## 2026-07-20 Biometric lock (Issue #45)
 
-- **Opt-in convenience lock for Budget and Notes** — gates the module UI behind a fresh device unlock. **NOT encryption**: Room stays plaintext; this only shields the in-app screens. `SecuritySettings.kt` holds everything: DataStore flags (`budget_lock_enabled`/`notes_lock_enabled`), the pure `biometricAvailabilityFrom()` mapper (unit-tested in `SecuritySettingsTest`), the process-scoped `UnlockSession` holder, `promptUnlock()` (the `BiometricPrompt` glue, authenticators = `BIOMETRIC_WEAK or DEVICE_CREDENTIAL` so PIN/pattern is the fallback and no-biometric devices still work), and the `LockGate`/`LockOverlay`/`ModuleLockSetting` composables.
+- **Opt-in convenience lock for Budget and Notes** — gates the module UI behind a fresh device unlock. **Not the encryption**: this shields the in-app screens; the database file itself is encrypted separately (Issue #117, see "Database encryption" above). `SecuritySettings.kt` holds everything: DataStore flags (`budget_lock_enabled`/`notes_lock_enabled`), the pure `biometricAvailabilityFrom()` mapper (unit-tested in `SecuritySettingsTest`), the process-scoped `UnlockSession` holder, `promptUnlock()` (the `BiometricPrompt` glue, authenticators = `BIOMETRIC_WEAK or DEVICE_CREDENTIAL` so PIN/pattern is the fallback and no-biometric devices still work), and the `LockGate`/`LockOverlay`/`ModuleLockSetting` composables.
 - **`MainActivity` is now a `FragmentActivity`, not `ComponentActivity`** — `androidx.biometric`'s `BiometricPrompt` requires one. `FragmentActivity` *is* a `ComponentActivity`, so `setContent`/`viewModel()`/`registerForActivityResult` are unaffected. If you add another Activity that shows a biometric prompt, it must also be a `FragmentActivity`.
 - **Session policy**: `MainActivity.onStop()` calls `UnlockSession.lockAll()`, so backgrounding re-locks; within one foreground session an unlocked module isn't re-prompted. The gate lives in `AppNavigation` (wraps the `budget_tracker` and `notes` composables); cancel/error pops back to the menu, and it **fails closed** while the DataStore flag is still `null` (loading) so a locked module can't flash its data.
 - Toggles live in the Budget and Notes settings sheets; greyed out (with an explanation) when the device has no screen lock, and enabling requires one successful auth first. **Verified on-device (2026-07-20)**: the toggle renders, availability detection is correct, and tapping it fires the real system prompt hosted by the FragmentActivity (no crash). Completing an auth needs real biometric/PIN input (not adb-automatable), so the enable→gate→re-lock cycle end-to-end is the one path checked by wiring/inference rather than a full automated tap-through.

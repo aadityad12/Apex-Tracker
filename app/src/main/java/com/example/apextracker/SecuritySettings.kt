@@ -47,10 +47,13 @@ import kotlinx.coroutines.flow.map
 /**
  * Opt-in biometric/device-credential lock for the Budget and Notes modules (Issue #45).
  *
- * **This is a convenience shield, not encryption.** Room stays plaintext; nothing here protects
- * data at rest. It only gates the in-app UI behind a fresh device unlock, so a shoulder-surfer
- * with the phone already in hand can't open Budget/Notes without re-authenticating. Anyone who can
- * unlock the device can also flip these toggles — that's inherent and acceptable for the goal.
+ * **This is a convenience shield, not the encryption.** It gates the in-app UI behind a fresh
+ * device unlock, so a shoulder-surfer with the phone already in hand can't open Budget/Notes
+ * without re-authenticating. Anyone who can unlock the device can also flip these toggles —
+ * that's inherent and acceptable for the goal. At-rest protection is a separate thing and lives
+ * in `DatabaseEncryption.kt` (Issue #117): the database file itself is SQLCipher-encrypted under
+ * a Keystore-wrapped key, which is what protects the bytes once they leave the device. The two
+ * cover different attackers and neither replaces the other.
  */
 
 /** The authenticators we prompt with: any enrolled biometric, falling back to the device PIN/

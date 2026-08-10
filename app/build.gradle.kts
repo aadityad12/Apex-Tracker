@@ -111,6 +111,7 @@ dependencies {
     // Image loading
     implementation(libs.coil.compose)
     implementation(libs.mlkit.text.recognition)
+    implementation(libs.sqlcipher.android)
 
     testImplementation(libs.junit)
     // android.jar's org.json is a stub in JVM unit tests; the real artifact lets the pure
