@@ -1,5 +1,8 @@
 package com.example.apextracker
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
@@ -11,11 +14,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -27,6 +32,7 @@ import com.example.apextracker.ui.design.ApexMotion
 import com.example.apextracker.ui.design.ApexNumerals
 import com.example.apextracker.ui.design.ApexSpacing
 import com.example.apextracker.ui.design.apexMenuBorder
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -180,6 +186,37 @@ fun BudgetItemDialog(
     var expanded by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
 
+    // Receipt scanning (Issue #46). Nothing here saves on its own — a scan only fills the fields
+    // in front of the user, who still has to press Save.
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var scanning by remember { mutableStateOf(false) }
+    var scanFailed by remember { mutableStateOf(false) }
+    var amountCandidates by remember { mutableStateOf(emptyList<Double>()) }
+    val pickReceipt = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scanning = true
+        scanFailed = false
+        scope.launch {
+            val guess = recognizeReceipt(context, uri)
+            scanning = false
+            // "Read nothing usable" is a blurry photo, not an error state — say so and leave every
+            // field exactly as the user had it.
+            if (guess == null || (guess.amountCandidates.isEmpty() && guess.merchantGuess == null)) {
+                scanFailed = true
+                return@launch
+            }
+            amountCandidates = guess.amountCandidates
+            guess.amountCandidates.firstOrNull()?.let { amount = formatAmountInput(it) }
+            // Only fill what's still empty: a scan run to correct one field must not wipe what the
+            // user already typed into the others.
+            guess.merchantGuess?.takeIf { itemTitle.isBlank() }?.let { itemTitle = it }
+            guess.dateGuess?.let { date = it }
+        }
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -195,7 +232,53 @@ fun BudgetItemDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(value = itemTitle, onValueChange = { itemTitle = it }, label = { Text(stringResource(R.string.label_title)) }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium)
-                OutlinedTextField(value = amount, onValueChange = { if (it.isEmpty() || it.matches(Regex("^\\d*\\.?\\d{0,2}$"))) amount = it }, label = { Text(stringResource(R.string.label_amount)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium)
+                OutlinedTextField(
+                    value = amount,
+                    onValueChange = { if (it.isEmpty() || it.matches(Regex("^\\d*\\.?\\d{0,2}$"))) amount = it },
+                    label = { Text(stringResource(R.string.label_amount)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    trailingIcon = {
+                        IconButton(
+                            enabled = !scanning,
+                            onClick = {
+                                pickReceipt.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            }
+                        ) {
+                            if (scanning) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            } else {
+                                Icon(
+                                    Icons.Default.PhotoCamera,
+                                    contentDescription = stringResource(R.string.cd_scan_receipt)
+                                )
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.medium
+                )
+                if (scanFailed) {
+                    Text(
+                        text = stringResource(R.string.budget_receipt_unreadable),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                // Several plausible totals — offer them rather than silently committing to one.
+                if (amountCandidates.size > 1) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(ApexSpacing.s)) {
+                        amountCandidates.forEach { candidate ->
+                            val label = formatAmountInput(candidate)
+                            FilterChip(
+                                selected = amount == label,
+                                onClick = { amount = label },
+                                label = { Text(label, style = ApexNumerals.small) }
+                            )
+                        }
+                    }
+                }
                 CategoryDropdown(categories, selectedCategory, expanded, onExpandedChange = { expanded = it }, onCategorySelected = { selectedCategory = it; expanded = false })
                 OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text(stringResource(R.string.label_description_optional)) }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium)
                 Button(

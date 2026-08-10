@@ -38,6 +38,12 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.ApexTracker">
+        <!-- Asks Play Services to fetch the OCR model at install time rather than on the first
+             receipt scan (Issue #46). recognizeReceipt() still treats a missing model as an
+             ordinary "couldn't read that" — this only makes that case rare. -->
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="ocr" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
