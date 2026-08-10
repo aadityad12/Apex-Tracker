@@ -107,6 +107,31 @@ Screen Time supports per-app daily limits (Issue #124): `AppUsageLimit` stores e
 - **When an alarm fires (`ReminderScheduler.resolveTriggerTime`, Issue #80, 2026-07-17)** — the single "when, if ever" decision, pure and unit-tested in `ReminderSchedulerTest`. The offset setting means "notify N minutes *before* the task", so for a task nearer than N minutes the raw `computeTriggerTime()` lands in the past. It used to be dropped silently (alarm cancelled, reminder still looking active, no feedback) — with the 30-minute default that meant **any reminder set less than 30 minutes out never notified**, which is exactly how the feature gets first tested. It now clamps to `now` and only gives up once the task's own due time has passed. All-day reminders take no offset, so their past trigger is the real notification time having gone by and is deliberately **not** clamped. `scheduleReminderIfNeeded` logs the give-up case — without it, "notifications are broken" is only diagnosable via `adb shell dumpsys alarm`.
 - `ReminderCompletion.kt` — **the shared completion path**: `completeReminder()` and `scheduleReminderIfNeeded()` are top-level functions used by *both* the in-app checkbox (`ReminderViewModel.toggleCompletion`) and the notification's Done action, so recurrence advancement / alarm cancel / cloud push can't drift apart. They're top-level precisely because a `BroadcastReceiver` has no `AndroidViewModel` to hang off. `completeReminder()` claims the completion with an atomic compare-and-set (`ReminderDao.markCompletedIfActive`, `WHERE id = :id AND isCompleted = 0`) and bails if it loses — the two call paths can race across *processes*, so `ReminderViewModel`'s in-memory `togglesInFlight` set can't cover it, and a lost race would insert a duplicate next occurrence for a recurring reminder (Issue #63). **Any new completion path must go through `completeReminder()`.**
 
+### Home-screen widgets (Glance)
+Everything lives in `widget/`; each provider is a `GlanceAppWidget` + a `GlanceAppWidgetReceiver`
+registered in the manifest against an `res/xml/*_widget_info.xml`. **Don't restate the roster here**
+— read the `<receiver>` entries in `AndroidManifest.xml`.
+
+- **Glance runs in the launcher's process and cannot read the app's Compose `ColorScheme`.**
+  `WidgetPalette.kt` is the single hand-kept mirror of `ApexPalette`'s GRAPHITE dark values; nothing
+  enforces the correspondence, so changing `ApexPalette` means changing it too. Widgets are always
+  dark, in both launcher themes.
+- **A widget reads a snapshot, never a flow** — `loadDashboardSnapshot` (#130/#131),
+  `loadBudgetWidgetSnapshot` (#167), `loadTodaySnapshot` (#44). The snapshot function is where the
+  DAO calls and the pure logic meet, and it is shared with the app so the two can't disagree.
+- **Refresh is explicit.** `updatePeriodMillis` bottoms out at 30 minutes, so the `refresh*Widget`
+  helpers in `ApexWidgets.kt` are called from the app's own write points. Pick the hook by how
+  often the source changes: `ReminderViewModel` collects its table (six mutation methods, plus sync
+  and restore, for free), `StudyViewModel` fires only on start and the `forcePush` saves (**never
+  the per-second tick**), and `ScreenTimeViewModel` fires only when the *displayed minute* moves.
+  Updates land through a WorkManager `SessionWorker`, so a refresh issued as the app backgrounds
+  arrives a few seconds later — that lag is Glance, not a missed hook.
+- **Widgets are outside the biometric lock's reach** (Issue #187): a gated module withholds its
+  figures in the *snapshot*, not the layout, because the snapshot is what crosses into the
+  launcher's process. See `budgetWidgetSnapshot`.
+- Deep links go through `MainActivity.EXTRA_NAVIGATE_TO`, which `sanitizeRequestedRoute` filters
+  against `APP_ROUTES` (Issue #105).
+
 ### Permissions
 - `PACKAGE_USAGE_STATS` + `QUERY_ALL_PACKAGES` — Required for screen time tracking.
 - `POST_NOTIFICATIONS` — Requested at runtime (API 33+) in `MainActivity.onCreate` via `registerForActivityResult` (added 2026-07-09).
@@ -431,7 +456,7 @@ recommender. Scoped via a 14-question `/grill-me` interview before implementatio
 ## Developer's own TODO list (from notes.txt, still current)
 - Budget: "Extract from receipt" (OCR/receipt-parsing) — not started.
 - Study Timer: "Always on display" support — shipped as the dimmed in-app ambient display (#171).
-- Ideas floated for later: home screen widgets (Glance — issue #44; the focused widgets in #130/#131/#167 have shipped) and animated ring-chart visualizations (Canvas-based, like `ApexLogo`). (Biometric lock and Daily Apex Tip have shipped.)
+- Ideas floated for later: animated ring-chart visualizations (Canvas-based, like `ApexLogo`). (Home-screen widgets, biometric lock and Daily Apex Tip have all shipped — see "Home-screen widgets" below.)
 
 ## 2026-07-29 Redesign foundation (branch `redesign/foundation`, not yet merged)
 

@@ -3,7 +3,6 @@ package com.example.apextracker.widget
 import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
@@ -25,7 +24,6 @@ import androidx.glance.layout.padding
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
-import androidx.glance.unit.ColorProvider
 import com.example.apextracker.AppDatabase
 import com.example.apextracker.BudgetPrefs
 import com.example.apextracker.BudgetWidgetSnapshot
@@ -50,13 +48,12 @@ class BudgetWidget : GlanceAppWidget() {
     }
 }
 
-// Glance cannot consume ApexTracker's Compose ColorScheme. These mirror GRAPHITE dark: Frost,
-// muted graphite, Crimson, and the app background respectively.
-private val ink = ColorProvider(Color(0xFFE9EBEE))
-private val muted = ColorProvider(Color(0xFF9AA1A9))
-private val track = ColorProvider(Color(0xFF292D33))
-private val error = ColorProvider(Color(0xFFFFB4AB))
-private val background = ColorProvider(Color(0xFF0E0F11))
+// See WidgetPalette — Glance cannot consume ApexTracker's Compose ColorScheme.
+private val ink = WidgetPalette.ink
+private val muted = WidgetPalette.muted
+private val track = WidgetPalette.track
+private val error = WidgetPalette.negative
+private val background = WidgetPalette.background
 
 @Composable
 private fun BudgetWidgetContent(snapshot: BudgetWidgetSnapshot, context: Context) {

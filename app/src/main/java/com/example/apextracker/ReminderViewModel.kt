@@ -3,6 +3,7 @@ package com.example.apextracker
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.apextracker.widget.refreshTodayWidget
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,6 +37,16 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
         combine(allActiveReminders, _searchQuery) { list, query -> filterReminders(list, query) }
     val completedReminders: Flow<List<Reminder>> =
         combine(allCompletedReminders, _searchQuery) { list, query -> filterReminders(list, query) }
+
+    init {
+        // Keeps the "next up" line on the at-a-glance widget honest (Issue #44). Collecting the
+        // table rather than calling refresh from each of the six mutation methods means a reminder
+        // arriving from a cloud listener or a backup restore updates the widget too, and Room only
+        // re-emits when the rows actually change.
+        viewModelScope.launch {
+            allActiveReminders.collect { refreshTodayWidget(getApplication()) }
+        }
+    }
 
     fun setSearchQuery(query: String) {
         _searchQuery.value = query

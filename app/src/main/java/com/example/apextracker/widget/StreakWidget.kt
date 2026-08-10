@@ -17,9 +17,7 @@ import androidx.glance.layout.padding
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
-import androidx.glance.unit.ColorProvider
 import androidx.glance.action.actionStartActivity
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.apextracker.AppDatabase
@@ -45,12 +43,11 @@ class StreakWidget : GlanceAppWidget() {
 
 @Composable
 private fun StreakWidgetContent(streak: Int, context: Context) {
-    // Colours are baked (widgets can't read MaterialTheme). Hand-kept mirror of ApexPalette's
-    // GRAPHITE dark scheme — Glance has no access to the ColorScheme. In monochrome the "accent"
-    // is ink (Frost), same as the app's primary. See the note in GoalsWidget.kt.
-    val accent = ColorProvider(Color(0xFFE9EBEE))
-    val onBg = ColorProvider(Color(0xFFE9EBEE))
-    val bg = ColorProvider(Color(0xFF0E0F11))
+    // Colours are baked (widgets can't read MaterialTheme) — see WidgetPalette. In monochrome the
+    // "accent" is ink (Frost), same as the app's primary, so the figure and its label share it.
+    val accent = WidgetPalette.ink
+    val onBg = WidgetPalette.ink
+    val bg = WidgetPalette.background
 
     Column(
         modifier = GlanceModifier
