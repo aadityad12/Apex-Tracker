@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.PowerManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.apextracker.widget.refreshTodayWidget
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -169,6 +170,9 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
         baseSeconds = _timeSeconds.value
         _isRunning.value = true
         timerStateStore.saveRunning(lastStartTimeMillis, baseSeconds, lastResetDate, _currentSubject.value)
+        // Flips the at-a-glance widget to its live/running state (Issue #44); the stopped
+        // transitions ride the forcePush saves below.
+        viewModelScope.launch { refreshTodayWidget(getApplication()) }
         launchTicker()
     }
 
@@ -238,6 +242,10 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val session = StudySession(date = date, subject = subject, durationSeconds = duration)
             studySessionDao.insertSession(session)
+            // The at-a-glance widget (Issue #44) rides the same significant-events signal as the
+            // cloud push — never the per-second tick, which would rebuild the widget 60x a minute
+            // for a figure that only renders whole minutes.
+            if (forcePush) refreshTodayWidget(getApplication())
             // Room saves every second while running; the cloud push is throttled to a
             // 60s heartbeat, with significant events (pause/reset/rollover) forced.
             val now = System.currentTimeMillis()

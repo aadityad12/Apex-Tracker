@@ -420,6 +420,16 @@
     <!-- Shown instead of any figure while the Budget module lock is on (Issue #187). -->
     <string name="widget_budget_locked">Locked</string>
     <string name="widget_budget_locked_hint">Tap to unlock in the app</string>
+    <string name="widget_today_title">TODAY</string>
+    <string name="widget_today_study">Study</string>
+    <string name="widget_today_study_running">Study · running</string>
+    <string name="widget_today_screen">Screen</string>
+    <string name="widget_today_next">NEXT UP</string>
+    <string name="widget_today_overdue">OVERDUE</string>
+    <string name="widget_today_no_reminders">Nothing scheduled</string>
+    <string name="widget_today_all_day">All day</string>
+    <string name="widget_today_date_at_time">%1$s at %2$s</string>
+    <string name="widget_today_desc">Today\'s study time, screen time and next reminder</string>
     <string name="cd_dashboard_day">%1$s: %2$s</string>
     <string name="cd_dashboard_day_today">Today, %1$s</string>
     <string name="cd_dashboard_day_untracked">no goals tracked</string>

@@ -29,3 +29,17 @@ suspend fun refreshBudgetWidget(context: Context) {
         Log.w("ApexWidgets", "budget widget refresh failed", e)
     }
 }
+
+/**
+ * Immediately refreshes the "today at a glance" provider (#44) after any of its three sources
+ * changes. Called from the study timer, the screen-time poll and reminder mutations rather than
+ * left to the 30-minute `updatePeriodMillis`, which is far too coarse for a tile whose whole point
+ * is the current state of the day.
+ */
+suspend fun refreshTodayWidget(context: Context) {
+    try {
+        TodayWidget().updateAll(context)
+    } catch (e: Exception) {
+        Log.w("ApexWidgets", "today widget refresh failed", e)
+    }
+}

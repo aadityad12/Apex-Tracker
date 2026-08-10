@@ -15,6 +15,7 @@ import android.provider.Settings
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.apextracker.widget.refreshTodayWidget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -308,7 +309,20 @@ class ScreenTimeViewModel(application: Application) : AndroidViewModel(applicati
     private suspend fun saveTodayScreenTime(millis: Long) {
         val today = LocalDate.now()
         screenTimeDao.insertSession(ScreenTimeSession(date = today, durationMillis = millis))
+        // The at-a-glance widget (Issue #44) reads this row, so it has to follow the 30s poll —
+        // but only when the figure it renders has actually moved. Usage is measured in
+        // milliseconds and displayed in whole minutes, so most polls change nothing worth
+        // rebuilding a launcher view for.
+        val minutes = millis / 60_000
+        if (minutes != lastWidgetMinutes || today != lastWidgetDate) {
+            lastWidgetMinutes = minutes
+            lastWidgetDate = today
+            refreshTodayWidget(getApplication())
+        }
     }
+
+    private var lastWidgetMinutes: Long = -1L
+    private var lastWidgetDate: LocalDate? = null
 
     fun getAllSessions() = screenTimeDao.getAllSessions()
 }

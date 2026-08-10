@@ -3,7 +3,6 @@ package com.example.apextracker.widget
 import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
@@ -25,7 +24,6 @@ import androidx.glance.layout.padding
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
-import androidx.glance.unit.ColorProvider
 import com.example.apextracker.AppDatabase
 import com.example.apextracker.GoalStatus
 import com.example.apextracker.MainActivity
@@ -48,14 +46,12 @@ class GoalsWidget : GlanceAppWidget() {
     }
 }
 
-// Glance cannot read the Compose ColorScheme, so the widget palette is a hand-kept mirror of
-// ApexPalette's GRAPHITE dark scheme. If ApexPalette changes, change these too — nothing enforces
-// it. A met goal takes Sage (the positive semantic), matching the app's "Met" — the one place a
-// hue is allowed; everything else is ink on graphite.
-private val met = ColorProvider(Color(0xFF6FA88C))
-private val onBg = ColorProvider(Color(0xFFE9EBEE))
-private val muted = ColorProvider(Color(0xFF9AA1A9))
-private val bg = ColorProvider(Color(0xFF0E0F11))
+// A met goal takes Sage (the positive semantic), matching the app's "Met" — the one place a hue
+// is allowed here; everything else is ink on graphite. See WidgetPalette.
+private val met = WidgetPalette.positive
+private val onBg = WidgetPalette.ink
+private val muted = WidgetPalette.muted
+private val bg = WidgetPalette.background
 
 @Composable
 private fun GoalsWidgetContent(goals: List<GoalStatus>, context: Context) {
