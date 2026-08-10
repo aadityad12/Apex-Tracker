@@ -340,7 +340,15 @@ snapshot listeners, and every Papers mutation mirrors to the cloud while Room re
 of truth. **Daily discovery shipped in Issue #149**: `PapersDiscoverySettings.kt` stores selected
 Semantic Scholar fields, the last attempt date, and shared 429 backoff in DataStore. Opening
 Reading rotates through one field per day, makes at most one `/paper/search` request, deduplicates
-by `s2Id`, and inserts at most three `PaperSource.DAILY` rows. Recommendations remain #150.
+by `s2Id`, and inserts at most three `PaperSource.DAILY` rows. **Recommendations shipped in Issue
+#150**: `PapersRecommendations.kt` turns the reading log into positive (READ, signal 4–5) and
+negative (signal 1–2, or ABANDONED) examples for S2's batch `/recommendations/v1/papers` endpoint,
+and the results land as `PaperSource.RECOMMENDED` WANT rows — ordinary queue rows, so `paperQueue`
+/`dailyPick` are untouched; the "Because you read …" shelf is a *view* over them, which is why the
+queue section renders `queueRest`. Papers with no `s2Id` (every bundled seed) can't be examples and
+are skipped rather than resolved, to spare the rate-limited unauthenticated pool. Its day gate is
+`lastRecommendationDate` — separate from topic search — but the **429 backoff window is shared**,
+because both draw on that same pool.
 
 ## 2026-07-30 Graphite identity (Plan.md Phase 2, branch `redesign/graphite`)
 

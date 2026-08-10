@@ -45,13 +45,17 @@ val PAPER_DISCOVERY_FIELD_LABELS = mapOf(
 data class PapersDiscoveryPreferences(
     val lastFetchDate: LocalDate? = null,
     val blockedUntilMillis: Long = 0L,
-    val onboardingDismissed: Boolean = false
+    val onboardingDismissed: Boolean = false,
+    /** Last day the recommendations request ran (#150) — tracked apart from topic search so one
+     *  source going quiet doesn't stop the other from trying. */
+    val lastRecommendationDate: LocalDate? = null
 )
 
 class PapersDiscoveryPrefs(private val context: Context) {
     private val lastFetchDateKey = stringPreferencesKey("last_fetch_date")
     private val blockedUntilKey = longPreferencesKey("blocked_until_millis")
     private val onboardingDismissedKey = booleanPreferencesKey("onboarding_dismissed")
+    private val lastRecommendationDateKey = stringPreferencesKey("last_recommendation_date")
 
     val preferences: Flow<PapersDiscoveryPreferences> = context.papersDiscoveryDataStore.data.map { prefs ->
         PapersDiscoveryPreferences(
@@ -59,7 +63,10 @@ class PapersDiscoveryPrefs(private val context: Context) {
                 runCatching { LocalDate.parse(value) }.getOrNull()
             },
             blockedUntilMillis = prefs[blockedUntilKey] ?: 0L,
-            onboardingDismissed = prefs[onboardingDismissedKey] ?: false
+            onboardingDismissed = prefs[onboardingDismissedKey] ?: false,
+            lastRecommendationDate = prefs[lastRecommendationDateKey]?.let { value ->
+                runCatching { LocalDate.parse(value) }.getOrNull()
+            }
         )
     }
 
@@ -68,6 +75,15 @@ class PapersDiscoveryPrefs(private val context: Context) {
             prefs[lastFetchDateKey] = date.toString()
             if (blockedUntilMillis > 0L) prefs[blockedUntilKey] = blockedUntilMillis
             else prefs.remove(blockedUntilKey)
+        }
+    }
+
+    suspend fun recordRecommendationAttempt(date: LocalDate, blockedUntilMillis: Long = 0L) {
+        context.papersDiscoveryDataStore.edit { prefs ->
+            prefs[lastRecommendationDateKey] = date.toString()
+            // The 429 window is deliberately shared with topic search: both draw on the same
+            // unauthenticated pool, so a backoff earned by one has to apply to the other.
+            if (blockedUntilMillis > 0L) prefs[blockedUntilKey] = blockedUntilMillis
         }
     }
 
@@ -86,3 +102,14 @@ fun shouldFetchDailyPapers(
     today: LocalDate,
     nowMillis: Long
 ): Boolean = preferences.lastFetchDate != today && nowMillis >= preferences.blockedUntilMillis
+
+/**
+ * The same gate for recommendations (#150), on its own day marker but the shared backoff window.
+ * Whether there is enough rated history to ask at all is [canRecommend]'s decision, not this one.
+ */
+fun shouldFetchRecommendations(
+    preferences: PapersDiscoveryPreferences,
+    today: LocalDate,
+    nowMillis: Long
+): Boolean =
+    preferences.lastRecommendationDate != today && nowMillis >= preferences.blockedUntilMillis

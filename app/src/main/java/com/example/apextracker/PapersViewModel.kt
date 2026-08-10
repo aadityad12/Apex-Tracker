@@ -17,12 +17,16 @@ import java.util.UUID
 
 data class PapersUiState(
     val todayPick: Paper?,
+    /** Everything queued, recommendations included — what [dailyPick] weighs. */
     val queue: List<Paper>,
+    /** The queue minus the recommendation shelf, so no paper renders twice on the screen. */
+    val queueRest: List<Paper>,
+    val recommendations: RecommendationShelf?,
     val history: List<Paper>,
     val loaded: Boolean
 ) {
     companion object {
-        val EMPTY = PapersUiState(null, emptyList(), emptyList(), loaded = false)
+        val EMPTY = PapersUiState(null, emptyList(), emptyList(), null, emptyList(), loaded = false)
     }
 }
 
@@ -48,6 +52,24 @@ sealed interface DailyPaperFeedState {
 }
 
 /**
+ * What the "Because you read …" shelf shows (#150). [basis] names the liked papers the request
+ * was built from, so a recommendation is always attributable; [papers] are the resulting
+ * RECOMMENDED queue rows.
+ */
+data class RecommendationShelf(
+    val basis: List<Paper>,
+    val papers: List<Paper>
+)
+
+/** Status of the recommendations request; only the non-Idle values are surfaced to the user. */
+sealed interface RecommendationState {
+    data object Idle : RecommendationState
+    data object Loading : RecommendationState
+    data object Unavailable : RecommendationState
+    data object RateLimited : RecommendationState
+}
+
+/**
  * Papers reading log. Room is the source of truth, same as every other module; mutations are
  * mirrored to Firestore when signed in and safely remain local when offline or signed out.
  */
@@ -65,9 +87,14 @@ class PapersViewModel(application: Application) : AndroidViewModel(application) 
 
     val uiState: StateFlow<PapersUiState> = combine(paperDao.getAllPapers(), discoveryTopics) { papers, topics ->
         val queue = paperQueue(papers)
+        val recommended = recommendedFromQueue(queue)
         PapersUiState(
             todayPick = dailyPick(queue, topics),
             queue = queue,
+            queueRest = queueExcludingRecommendations(queue),
+            recommendations = if (recommended.isEmpty()) null else {
+                RecommendationShelf(basis = recommendationBasis(papers), papers = recommended)
+            },
             history = paperHistory(papers),
             loaded = true
         )
@@ -86,6 +113,11 @@ class PapersViewModel(application: Application) : AndroidViewModel(application) 
     private val _muteSuggestion = MutableStateFlow<PaperTopic?>(null)
     val muteSuggestion: StateFlow<PaperTopic?> = _muteSuggestion
 
+    private val _recommendationState = MutableStateFlow<RecommendationState>(RecommendationState.Idle)
+    val recommendationState: StateFlow<RecommendationState> = _recommendationState
+
+    private val recommendationMutex = Mutex()
+
     init {
         viewModelScope.launch {
             // Also keyed on discoveryTopics: adding/resuming a topic must retrigger the check
@@ -99,6 +131,93 @@ class PapersViewModel(application: Application) : AndroidViewModel(application) 
                 .collect { preferences ->
                     fetchDailyPapersIfNeeded(preferences)
                 }
+        }
+        viewModelScope.launch {
+            // Keyed on the papers table because that is what makes recommendations possible:
+            // rating the second paper 4+ should fill the shelf that visit, not tomorrow's. Same
+            // plain-collect + mutex + day-gate discipline as the topic fetch above, and for the
+            // same reason — inserting the recommended rows feeds straight back into this flow.
+            combine(discoveryPrefs.preferences, paperDao.getAllPapers()) { preferences, papers ->
+                preferences to papers
+            }.collect { (preferences, papers) ->
+                fetchRecommendationsIfNeeded(preferences, papers)
+            }
+        }
+    }
+
+    /**
+     * Asks Semantic Scholar for papers like the ones the reader finished and rated highly
+     * (Issue #150), inserting them as RECOMMENDED WANT rows.
+     *
+     * Deliberately capped at [RECOMMENDATION_LIMIT] a day and gated on its own date marker: the
+     * shelf is a suggestion, and a queue that grows faster than it is read stops being a queue.
+     */
+    private suspend fun fetchRecommendationsIfNeeded(
+        preferences: PapersDiscoveryPreferences,
+        papers: List<Paper>
+    ) {
+        recommendationMutex.withLock {
+            val today = LocalDate.now()
+            val now = System.currentTimeMillis()
+            val examples = recommendationExamples(papers)
+            if (!canRecommend(examples)) {
+                _recommendationState.value = RecommendationState.Idle
+                return
+            }
+            if (!shouldFetchRecommendations(preferences, today, now)) return
+
+            _recommendationState.value = RecommendationState.Loading
+            val result = client.fetchRecommendations(examples, RECOMMENDATION_LIMIT)
+            val recommended = result.getOrNull()
+            if (recommended == null) {
+                val error = result.exceptionOrNull()
+                if (error is SemanticScholarRateLimitedException) {
+                    _recommendationState.value = RecommendationState.RateLimited
+                    discoveryPrefs.recordRecommendationAttempt(
+                        today,
+                        semanticScholarBlockedUntil(error.retryAfterSeconds, now)
+                    )
+                } else {
+                    // Network/server failure. Still counts as today's attempt, matching how the
+                    // topic fetch treats a failed day — retrying every recomposition would hammer
+                    // an endpoint that is already refusing us.
+                    _recommendationState.value = RecommendationState.Unavailable
+                    discoveryPrefs.recordRecommendationAttempt(today)
+                }
+                return
+            }
+
+            val added = mutableListOf<Paper>()
+            recommended.forEach { candidate ->
+                // Dedup against the whole log, not just the queue: something already read or
+                // abandoned must not come back as a recommendation.
+                if (added.size < RECOMMENDATION_LIMIT && paperDao.getByS2Id(candidate.s2Id) == null) {
+                    val paper = Paper(
+                        s2Id = candidate.s2Id,
+                        title = candidate.title,
+                        authors = candidate.authors,
+                        year = candidate.year,
+                        venue = candidate.venue,
+                        abstractText = candidate.abstractText,
+                        tldr = candidate.tldr,
+                        url = candidate.url,
+                        pdfUrl = candidate.pdfUrl,
+                        source = PaperSource.RECOMMENDED,
+                        addedDate = today,
+                        cloudId = UUID.randomUUID().toString(),
+                        modifiedAt = System.currentTimeMillis()
+                    )
+                    paperDao.insertPaper(paper)
+                    added += paper
+                }
+            }
+            _recommendationState.value = RecommendationState.Idle
+            discoveryPrefs.recordRecommendationAttempt(today)
+            viewModelScope.launch {
+                added.forEach { paper ->
+                    safeCloudCall(TAG, "pushPaper") { firebaseManager.pushPaper(paper) }
+                }
+            }
         }
     }
 
@@ -422,5 +541,7 @@ class PapersViewModel(application: Application) : AndroidViewModel(application) 
         private const val TAG = "PapersViewModel"
         private const val PER_SLOT_LIMIT = 3
         private const val DAILY_TOTAL_CAP = 5
+        /** Recommendations added per day — a shelf, not a firehose (#150). */
+        private const val RECOMMENDATION_LIMIT = 3
     }
 }
