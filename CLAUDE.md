@@ -131,6 +131,13 @@ registered in the manifest against an `res/xml/*_widget_info.xml`. **Don't resta
   launcher's process. See `budgetWidgetSnapshot`.
 - Deep links go through `MainActivity.EXTRA_NAVIGATE_TO`, which `sanitizeRequestedRoute` filters
   against `APP_ROUTES` (Issue #105).
+- **A widget that *writes* goes through a shared top-level path, never its own copy of the logic.**
+  The study widget's start/pause button (#132) calls `StudyTimerControl.kt`, which `StudyViewModel`
+  also calls — same reason `ReminderCompletion.kt` is top-level. `StudyTimerStateStore` is the
+  durable record of whether the stopwatch runs and Room is the record of what it has banked; the
+  ViewModel only *mirrors* both, and collects `StudyTimerStateStore.runningFlow()` so a launcher
+  toggle reaches it instead of leaving that mirror stale. Read `StudyTimerControl.kt` before adding
+  any other way to start or stop the stopwatch.
 
 ### Permissions
 - `PACKAGE_USAGE_STATS` + `QUERY_ALL_PACKAGES` — Required for screen time tracking.

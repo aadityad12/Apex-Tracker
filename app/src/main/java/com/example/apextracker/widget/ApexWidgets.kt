@@ -43,3 +43,15 @@ suspend fun refreshTodayWidget(context: Context) {
         Log.w("ApexWidgets", "today widget refresh failed", e)
     }
 }
+
+/**
+ * Immediately refreshes the study timer provider (#132) after the stopwatch starts, pauses or
+ * banks time. Its own toggle button refreshes itself; this is for changes made inside the app.
+ */
+suspend fun refreshStudyWidget(context: Context) {
+    try {
+        StudyWidget().updateAll(context)
+    } catch (e: Exception) {
+        Log.w("ApexWidgets", "study widget refresh failed", e)
+    }
+}

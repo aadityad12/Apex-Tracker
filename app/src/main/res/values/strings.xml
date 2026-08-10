@@ -429,6 +429,11 @@
     <string name="widget_today_no_reminders">Nothing scheduled</string>
     <string name="widget_today_all_day">All day</string>
     <string name="widget_today_date_at_time">%1$s at %2$s</string>
+    <string name="widget_study_today">STUDY TODAY</string>
+    <string name="widget_study_running">STUDYING</string>
+    <string name="widget_study_start">Start</string>
+    <string name="widget_study_pause">Pause</string>
+    <string name="widget_study_desc">Today\'s study time with a start/pause control</string>
     <string name="widget_today_desc">Today\'s study time, screen time and next reminder</string>
     <string name="cd_dashboard_day">%1$s: %2$s</string>
     <string name="cd_dashboard_day_today">Today, %1$s</string>

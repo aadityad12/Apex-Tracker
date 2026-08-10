@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.PowerManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.apextracker.widget.refreshStudyWidget
 import com.example.apextracker.widget.refreshTodayWidget
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -78,6 +79,52 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
     init {
         restoreSession()
         startDailyResetCheck()
+        observeExternalTimerChanges()
+    }
+
+    /**
+     * Adopts a start/pause made outside this ViewModel — from the home-screen widget (Issue #132).
+     * [StudyTimerStateStore] is the durable record of whether the stopwatch runs; this ViewModel
+     * only mirrors it, and without this the mirror goes stale the moment the launcher toggles the
+     * timer while the app sits in the background.
+     *
+     * Our own writes emit here too, but by then [_isRunning] already agrees with the store, so
+     * they fall out on the equality check rather than looping.
+     */
+    private fun observeExternalTimerChanges() {
+        viewModelScope.launch {
+            timerStateStore.runningFlow().collect { persisted ->
+                val runningNow = persisted != null && persisted.date == LocalDate.now()
+                if (runningNow == _isRunning.value) return@collect
+                if (runningNow && persisted != null) {
+                    _currentSubject.value = persisted.subject
+                    lastStartTimeMillis = persisted.startedAtMillis
+                    baseSeconds = persisted.baseSeconds
+                    lastResetDate = persisted.date
+                    _isRunning.value = true
+                    _timeSeconds.value = calculateCurrentTotalSeconds()
+                    launchTicker()
+                } else {
+                    _isRunning.value = false
+                    timerJob?.cancel()
+                    resyncFromRoom()
+                }
+            }
+        }
+    }
+
+    /**
+     * Re-reads the displayed total from Room for today and the current subject. Used after any
+     * stop, so the counter is derived from the stored row rather than carried forward in memory —
+     * which is also what makes a pause that rolled over into a new day land on zero instead of
+     * yesterday's total.
+     */
+    private suspend fun resyncFromRoom() {
+        val today = LocalDate.now()
+        val saved = studySessionDao.getSession(today, _currentSubject.value)?.durationSeconds ?: 0L
+        lastResetDate = today
+        baseSeconds = saved
+        _timeSeconds.value = saved
     }
 
     /**
@@ -166,14 +213,26 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
         if (_isRunning.value) return
 
         rolloverIfNeeded()
-        lastStartTimeMillis = System.currentTimeMillis()
-        baseSeconds = _timeSeconds.value
+        // Flipped synchronously so a double-tap can't launch two starts before the store is
+        // written; the shared path below is what actually persists the run.
         _isRunning.value = true
-        timerStateStore.saveRunning(lastStartTimeMillis, baseSeconds, lastResetDate, _currentSubject.value)
-        // Flips the at-a-glance widget to its live/running state (Issue #44); the stopped
-        // transitions ride the forcePush saves below.
-        viewModelScope.launch { refreshTodayWidget(getApplication()) }
-        launchTicker()
+        viewModelScope.launch {
+            val state = startStudyTimer(
+                db = database,
+                timerStore = timerStateStore,
+                subject = _currentSubject.value,
+                nowMillis = System.currentTimeMillis()
+            )
+            lastStartTimeMillis = state.startedAtMillis
+            baseSeconds = state.baseSeconds
+            lastResetDate = state.date
+            _timeSeconds.value = calculateCurrentTotalSeconds()
+            // Flips both widgets to their live/running state (#44, #132); the stopped transitions
+            // ride the shared pause path.
+            refreshTodayWidget(getApplication())
+            refreshStudyWidget(getApplication())
+            launchTicker()
+        }
     }
 
     /**
@@ -190,6 +249,9 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
         val wasRunning = _isRunning.value
         if (wasRunning) pauseTimer()
         _currentSubject.value = normalized
+        // So a later start from the widget — which has no subject picker — continues this subject
+        // rather than dumping the time into the "No subject" bucket (Issue #132).
+        timerStateStore.lastSubject = normalized
         viewModelScope.launch {
             rolloverIfNeeded()
             val saved = studySessionDao.getSession(lastResetDate, normalized)?.durationSeconds ?: 0L
@@ -200,6 +262,10 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun launchTicker() {
+        // restoreSession and the runningFlow collector can both decide to start ticking at cold
+        // start; without this the loser's coroutine keeps running untracked, outside timerJob's
+        // reach.
+        timerJob?.cancel()
         timerJob = viewModelScope.launch {
             while (_isRunning.value) {
                 rolloverIfNeeded()
@@ -217,14 +283,27 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
     fun pauseTimer() {
         if (!_isRunning.value) return
 
-        rolloverIfNeeded()
-        val total = calculateCurrentTotalSeconds()
-        _timeSeconds.value = total
-        baseSeconds = total
+        // Read the elapsed total before flipping — calculateCurrentTotalSeconds short-circuits to
+        // the last displayed value once _isRunning is false.
+        val optimisticTotal = calculateCurrentTotalSeconds()
+        // Same synchronous flip as startTimer, and it also stops the ticker before the shared
+        // path clears the store — otherwise the next tick would rewrite a row that was just banked.
         _isRunning.value = false
         timerJob?.cancel()
-        timerStateStore.clear()
-        saveSessionForDate(lastResetDate, _currentSubject.value, total, forcePush = true)
+        _timeSeconds.value = optimisticTotal
+        baseSeconds = optimisticTotal
+        viewModelScope.launch {
+            pauseStudyTimer(
+                context = getApplication(),
+                db = database,
+                timerStore = timerStateStore,
+                firebaseManager = firebaseManager,
+                nowMillis = System.currentTimeMillis()
+            )
+            // The pause may have banked to an earlier date (a session that ran through midnight),
+            // so the displayed total comes back from Room rather than from what we just computed.
+            resyncFromRoom()
+        }
     }
 
     /** Resets today's total for the currently selected subject only; other subjects are untouched. */
@@ -245,7 +324,10 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
             // The at-a-glance widget (Issue #44) rides the same significant-events signal as the
             // cloud push — never the per-second tick, which would rebuild the widget 60x a minute
             // for a figure that only renders whole minutes.
-            if (forcePush) refreshTodayWidget(getApplication())
+            if (forcePush) {
+                refreshTodayWidget(getApplication())
+                refreshStudyWidget(getApplication())
+            }
             // Room saves every second while running; the cloud push is throttled to a
             // 60s heartbeat, with significant events (pause/reset/rollover) forced.
             val now = System.currentTimeMillis()
