@@ -199,16 +199,21 @@ abstract class AppDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
+        const val DB_NAME = "budget_database"
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
-                val instance = Room.databaseBuilder(
-                    context.applicationContext,
-                    AppDatabase::class.java,
-                    "budget_database"
-                )
-                .addMigrations(MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23)
-                .fallbackToDestructiveMigration()
-                .build()
+                val appContext = context.applicationContext
+                val builder = Room.databaseBuilder(appContext, AppDatabase::class.java, DB_NAME)
+                    .addMigrations(MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23)
+                    .fallbackToDestructiveMigration()
+                // SQLCipher (Issue #117). Returns null only when encryption genuinely can't be
+                // used, in which case Room's stock helper opens the file exactly as it did before
+                // — never a path that discards readable data. Note this runs before Room opens the
+                // file, which is the only point at which an existing plaintext database can be
+                // converted. See DatabaseEncryption.kt.
+                databaseOpenHelperFactory(appContext, DB_NAME)?.let { builder.openHelperFactory(it) }
+                val instance = builder.build()
                 INSTANCE = instance
                 instance
             }
