@@ -25,6 +25,7 @@ biometric = "1.1.0"
 glance = "1.1.1"
 coreSplashscreen = "1.0.1"
 composeScreenshot = "0.0.1-alpha16"
+mlkitTextRecognition = "19.0.1"
 
 [libraries]
 androidx-glance-appwidget = { group = "androidx.glance", name = "glance-appwidget", version.ref = "glance" }
@@ -66,6 +67,11 @@ androidx-credentials = { group = "androidx.credentials", name = "credentials", v
 androidx-credentials-play-services-auth = { group = "androidx.credentials", name = "credentials-play-services-auth", version.ref = "credentials" }
 googleid = { group = "com.google.android.libraries.identity.googleid", name = "googleid", version.ref = "googleid" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
+# On-device text recognition, Play-Services-delivered (Issue #46). The bundled
+# `com.google.mlkit:text-recognition` model adds 45MB to the debug APK (39MB of it native model
+# libraries, one copy per ABI); this thin wrapper adds 0.35MB, and the app already requires Play
+# Services for Firebase Auth and Credential Manager. Measured, not estimated.
+mlkit-text-recognition = { group = "com.google.android.gms", name = "play-services-mlkit-text-recognition", version.ref = "mlkitTextRecognition" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

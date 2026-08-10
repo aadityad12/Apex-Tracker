@@ -139,6 +139,28 @@ registered in the manifest against an `res/xml/*_widget_info.xml`. **Don't resta
   toggle reaches it instead of leaving that mirror stale. Read `StudyTimerControl.kt` before adding
   any other way to start or stop the stopwatch.
 
+### Receipt scanning (Issue #46)
+A camera button in `BudgetItemDialog`'s amount field picks a photo (`PickVisualMedia`, so **no
+permission is ever requested**) and prefills title / amount / date. Nothing is auto-saved and the
+image is never copied into app storage.
+
+- **`ReceiptOcr.kt` is the only file that touches ML Kit**, so the dependency is one deletion away.
+  It uses the **Play-Services-delivered** recognizer, not `com.google.mlkit:text-recognition`:
+  bundling the model costs 45MB of APK (39MB of native libraries, one per ABI) against 0.35MB for
+  the wrapper, and the app already requires Play Services. The manifest's
+  `com.google.mlkit.vision.DEPENDENCIES` meta-data asks for the model at install time.
+- **`ReceiptParse.kt` is where the feature actually lives** — pure and unit-tested in
+  `ReceiptParseTest`. Two things there are non-obvious and were both found by scanning a real
+  photo, not by reading the API:
+  - **`reflowReceiptLines` is load-bearing.** Text recognition groups by *block*, and a receipt's
+    label column and amount column are usually two blocks — so `Text.text` returns every label,
+    then every amount, and `TOTAL` never shares a line with its figure. Rebuilding visual rows from
+    the lines' bounding boxes is what makes label-based ranking work at all. Don't "simplify" this
+    back to `result.text`.
+  - Ranking: labelled lines (TOTAL/AMOUNT DUE…) first, subtotal/tax/change **dropped** rather than
+    ranked low, and among unlabelled numbers a figure *with cents* beats a larger bare integer —
+    otherwise a street number in the address wins.
+
 ### Permissions
 - `PACKAGE_USAGE_STATS` + `QUERY_ALL_PACKAGES` — Required for screen time tracking.
 - `POST_NOTIFICATIONS` — Requested at runtime (API 33+) in `MainActivity.onCreate` via `registerForActivityResult` (added 2026-07-09).
@@ -469,7 +491,7 @@ recommender. Scoped via a 14-question `/grill-me` interview before implementatio
   `app/schemas/…/22.json`.
 
 ## Developer's own TODO list (from notes.txt, still current)
-- Budget: "Extract from receipt" (OCR/receipt-parsing) — not started.
+- Budget: "Extract from receipt" — shipped as the ML Kit scan in `BudgetItemDialog` (#46, see below).
 - Study Timer: "Always on display" support — shipped as the dimmed in-app ambient display (#171).
 - Ideas floated for later: animated ring-chart visualizations (Canvas-based, like `ApexLogo`). (Home-screen widgets, biometric lock and Daily Apex Tip have all shipped — see "Home-screen widgets" below.)
 
