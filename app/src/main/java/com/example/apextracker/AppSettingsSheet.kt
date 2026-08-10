@@ -211,6 +211,12 @@ fun AppSettingsSheet(
  * ACTION_CREATE_DOCUMENT (user picks where to save), restore uses ACTION_OPEN_DOCUMENT. Restore
  * replaces all local data, so it's gated behind a confirmation. Works fully offline; no
  * permissions needed.
+ *
+ * Both buttons sit behind the module lock when either Budget or Notes is locked (Issue #187).
+ * This sheet is not behind a [LockGate] — it is reached from the Dashboard gear — and the export
+ * writes every note body and budget item in plaintext to a user-chosen file, which made it a
+ * three-tap bypass of the entire lock. Import is gated for the mirror reason: it *destroys* the
+ * locked modules' data. Either lock arms both buttons, because one file covers both modules.
  */
 @Composable
 private fun BackupRestoreControls() {
@@ -220,12 +226,27 @@ private fun BackupRestoreControls() {
     var pendingRestoreJson by remember { mutableStateOf<String?>(null) }
     var status by remember { mutableStateOf<String?>(null) }
 
+    val securitySettings = remember { SecuritySettings(context) }
+    val budgetLock by securitySettings.budgetLockEnabled.collectAsState(initial = null)
+    val notesLock by securitySettings.notesLockEnabled.collectAsState(initial = null)
+    // null (still loading) must stay null so the guard fails closed rather than reading `false`.
+    val anyLock = if (budgetLock == null || notesLock == null) null else (budgetLock == true || notesLock == true)
+    val runUnlocked = rememberUnlockedAction(
+        scope = UNLOCK_SCOPE_BACKUP,
+        lockEnabled = anyLock,
+        promptTitle = stringResource(R.string.security_backup_prompt_title),
+        promptSubtitle = stringResource(R.string.security_lock_subtitle)
+    )
+
     // Pre-resolved here (not via context.getString in the launcher callbacks): stringResource is
     // composable-only, and reading resources off LocalContext in a Composable is a lint error.
     val exportDoneMsg = stringResource(R.string.backup_export_done)
     val restoreDoneMsg = stringResource(R.string.backup_restore_done)
     val failedMsg = stringResource(R.string.backup_failed)
     val invalidMsg = stringResource(R.string.backup_invalid)
+    val restoreCloudFailedMsg = stringResource(R.string.backup_restore_cloud_failed)
+
+    val firebaseManager = remember { FirebaseManager(context) }
 
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -250,11 +271,11 @@ private fun BackupRestoreControls() {
 
     Row(horizontalArrangement = Arrangement.spacedBy(ApexSpacing.m)) {
         OutlinedButton(
-            onClick = { exportLauncher.launch("apextracker-backup-${LocalDate.now()}.json") },
+            onClick = { runUnlocked { exportLauncher.launch("apextracker-backup-${LocalDate.now()}.json") } },
             modifier = Modifier.weight(1f)
         ) { Text(stringResource(R.string.backup_export)) }
         OutlinedButton(
-            onClick = { importLauncher.launch(arrayOf("application/json")) },
+            onClick = { runUnlocked { importLauncher.launch(arrayOf("application/json")) } },
             modifier = Modifier.weight(1f)
         ) { Text(stringResource(R.string.backup_import)) }
     }
@@ -276,9 +297,11 @@ private fun BackupRestoreControls() {
                         if (data == null) {
                             status = invalidMsg
                         } else {
-                            restoreBackup(db, data)
+                            val fullySynced = restoreBackupAndReconcile(context, db, data, firebaseManager)
                             refreshBudgetWidget(context)
-                            status = restoreDoneMsg
+                            // The local restore succeeded either way; say so honestly when the
+                            // cloud half didn't land, since the next sync will partly undo it.
+                            status = if (fullySynced) restoreDoneMsg else restoreCloudFailedMsg
                         }
                     }
                 }) { Text(stringResource(R.string.backup_restore_action)) }

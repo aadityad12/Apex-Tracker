@@ -23,7 +23,15 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // Issue #198. This was false, which also made the proguardFiles line below inert:
+            // release builds shipped every unused class from Compose, Firebase, Glance and
+            // material-icons-extended, with full class and method names intact.
+            //
+            // Turning it on is not a flag flip — Gson reflects over BackupData and the entities
+            // by field name, so app/proguard-rules.pro has to keep them or a minified build
+            // writes and reads a different backup format. Read that file before changing this.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

@@ -204,7 +204,13 @@ internal fun parseReminderDoc(data: Map<String, Any?>, gson: Gson): Reminder = R
     time = data.optString("time")?.let { LocalTime.parse(it) },
     description = data.optString("description"),
     isCompleted = data["isCompleted"] as? Boolean ?: false,
-    recurrence = data.optString("recurrence")?.let { gson.fromJson(it, Recurrence::class.java) },
+    // parseRecurrenceSafe, not a raw fromJson: Gson bypasses Kotlin null-safety, so a malformed
+    // cloud value deserializes to a Recurrence whose non-null frequency/endType are actually
+    // null, with no exception for the per-doc catch to see. That object then reaches
+    // calculateNextDate's `when (recurrence.frequency)` and throws — inside ReminderCompleteWorker,
+    // from a notification tap, with the app possibly in the background. Issue #22 hardened the
+    // Room converter against exactly this; the cloud path had been missed (Issue #194).
+    recurrence = data.optString("recurrence")?.let { parseRecurrenceSafe(gson, it) },
     occurrencesCompleted = (data["occurrencesCompleted"] as? Number)?.toInt() ?: 0,
     cloudId = data.requireCloudId(),
     parentCloudId = data.optString("parentCloudId"),
@@ -267,8 +273,10 @@ internal fun parsePaperDoc(data: Map<String, Any?>): Paper = Paper(
     venue = data.optString("venue") ?: "",
     abstractText = data.optString("abstractText") ?: "",
     tldr = data.optString("tldr") ?: "",
-    url = data.optString("url") ?: "",
-    pdfUrl = data.optString("pdfUrl") ?: "",
+    // Another device (or anything that can write these docs) is not a trusted source for a URI
+    // that ends up in ACTION_VIEW — same guard as parseS2PaperJson (Issue #190).
+    url = sanitizeWebUrl(data.optString("url") ?: ""),
+    pdfUrl = sanitizeWebUrl(data.optString("pdfUrl") ?: ""),
     source = data.optString("source") ?: PaperSource.MANUAL,
     status = data.optString("status") ?: PaperStatus.WANT,
     addedDate = LocalDate.parse(data.requireString("addedDate")),
@@ -309,7 +317,13 @@ class FirebaseManager(private val context: Context) {
     }
 
     private val auth = FirebaseAuth.getInstance()
-    private val firestore = FirebaseFirestore.getInstance()
+
+    // Resolved per access, not cached at construction: the account-switch wipe (Issue #186)
+    // terminates the Firestore client to clear its on-disk cache, and a field captured here
+    // would leave every existing FirebaseManager holding a dead instance afterwards.
+    // getInstance() is itself cached by the SDK, so this is not a per-call allocation.
+    private val firestore: FirebaseFirestore get() = FirebaseFirestore.getInstance()
+
     private val gson = Gson()
 
     val currentUser: FirebaseUser? get() = auth.currentUser
@@ -1053,7 +1067,116 @@ class FirebaseManager(private val context: Context) {
         syncStep("goal completions") { syncGoalCompletions(db) }
         syncStep("paper topics") { syncPaperTopics(db) }
         syncStep("papers") { syncPapers(db) }
+        // Belt-and-braces after applyReminderDoc's per-row scheduling: a reminder whose doc was
+        // skipped as malformed, or one whose alarm was lost to a destructive migration, still
+        // gets armed here. Idempotent (Issue #188).
+        syncStep("reminder alarms") { rescheduleAllReminders(context, db) }
         refreshBudgetWidget(context)
+    }
+
+    /**
+     * Deletes every document in `users/{uid}/[collection]` whose id is not in [keepDocIds].
+     *
+     * Generic on purpose: the only thing that differs per entity is how a local row's document id
+     * is derived, and the caller already knows that. Doing this per-entity would be eleven copies
+     * of the same four lines.
+     */
+    private suspend fun deleteStaleDocs(collection: String, keepDocIds: Set<String>) {
+        val uid = userId ?: return
+        val col = firestore.collection("users").document(uid).collection(collection)
+        for (doc in col.get().await().documents) {
+            if (doc.id !in keepDocIds) col.document(doc.id).delete().await()
+        }
+    }
+
+    /**
+     * Makes the cloud match local Room exactly: prune what local no longer has, then push what it
+     * does. The counterpart to [performInitialSync], which merges in both directions.
+     *
+     * Exists for backup restore (Issue #189). A restore clears Room and re-inserts from a file,
+     * but said nothing to Firestore — so the listeners and the next initial sync pulled every
+     * cleared row straight back and re-pushed the union. "Restore" produced the backup's data
+     * *plus* everything it was supposed to replace, irreversibly, while the confirmation dialog
+     * promised it "replaces all local data".
+     *
+     * Deliberately not a general-purpose sync: it is destructive in the cloud direction and is
+     * only correct when local has just been established as the authority. Stop [SyncCoordinator]
+     * around it, or its listeners will race the prune.
+     *
+     * Rows whose cloudId is still empty (possible in a pre-cloudId backup file) are skipped by the
+     * push half — `pushX` no-ops on a blank cloudId. They are picked up by the next
+     * `performInitialSync`, which already has the assign-then-push logic for exactly that case.
+     */
+    suspend fun replaceCloudWithLocal(db: AppDatabase) {
+        if (userId == null) return
+
+        syncStep("replace categories") {
+            val local = db.categoryDao().getAllCategoriesOneShot()
+            deleteStaleDocs("categories", local.mapNotNullTo(mutableSetOf()) { it.cloudId.ifEmpty { null } })
+            local.forEach { pushCategory(it) }
+        }
+        syncStep("replace budget items") {
+            val local = db.budgetDao().getAllItemsOneShot()
+            val cats = db.categoryDao().getAllCategoriesOneShot()
+            deleteStaleDocs("budget", local.mapNotNullTo(mutableSetOf()) { it.cloudId.ifEmpty { null } })
+            local.forEach { item ->
+                pushBudgetItem(item, item.categoryId?.let { id -> cats.find { it.id == id }?.cloudId?.ifEmpty { null } })
+            }
+        }
+        syncStep("replace subscriptions") {
+            val local = db.subscriptionDao().getAllSubscriptionsSync()
+            deleteStaleDocs("subscriptions", local.mapNotNullTo(mutableSetOf()) { it.cloudId.ifEmpty { null } })
+            local.forEach { pushSubscription(it) }
+        }
+        syncStep("replace notes") {
+            val local = db.noteDao().getAllNotesOneShot()
+            deleteStaleDocs("notes", local.mapNotNullTo(mutableSetOf()) { it.cloudId.ifEmpty { null } })
+            local.forEach { pushNote(it) }
+        }
+        syncStep("replace reminders") {
+            val local = db.reminderDao().getAllRemindersOneShot()
+            deleteStaleDocs("reminders", local.mapNotNullTo(mutableSetOf()) { it.cloudId.ifEmpty { null } })
+            local.forEach { pushReminder(it) }
+        }
+        syncStep("replace goals") {
+            val local = db.goalDao().getAllGoalsOneShot()
+            deleteStaleDocs("goals", local.mapNotNullTo(mutableSetOf()) { it.cloudId.ifEmpty { null } })
+            local.forEach { pushGoal(it) }
+        }
+        syncStep("replace goal completions") {
+            val local = db.goalCompletionDao().getAllCompletionsOneShot()
+            deleteStaleDocs(
+                "goal_completions",
+                local.mapTo(mutableSetOf()) { goalCompletionDocId(it.goalCloudId, it.date) }
+            )
+            local.forEach { pushGoalCompletion(it) }
+        }
+        syncStep("replace study sessions") {
+            val local = db.studySessionDao().getAllSessionsOneShot()
+            deleteStaleDocs(
+                "study_sessions",
+                local.mapTo(mutableSetOf()) { studySessionDocId(it.date, it.subject) }
+            )
+            local.forEach { pushStudySession(it) }
+        }
+        syncStep("replace paper topics") {
+            val local = db.paperTopicDao().getAllOneShot()
+            deleteStaleDocs("paper_topics", local.mapNotNullTo(mutableSetOf()) { it.cloudId.ifEmpty { null } })
+            local.forEach { pushPaperTopic(it) }
+        }
+        syncStep("replace papers") {
+            val local = db.paperDao().getAllPapersOneShot()
+            deleteStaleDocs("papers", local.mapNotNullTo(mutableSetOf()) { it.cloudId.ifEmpty { null } })
+            local.forEach { pushPaper(it) }
+        }
+        syncStep("replace excluded apps") {
+            val local = db.excludedAppDao().getAllExcludedAppsOneShot()
+            deleteStaleDocs("excluded_apps", local.mapTo(mutableSetOf()) { it.packageName })
+            local.forEach { pushExcludedApp(it.packageName) }
+        }
+        // Screen time is deliberately untouched: it is per-device measurement
+        // (devices/{deviceId}/screen_time), not user-authored content, and another device's
+        // readings are not this device's to delete.
     }
 
     private suspend fun syncStep(name: String, block: suspend () -> Unit) {
@@ -1257,7 +1380,13 @@ class FirebaseManager(private val context: Context) {
             } else if (parsed.modifiedAt > local.modifiedAt) {
                 db.subscriptionDao().updateSubscription(
                     local.copy(
-                        name = parsed.name, amount = parsed.amount, renewalDate = parsed.renewalDate,
+                        name = parsed.name, amount = parsed.amount,
+                        // renewalDate is a cursor that only ever moves forward — it marks how far
+                        // the catch-up has generated. Last-writer-wins doesn't know that, so a
+                        // remote doc from a device that hasn't caught up yet would rewind it and
+                        // make checkAndAddSubscriptions re-walk months it already billed
+                        // (Issue #196). Take the later of the two.
+                        renewalDate = maxOf(local.renewalDate, parsed.renewalDate),
                         notes = parsed.notes, lastAddedDate = parsed.lastAddedDate, modifiedAt = parsed.modifiedAt
                     )
                 )
@@ -1380,18 +1509,26 @@ class FirebaseManager(private val context: Context) {
         try {
             val parsed = parseReminderDoc(data, gson)
             val local = db.reminderDao().getReminderByCloudId(parsed.cloudId)
+            // A reminder written straight to Room by sync used to have no alarm armed for it, so
+            // a reminder created on another device showed up in the list and never fired
+            // (Issue #188). Schedule against the row's real id — `parsed` carries id 0 until the
+            // insert assigns one.
             if (local == null) {
-                db.reminderDao().insertReminder(parsed)
+                val newId = db.reminderDao().insertReminder(parsed)
+                scheduleReminderIfNeeded(context, parsed.copy(id = newId))
             } else if (parsed.modifiedAt > local.modifiedAt) {
-                db.reminderDao().updateReminder(
-                    local.copy(
-                        name = parsed.name, date = parsed.date, time = parsed.time,
-                        description = parsed.description, isCompleted = parsed.isCompleted,
-                        recurrence = parsed.recurrence,
-                        occurrencesCompleted = parsed.occurrencesCompleted,
-                        parentCloudId = parsed.parentCloudId, modifiedAt = parsed.modifiedAt
-                    )
+                val updated = local.copy(
+                    name = parsed.name, date = parsed.date, time = parsed.time,
+                    description = parsed.description, isCompleted = parsed.isCompleted,
+                    recurrence = parsed.recurrence,
+                    occurrencesCompleted = parsed.occurrencesCompleted,
+                    parentCloudId = parsed.parentCloudId, modifiedAt = parsed.modifiedAt
                 )
+                db.reminderDao().updateReminder(updated)
+                // Also covers a remote *completion*: scheduleReminderIfNeeded cancels the alarm
+                // when isCompleted flipped true, so finishing a reminder on one device stops the
+                // other device notifying about it.
+                scheduleReminderIfNeeded(context, updated)
             }
         } catch (e: Exception) {
             Log.w(TAG, "Skipping malformed reminder doc $docId", e)
@@ -1401,6 +1538,9 @@ class FirebaseManager(private val context: Context) {
     private suspend fun removeReminderByCloudId(db: AppDatabase, cloudId: String) {
         val local = db.reminderDao().getReminderByCloudId(cloudId)
         if (local == null || local.cloudId.isEmpty()) return
+        // Cancel before deleting: once the row is gone its id is unrecoverable and the alarm
+        // would fire for a reminder that no longer exists.
+        ReminderScheduler.cancel(context, local.id)
         db.reminderDao().deleteReminder(local)
     }
 

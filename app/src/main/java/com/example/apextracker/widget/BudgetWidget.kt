@@ -32,6 +32,7 @@ import com.example.apextracker.BudgetWidgetSnapshot
 import com.example.apextracker.CurrencySettings
 import com.example.apextracker.MainActivity
 import com.example.apextracker.R
+import com.example.apextracker.SecuritySettings
 import com.example.apextracker.formatCurrency
 import com.example.apextracker.loadBudgetWidgetSnapshot
 import java.time.format.TextStyle as DateTextStyle
@@ -42,7 +43,8 @@ class BudgetWidget : GlanceAppWidget() {
         val snapshot = loadBudgetWidgetSnapshot(
             db = AppDatabase.getDatabase(context),
             budgetPrefs = BudgetPrefs(context),
-            currencySettings = CurrencySettings(context)
+            currencySettings = CurrencySettings(context),
+            securitySettings = SecuritySettings(context)
         )
         provideContent { BudgetWidgetContent(snapshot, context) }
     }
@@ -77,6 +79,23 @@ private fun BudgetWidgetContent(snapshot: BudgetWidgetSnapshot, context: Context
             text = context.getString(R.string.widget_budget_title, monthName),
             style = TextStyle(color = muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         )
+
+        // Budget is locked (Issue #45/#187): the launcher is outside the lock's reach, so the
+        // widget shows nothing but an invitation to open the app, where the prompt lives.
+        if (snapshot.locked) {
+            Text(
+                text = context.getString(R.string.widget_budget_locked),
+                modifier = GlanceModifier.padding(top = 5.dp),
+                style = TextStyle(color = ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            )
+            Text(
+                text = context.getString(R.string.widget_budget_locked_hint),
+                modifier = GlanceModifier.padding(top = 4.dp),
+                style = TextStyle(color = muted, fontSize = 12.sp)
+            )
+            return@Column
+        }
+
         Text(
             text = formatCurrency(snapshot.spent, snapshot.currencyCode),
             modifier = GlanceModifier.padding(top = 5.dp),

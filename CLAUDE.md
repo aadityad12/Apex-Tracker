@@ -73,8 +73,8 @@ Screen Time supports per-app daily limits (Issue #124): `AppUsageLimit` stores e
 `BudgetCalendar.kt`'s `BudgetCalendarView` is reachable as of 2026-07-11 (Issue #32): a list/calendar `IconButton` toggle in the Budget top bar, with the selected month hoisted into `BudgetTrackerApp` and shared between both views.
 
 ### Database
-- `AppDatabase.kt` — Room singleton (`budget_database`), `exportSchema = true`. **Don't trust a version number written here** — this line has gone stale twice (it said v15 while the code was at v19); read the `@Database` annotation in `AppDatabase.kt` for the current version and DAO roster. As of 2026-07-30 it's **v20** (v19→v20 added the `papers` table).
-- **Migration policy**: **do not maintain a migration roster here** — read the `.addMigrations(...)` call in `AppDatabase.kt`, which is the source of truth and must register every hand-written `Migration(n, n+1)` through the current `@Database` version. As of DB v20, it registers the complete `MIGRATION_11_12` through `MIGRATION_19_20` chain before `.fallbackToDestructiveMigration()`. `MIGRATION_14_15` (Dashboard feature) is a **purely additive** migration — two `CREATE TABLE IF NOT EXISTS` for `goals` + `goal_completions`, no data copy — and the simplest pattern to copy for a new table (its DDL was diffed against the exported `app/schemas/…/15.json` and verified on a real populated v14→v15 upgrade on-device). `MIGRATION_11_12` (Issue #40's `isPinned` column on `notes`), `MIGRATION_12_13` (Issue #75's `monthlyLimit` column on `categories`), and `MIGRATION_13_14` (Issue #78's per-subject study sessions) are real hand-written `Migration`s and the pattern to follow — **add** a new `Migration(n, n+1)` to the `addMigrations(...)` chain for every schema change. `MIGRATION_13_14` is the one to copy for a **primary-key** change: `study_sessions` moved from PK `(date)` to PK `(date, subject)`, which SQLite can't do in place, so it does the create-new / copy / drop / rename dance and copies every old daily total into the `subject = ''` ("No subject") bucket for its date — no study data lost. Note no SQL `DEFAULT` on `subject` (the entity declares only a Kotlin default, which Room does not emit as a column default; adding one would make TableInfo mismatch at runtime). The `fallbackToDestructiveMigration()` behind the chain is the backstop for versions with no migration path, and it **drops every table** — see the MIGRATION POLICY comment at the top of `AppDatabase.kt` (Issue #17).
+- `AppDatabase.kt` — Room singleton (`budget_database`), `exportSchema = true`. **Don't trust a version number written here** — this line has gone stale twice (it said v15 while the code was at v19); read the `@Database` annotation in `AppDatabase.kt` for the current version and DAO roster. As of 2026-08-07 it's **v23** (v22→v23 added indices on the sync join keys, Issue #197).
+- **Migration policy**: **do not maintain a migration roster here** — read the `.addMigrations(...)` call in `AppDatabase.kt`, which is the source of truth and must register every hand-written `Migration(n, n+1)` through the current `@Database` version. As of DB v23, it registers the complete `MIGRATION_11_12` through `MIGRATION_22_23` chain before `.fallbackToDestructiveMigration()`. `MIGRATION_14_15` (Dashboard feature) is a **purely additive** migration — two `CREATE TABLE IF NOT EXISTS` for `goals` + `goal_completions`, no data copy — and the simplest pattern to copy for a new table (its DDL was diffed against the exported `app/schemas/…/15.json` and verified on a real populated v14→v15 upgrade on-device). `MIGRATION_11_12` (Issue #40's `isPinned` column on `notes`), `MIGRATION_12_13` (Issue #75's `monthlyLimit` column on `categories`), and `MIGRATION_13_14` (Issue #78's per-subject study sessions) are real hand-written `Migration`s and the pattern to follow — **add** a new `Migration(n, n+1)` to the `addMigrations(...)` chain for every schema change. `MIGRATION_13_14` is the one to copy for a **primary-key** change: `study_sessions` moved from PK `(date)` to PK `(date, subject)`, which SQLite can't do in place, so it does the create-new / copy / drop / rename dance and copies every old daily total into the `subject = ''` ("No subject") bucket for its date — no study data lost. Note no SQL `DEFAULT` on `subject` (the entity declares only a Kotlin default, which Room does not emit as a column default; adding one would make TableInfo mismatch at runtime). The `fallbackToDestructiveMigration()` behind the chain is the backstop for versions with no migration path, and it **drops every table** — see the MIGRATION POLICY comment at the top of `AppDatabase.kt` (Issue #17).
 - `Converters.kt` — Type converters for `LocalDate`/`LocalDateTime`/`Recurrence` and other non-primitive types. This is the **only** `@TypeConverters` class registered on `AppDatabase`.
 - `Recurrence.kt` — Data model for recurring reminders (frequency, end condition, custom days). Persisted via `Converters.kt` (Gson round-trip).
 - There used to be a separate `RecurrenceConverter.kt` with a duplicate, never-registered implementation of the same conversion logic — it was **deleted** during the 2026-07-07 cleanup pass since it was entirely dead code (not wired into `AppDatabase`, not referenced anywhere).
@@ -478,3 +478,53 @@ inventory, and the reasoning. Do not restate its values here.
   `onSurfaceVariant`.
 - **Still untouched**: the settings sheets, `CalendarGrid`, and the various dialogs/editors — left out
   of the per-screen PRs deliberately to keep diffs reviewable.
+
+## 2026-08-07 Security & correctness pass (issues #186–#198)
+
+A full-codebase review filed thirteen issues and fixed all thirteen, one commit each, on branch
+`claude/codebase-security-review-934d59`. Verified by `assembleDebug` / `testDebugUnitTest` (399
+tests) / `lintDebug` (0 errors) / `assembleRelease`. **No device or emulator run** — the sync and
+migration changes below are the ones that most deserve an on-device check before release.
+
+- **Account switching wipes local data (#186)** — the highest-impact finding. `performInitialSync`
+  pushes *every* local row to the signed-in uid (that's how offline edits reach the cloud, Issue
+  #4), but nothing recorded *whose* rows they were, so signing in as B uploaded A's notes and
+  budget into `users/{B-uid}/...`. `AccountIdentity` persists the owning uid,
+  `shouldResetLocalDataForUid` is the pure decision (**null previous uid = first sign-in, keep the
+  data**), and `clearLocalUserData` wipes Room + note attachment files + the personal DataStores
+  before the sync runs. `FirebaseManager.firestore` is now a per-access getter so terminating the
+  client to clear its cache can't strand live managers on a dead instance.
+- **The biometric lock actually locks (#187)** — it gated two routes; the same data was readable
+  from the backup export (three taps, plaintext file), the Budget widget, and Overview.
+  `rememberUnlockedAction` is the new shape for a one-shot sensitive action on an unlocked surface
+  (`LockGate` can only protect a whole destination). The widget withholds figures in
+  `budgetWidgetSnapshot`, not the layout — the snapshot crosses into the launcher's process.
+  **The Dashboard was deliberately left alone**: `GoalStatus` carries only the goal and a
+  satisfied boolean, so a SPEND goal leaks no amount.
+- **`rescheduleAllReminders` is the one alarm sweep (#188, #195)** — reminders written by sync or a
+  backup restore never got an alarm and silently never fired. It is idempotent, so a blanket
+  re-arm is safe; **that is why it's a sweep rather than a call threaded through each write site**
+  — the next thing that inserts a `Reminder` gets it for free. `ReminderBootReceiver` now goes
+  through it too (it had been recomputing trigger times with `computeTriggerTime`, reintroducing
+  Issue #80 on every reboot) and listens for `MY_PACKAGE_REPLACED`.
+- **Restore replaces, in the cloud too (#189)** — `restoreBackupAndReconcile` stops the listeners,
+  restores, then `replaceCloudWithLocal` prunes and re-pushes. Previously the listeners re-inserted
+  everything the restore cleared. Screen time is exempt (per-device measurement, not this device's
+  to delete).
+- **Untrusted-data boundaries (#190–#194)** — `sanitizeWebUrl` at both paper-parse boundaries
+  (`file:` URIs were an uncaught `FileUriExposedException` crash); `csvEscape` neutralizes
+  spreadsheet formula triggers (**amounts deliberately bypass it** so a refund stays a number);
+  `noteAttachmentFile` is nullable and containment-checked, with sanitizing in `parseBackupJson`;
+  `parseReminderDoc` uses `parseRecurrenceSafe` like the Room converter always did; and
+  `note_attachments` + the personal DataStores are excluded from Android backup.
+- **Derived rows get derived identities (#196)** — subscription-generated `BudgetItem`s used a
+  random UUID, so every signed-in device minted its own row for the same charge and totals doubled.
+  `subscriptionItemCloudId(subscriptionCloudId, renewal)` keys on the **month**, since the day
+  drifts. `renewalDate` is now treated as monotonic in `applySubscriptionDoc` — it's a cursor, and
+  last-writer-wins would rewind it.
+- **R8 is on in release (#198)** — and this is the one to be careful with: `backupGson()`
+  serializes by *field name*, so `app/proguard-rules.pro` keeping those members is load-bearing.
+  A minified build without it writes an unreadable backup format. Read that file before touching
+  `isMinifyEnabled`. Verified by parsing the release DEX with `dexdump` — note that checking this
+  with `strings` gives false negatives, because DEX pool entries run together in its output.
+  `androidx.biometric` stays at 1.1.0: every later version on Google Maven is an alpha.

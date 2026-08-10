@@ -179,4 +179,35 @@ class SemanticScholarTest {
         val url = buildSearchUrl("Physics", "quantum error correction", java.time.LocalDate.of(2026, 8, 7))
         assertTrue(url.contains("publicationDateOrYear=2025-08-07:"))
     }
+
+    @Test
+    fun `sanitizeWebUrl keeps http and https only`() {
+        assertEquals("https://arxiv.org/abs/2401.00001", sanitizeWebUrl("https://arxiv.org/abs/2401.00001"))
+        assertEquals("http://example.org/p.pdf", sanitizeWebUrl("http://example.org/p.pdf"))
+        // Scheme matching is case-insensitive, and the original casing is preserved.
+        assertEquals("HTTPS://example.org", sanitizeWebUrl("HTTPS://example.org"))
+        assertEquals("https://example.org", sanitizeWebUrl("  https://example.org  "))
+    }
+
+    @Test
+    fun `sanitizeWebUrl drops schemes that must never reach ACTION_VIEW`() {
+        // file: is the one that actually crashed the app — startActivity throws
+        // FileUriExposedException, a RuntimeException the ActivityNotFoundException catch in
+        // openPaper never saw (Issue #190).
+        assertEquals("", sanitizeWebUrl("file:///data/data/com.example.apextracker/databases/budget_database"))
+        assertEquals("", sanitizeWebUrl("content://com.example.other/secret"))
+        assertEquals("", sanitizeWebUrl("intent://scan/#Intent;scheme=zxing;end"))
+        assertEquals("", sanitizeWebUrl("javascript:alert(1)"))
+        assertEquals("", sanitizeWebUrl("market://details?id=com.example"))
+        assertEquals("", sanitizeWebUrl("//example.org/protocol-relative"))
+        assertEquals("", sanitizeWebUrl(""))
+    }
+
+    @Test
+    fun `parsed paper drops a non-web url rather than storing it`() {
+        val json = """{"paperId":"abc","title":"T","url":"file:///etc/passwd","openAccessPdf":{"url":"javascript:alert(1)"}}"""
+        val paper = parseS2PaperJson(json)
+        assertEquals("", paper.url)
+        assertEquals("", paper.pdfUrl)
+    }
 }

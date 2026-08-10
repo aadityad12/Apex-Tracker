@@ -87,7 +87,10 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
     }
 
     private suspend fun rescheduleAllActive() {
-        activeReminders.first().forEach { scheduleReminderIfNeeded(getApplication(), it) }
+        // Delegates to the shared sweep so the boot receiver, backup restore and this path
+        // cannot drift apart (Issue #188). It also reads the three settings once rather than
+        // once per reminder, which the old per-item loop did.
+        rescheduleAllReminders(getApplication(), database)
     }
 
     /** Re-arms every active reminder — used after the exact-alarm permission is granted, so

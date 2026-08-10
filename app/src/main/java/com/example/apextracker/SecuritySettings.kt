@@ -200,6 +200,55 @@ fun LockGate(
 }
 
 /**
+ * Unlock scope for the whole-dataset backup controls (Issue #187). Not a NavHost route — it names
+ * a *capability* rather than a screen, because export and import are one button each in a sheet
+ * that must stay open, so [LockGate]'s "replace the screen until unlocked" shape doesn't fit.
+ */
+const val UNLOCK_SCOPE_BACKUP = "backup_controls"
+
+/**
+ * Gates a one-shot sensitive action behind the module lock, returning a runner that either
+ * performs the action immediately or prompts first.
+ *
+ * This exists because [LockGate] can only protect a whole destination, and the lock's worst hole
+ * was never a destination: the backup export button reads every note body and budget item into a
+ * file from a settings sheet that isn't behind any gate (Issue #187). Use this for actions that
+ * *read or destroy* locked data from an unlocked surface.
+ *
+ * Fails closed while [lockEnabled] is still null (DataStore hasn't read back), same as [LockGate].
+ * Honours [UnlockSession], so one unlock covers the rest of the foreground session and
+ * backgrounding the app re-arms it.
+ */
+@Composable
+fun rememberUnlockedAction(
+    scope: String,
+    lockEnabled: Boolean?,
+    promptTitle: String,
+    promptSubtitle: String
+): ((() -> Unit) -> Unit) {
+    val activity = LocalActivity.current as? FragmentActivity
+    return remember(scope, lockEnabled, activity, promptTitle, promptSubtitle) {
+        { action: () -> Unit ->
+            when {
+                // Flag still loading, or no Activity to host a prompt: refuse rather than run.
+                lockEnabled == null || (lockEnabled && activity == null) -> Unit
+                !lockEnabled || UnlockSession.isUnlocked(scope) -> action()
+                else -> promptUnlock(
+                    activity = activity!!,
+                    title = promptTitle,
+                    subtitle = promptSubtitle,
+                    onSuccess = {
+                        UnlockSession.markUnlocked(scope)
+                        action()
+                    },
+                    onFailure = { /* stay put; the user can tap again */ }
+                )
+            }
+        }
+    }
+}
+
+/**
  * Settings-sheet row that toggles "require unlock to open" for one module. Greyed out with an
  * explanation when the device has no screen lock (enabling it then would be a guaranteed lockout).
  * Turning it ON requires one successful auth first (per Issue #45) — so someone can't silently

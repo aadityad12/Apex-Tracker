@@ -6,10 +6,28 @@ import androidx.core.content.FileProvider
 import java.io.File
 import java.time.format.DateTimeFormatter
 
-/** RFC 4180 quoting: wrap in quotes and double any embedded quote if the field contains a comma, quote, or newline. */
+/**
+ * Characters that make Excel / Sheets / LibreOffice treat a cell as a formula rather than text.
+ * Quoting does not help — a spreadsheet evaluates `"=1+1"` from a quoted CSV field just the same.
+ */
+private val CSV_FORMULA_TRIGGERS = charArrayOf('=', '+', '-', '@', '\t', '\r')
+
+/**
+ * RFC 4180 quoting, plus a leading apostrophe on anything a spreadsheet would evaluate.
+ *
+ * RFC 4180 says nothing about formulas, and the Papers export carries Semantic Scholar's own
+ * title/author/venue strings — data nobody in this app typed or reviewed, inserted unattended by
+ * the daily discovery fetch — into a file the user opens in Excel (Issue #192). The apostrophe is
+ * the conventional neutralizer and survives a round-trip more readably than a leading tab.
+ *
+ * Numeric columns must NOT come through here: `-12.50` is a legitimate negative amount, and
+ * prefixing it would break the column. `buildBudgetCsv` already writes `item.amount` unescaped —
+ * keep it that way.
+ */
 internal fun csvEscape(field: String): String {
-    val needsQuoting = field.any { it == ',' || it == '"' || it == '\n' || it == '\r' }
-    return if (needsQuoting) "\"" + field.replace("\"", "\"\"") + "\"" else field
+    val neutralized = if (field.isNotEmpty() && field[0] in CSV_FORMULA_TRIGGERS) "'$field" else field
+    val needsQuoting = neutralized.any { it == ',' || it == '"' || it == '\n' || it == '\r' }
+    return if (needsQuoting) "\"" + neutralized.replace("\"", "\"\"") + "\"" else neutralized
 }
 
 /**

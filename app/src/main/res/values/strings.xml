@@ -31,8 +31,12 @@
     <string name="backup_restore_done">Data restored.</string>
     <string name="backup_failed">Couldn\'t access that file.</string>
     <string name="backup_invalid">That file isn\'t a valid backup.</string>
+    <!-- Cloud reconciliation failed but the local restore succeeded (Issue #189). -->
+    <string name="backup_restore_cloud_failed">Data restored on this device, but syncing the change to your other devices failed. Reconnect and restore again, or your other devices may put the old data back.</string>
     <string name="backup_restore_confirm_title">Restore backup?</string>
-    <string name="backup_restore_confirm_text">This replaces all current data on this device with the backup\'s contents. This can\'t be undone.</string>
+    <!-- Says "and your other devices" because the restore now prunes the cloud too (Issue #189);
+         it used to quietly merge instead, which is what the old wording mis-promised. -->
+    <string name="backup_restore_confirm_text">This replaces all current data on this device — and, if you\'re signed in, on your other devices — with the backup\'s contents. This can\'t be undone.</string>
     <string name="backup_restore_action">Replace</string>
     <string name="menu_currency">Currency</string>
     <string name="menu_currency_label">Display currency</string>
@@ -325,6 +329,8 @@
     <string name="security_prompt_title">Unlock %1$s</string>
     <string name="security_locked_message">Unlock to view this section</string>
     <string name="security_unlock_button">Unlock</string>
+    <!-- Backup export/import reads and replaces the locked modules' data (Issue #187). -->
+    <string name="security_backup_prompt_title">Unlock to back up or restore</string>
 
     <!-- Dashboard (goal-tracking heatmap) -->
     <string name="dashboard_title">DASHBOARD</string>
@@ -411,6 +417,9 @@
     <string name="widget_budget_remaining">%1$s left</string>
     <string name="widget_budget_over">%1$s over</string>
     <string name="widget_budget_desc">Monthly spending versus budget</string>
+    <!-- Shown instead of any figure while the Budget module lock is on (Issue #187). -->
+    <string name="widget_budget_locked">Locked</string>
+    <string name="widget_budget_locked_hint">Tap to unlock in the app</string>
     <string name="cd_dashboard_day">%1$s: %2$s</string>
     <string name="cd_dashboard_day_today">Today, %1$s</string>
     <string name="cd_dashboard_day_untracked">no goals tracked</string>

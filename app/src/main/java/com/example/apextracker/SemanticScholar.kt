@@ -39,6 +39,27 @@ private val S2_URL = Regex("""semanticscholar\.org/paper/(?:[^/]+/)?([0-9a-f]{40
 private fun stripArxivVersion(id: String) = id.replace(Regex("""v\d+$"""), "")
 
 /**
+ * Keeps a URL only if it is plain http(s); everything else becomes "" (Issue #190).
+ *
+ * Paper URLs are third-party data — the API response, another device's Firestore doc, a restored
+ * backup file — and end up in `Intent.ACTION_VIEW`, which launches whatever app claims the scheme.
+ * A `file:` URI is worse than that: it throws FileUriExposedException on `startActivity`, which is
+ * a RuntimeException, so it crashed the app rather than failing to open.
+ *
+ * Applied at the parse boundary so a bad URL never reaches Room, matching how the rest of the
+ * codebase keeps its invariants in the pure, unit-tested parse functions. `openPaper` re-checks
+ * anyway, for rows written before this existed.
+ *
+ * A deliberately dumb prefix test rather than `Uri.parse`: this must stay pure for the JVM tests,
+ * and a scheme check is exactly a prefix check.
+ */
+fun sanitizeWebUrl(raw: String): String {
+    val trimmed = raw.trim()
+    val lower = trimmed.lowercase()
+    return if (lower.startsWith("http://") || lower.startsWith("https://")) trimmed else ""
+}
+
+/**
  * Maps whatever the user pasted — an arXiv/DOI/S2 link, a bare arXiv id, a DOI, a raw S2 sha,
  * or any other paper URL — onto the id form the S2 `/paper/{id}` endpoint accepts. Returns null
  * only for input that can't plausibly identify a paper (blank / non-URL free text). Trailing
@@ -88,8 +109,9 @@ fun parseS2PaperJson(json: String): FetchedPaper {
         venue = if (obj.isNull("venue")) "" else obj.optString("venue"),
         abstractText = if (obj.isNull("abstract")) "" else obj.optString("abstract"),
         tldr = tldrObj?.optString("text")?.takeIf { it != "null" } ?: "",
-        url = if (obj.isNull("url")) "" else obj.optString("url"),
-        pdfUrl = pdfObj?.optString("url")?.takeIf { it != "null" } ?: ""
+        // Non-web schemes are dropped here so they never reach Room (Issue #190).
+        url = sanitizeWebUrl(if (obj.isNull("url")) "" else obj.optString("url")),
+        pdfUrl = sanitizeWebUrl(pdfObj?.optString("url")?.takeIf { it != "null" } ?: "")
     )
 }
 

@@ -81,7 +81,10 @@ object ReminderScheduler {
 
     fun schedule(context: Context, reminder: Reminder, triggerAtMillis: Long) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val pendingIntent = buildPendingIntent(context, reminder.id, reminder.name, reminder.description, reminder.priority)
+        // Non-null: only the noCreate path can return null.
+        val pendingIntent = buildPendingIntent(
+            context, reminder.id, reminder.name, reminder.description, reminder.priority
+        ) ?: return
 
         if (canScheduleExactAlarms(context)) {
             alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
@@ -90,31 +93,49 @@ object ReminderScheduler {
         }
     }
 
+    /**
+     * Cancels this reminder's alarm, if one is armed.
+     *
+     * Uses FLAG_NO_CREATE rather than the FLAG_UPDATE_CURRENT the schedule path uses (Issue #198).
+     * UPDATE_CURRENT would *create* the PendingIntent when none exists — allocating one purely to
+     * destroy it — and, worse, overwrite a live intent's extras with the blank placeholders this
+     * path passes in before cancelling. Harmless while nothing reads those extras, but a trap.
+     * A null result means there was nothing armed, which is a no-op.
+     */
     fun cancel(context: Context, reminderId: Long) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val pendingIntent = buildPendingIntent(context, reminderId, name = "", description = null, priority = null)
+        val pendingIntent = buildPendingIntent(
+            context, reminderId, name = "", description = null, priority = null, noCreate = true
+        ) ?: return
         alarmManager.cancel(pendingIntent)
         pendingIntent.cancel()
     }
 
+    /**
+     * The PendingIntent for one reminder's alarm. With [noCreate], returns null instead of
+     * creating one when none is currently armed — see [cancel].
+     */
     private fun buildPendingIntent(
         context: Context,
         reminderId: Long,
         name: String,
         description: String?,
-        priority: String?
-    ): PendingIntent {
+        priority: String?,
+        noCreate: Boolean = false
+    ): PendingIntent? {
         val intent = Intent(context, ReminderAlarmReceiver::class.java).apply {
             putExtra(EXTRA_REMINDER_ID, reminderId)
             putExtra(EXTRA_REMINDER_NAME, name)
             putExtra(EXTRA_REMINDER_DESCRIPTION, description)
             putExtra(EXTRA_REMINDER_PRIORITY, priority)
         }
+        val mutabilityAndMode =
+            if (noCreate) PendingIntent.FLAG_NO_CREATE else PendingIntent.FLAG_UPDATE_CURRENT
         return PendingIntent.getBroadcast(
             context,
             reminderId.toInt(),
             intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            mutabilityAndMode or PendingIntent.FLAG_IMMUTABLE
         )
     }
 

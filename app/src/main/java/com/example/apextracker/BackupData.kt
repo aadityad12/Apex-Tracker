@@ -21,7 +21,11 @@ import java.time.LocalTime
  */
 data class BackupData(
     val formatVersion: Int = 2,
-    val appDbVersion: Int = 22,
+    // Diagnostic only — records which Room version the data came from. Must be bumped alongside
+    // the @Database version in AppDatabase.kt; an on-device export caught it still reading 22
+    // after the v23 index migration (Issue #197). Not load-bearing, which is exactly why it
+    // rots quietly.
+    val appDbVersion: Int = 23,
     val exportedAt: String = "",
     val budgetItems: List<BudgetItem> = emptyList(),
     val categories: List<Category> = emptyList(),
@@ -85,6 +89,17 @@ fun parseBackupJson(json: String): BackupData? {
         if (cadence != GoalCadence.DAILY && cadence != GoalCadence.WEEKLY) {
             goal.addProperty("cadence", GoalCadence.DAILY)
         }
+    }
+
+    // Attachment names are resolved as paths under the note-attachments directory, so a
+    // hand-edited backup could point them at anything in the sandbox — including the Room DB,
+    // which deleting the note would then delete (Issue #193). Strip them here, at the boundary,
+    // rather than relying on every consumer to be careful.
+    objectRoot.getAsJsonArray("notes").forEach { element ->
+        val note = element.asJsonObject
+        val attachments = note.get("attachments")?.takeUnless { it.isJsonNull }?.asString ?: return@forEach
+        val safe = sanitizeAttachments(attachments)
+        if (safe != attachments) note.addProperty("attachments", safe)
     }
     return backupGson().fromJson(objectRoot, BackupData::class.java)
 }

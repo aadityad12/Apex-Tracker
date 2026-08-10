@@ -5,6 +5,7 @@ import android.net.Uri
 import android.util.Log
 import androidx.room.withTransaction
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 
 private const val BACKUP_TAG = "BackupManager"
@@ -37,7 +38,13 @@ suspend fun exportBackup(db: AppDatabase, now: String): BackupData = withContext
  * files (those aren't in the DB); the note rows survive but their attachment thumbnails will be
  * missing, same device-local caveat as Issue #127.
  */
-suspend fun restoreBackup(db: AppDatabase, data: BackupData) = withContext(Dispatchers.IO) {
+suspend fun restoreBackup(context: Context, db: AppDatabase, data: BackupData) = withContext(Dispatchers.IO) {
+    // Alarms are keyed on Room row ids, which this restore reassigns wholesale. Cancel the
+    // outgoing set first or their alarms fire against whatever rows inherit those ids
+    // (Issue #188).
+    val outgoingIds = runCatching { db.reminderDao().getActiveReminders().first().map { it.id } }
+        .getOrElse { emptyList() }
+
     db.withTransaction {
         db.budgetDao().clearAll()
         db.categoryDao().clearAll()
@@ -66,6 +73,52 @@ suspend fun restoreBackup(db: AppDatabase, data: BackupData) = withContext(Dispa
         data.appUsageLimits.forEach { db.appUsageLimitDao().setLimit(it) }
         data.paperTopics.forEach { db.paperTopicDao().insertTopic(it) }
         data.papers.forEach { db.paperDao().insertPaper(it) }
+    }
+
+    // Outside the transaction: AlarmManager is not transactional, so arming alarms for rows that
+    // a rollback would have discarded is exactly the wrong order.
+    outgoingIds.forEach { ReminderScheduler.cancel(context, it) }
+    runCatching { rescheduleAllReminders(context, db) }
+        .onFailure { Log.w(BACKUP_TAG, "Restored reminders, but failed to re-arm their alarms", it) }
+}
+
+/**
+ * Restores [data] and makes the cloud match, so "replace all local data" means the same thing
+ * signed in as it does signed out (Issue #189).
+ *
+ * The ordering is the whole point:
+ *  1. Stop the live listeners. They are watching the exact collections the restore clears, and
+ *     would re-insert the cleared rows mid-transaction.
+ *  2. Restore locally.
+ *  3. Prune-and-push the cloud, so the deletions the restore implies actually happen remotely.
+ *     Skipped when signed out — there is nothing to reconcile.
+ *  4. Restart the listeners.
+ *
+ * Step 3 failing (offline, permission error) leaves local correct and the cloud stale, which the
+ * next `performInitialSync` will partially undo. That is reported to the caller rather than
+ * swallowed, so the UI can tell the user the restore did not fully reach their other devices.
+ */
+suspend fun restoreBackupAndReconcile(
+    context: Context,
+    db: AppDatabase,
+    data: BackupData,
+    firebaseManager: FirebaseManager
+): Boolean {
+    SyncCoordinator.stop()
+    try {
+        restoreBackup(context, db, data)
+        if (firebaseManager.userId == null) return true
+        return try {
+            firebaseManager.replaceCloudWithLocal(db)
+            true
+        } catch (e: Exception) {
+            Log.w(BACKUP_TAG, "Restored locally, but failed to reconcile the cloud", e)
+            false
+        }
+    } finally {
+        if (firebaseManager.userId != null) {
+            SyncCoordinator.start(firebaseManager, db)
+        }
     }
 }
 

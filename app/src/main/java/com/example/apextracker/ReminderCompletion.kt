@@ -36,6 +36,42 @@ suspend fun scheduleReminderIfNeeded(context: Context, reminder: Reminder) {
 }
 
 /**
+ * Re-arms every active reminder's alarm from the current Room state.
+ *
+ * Exists because rows can reach Room without passing through any of the ViewModel's scheduling
+ * paths — the Firestore listeners and initial sync write them directly, and so does a backup
+ * restore (Issue #188). Those reminders rendered as perfectly active and simply never notified.
+ *
+ * Idempotent: [ReminderScheduler] keys its PendingIntent on the reminder id with
+ * FLAG_UPDATE_CURRENT, so re-arming an already-armed reminder replaces it in place. That is what
+ * makes a blanket sweep the right shape here rather than threading a schedule call through every
+ * write site — the next feature that inserts a Reminder row gets this for free instead of
+ * silently reintroducing the bug.
+ *
+ * Reads the three settings once for the whole batch rather than per reminder, which is what
+ * [scheduleReminderIfNeeded] would do if called in a loop.
+ */
+suspend fun rescheduleAllReminders(context: Context, db: AppDatabase) {
+    val settings = ReminderSettings(context)
+    val notificationsEnabled = settings.notificationsEnabled.first()
+    val allDayTime = settings.allDayNotificationTime.first()
+    val offsetMinutes = settings.specificTimeOffsetMinutes.first()
+    val now = LocalDateTime.now()
+
+    db.reminderDao().getActiveReminders().first().forEach { reminder ->
+        val triggerTime = if (notificationsEnabled) {
+            ReminderScheduler.resolveTriggerTime(reminder, allDayTime, offsetMinutes, now)
+        } else null
+
+        if (triggerTime != null) {
+            ReminderScheduler.schedule(context, reminder, ReminderScheduler.toEpochMillis(triggerTime))
+        } else {
+            ReminderScheduler.cancel(context, reminder.id)
+        }
+    }
+}
+
+/**
  * Completes a reminder — the same result whether the user checks it off in-app or taps "Done"
  * on the notification (works with the app process dead): marks it done and, for a recurring
  * reminder, generates the next occurrence (respecting end conditions, anchored to the original

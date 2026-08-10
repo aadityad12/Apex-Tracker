@@ -1,6 +1,7 @@
 package com.example.apextracker
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.time.LocalDate
 
@@ -42,7 +43,11 @@ object GoalComparator {
  * stops counting. A given day only counts goals active on that day, so editing goals never
  * retroactively rewrites past days.
  */
-@Entity(tableName = "goals")
+// Sync join keys — see the MIGRATION_22_23 note in AppDatabase.kt (Issue #197).
+@Entity(
+    tableName = "goals",
+    indices = [Index(value = ["cloudId"])]
+)
 data class Goal(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
