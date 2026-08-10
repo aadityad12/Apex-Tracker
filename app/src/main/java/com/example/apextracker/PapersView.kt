@@ -78,6 +78,7 @@ fun PapersView(
     val discoveryPreferences by viewModel.discoveryPreferences.collectAsState()
     val discoveryTopics by viewModel.discoveryTopics.collectAsState()
     val dailyFeedState by viewModel.dailyFeedState.collectAsState()
+    val recommendationState by viewModel.recommendationState.collectAsState()
     val muteSuggestion by viewModel.muteSuggestion.collectAsState()
     var showAdd by remember { mutableStateOf(false) }
     var detailPaper by remember { mutableStateOf<Paper?>(null) }
@@ -161,12 +162,31 @@ fun PapersView(
                         Spacer(Modifier.height(ApexSpacing.xl))
                     }
                 }
-                if (state.queue.isNotEmpty()) {
-                    item(key = "queue-header") {
-                        ApexSectionHeader(stringResource(R.string.papers_queue) + " · " + state.queue.size)
+                item(key = "recommendation-status") {
+                    RecommendationStatusMessage(recommendationState)
+                }
+                state.recommendations?.let { shelf ->
+                    item(key = "recommendations-header") {
+                        ApexSectionHeader(recommendationHeading(shelf.basis))
                         Spacer(Modifier.height(ApexSpacing.s))
                     }
-                    itemsIndexed(state.queue, key = { _, p -> p.id }) { i, paper ->
+                    itemsIndexed(shelf.papers, key = { _, p -> p.id }) { i, paper ->
+                        if (i > 0) ApexDivider()
+                        ApexStatRow(
+                            label = paper.title,
+                            supporting = paperMetaLine(paper),
+                            value = paper.year?.toString() ?: "",
+                            onClick = { detailPaper = paper }
+                        )
+                    }
+                    item { Spacer(Modifier.height(ApexSpacing.xl)) }
+                }
+                if (state.queueRest.isNotEmpty()) {
+                    item(key = "queue-header") {
+                        ApexSectionHeader(stringResource(R.string.papers_queue) + " · " + state.queueRest.size)
+                        Spacer(Modifier.height(ApexSpacing.s))
+                    }
+                    itemsIndexed(state.queueRest, key = { _, p -> p.id }) { i, paper ->
                         if (i > 0) ApexDivider()
                         ApexStatRow(
                             label = paper.title,
@@ -271,6 +291,40 @@ private fun DailyPaperFeedMessage(state: DailyPaperFeedState) {
         DailyPaperFeedState.NoResults -> stringResource(R.string.papers_daily_no_results)
         DailyPaperFeedState.Unavailable -> stringResource(R.string.papers_daily_unavailable)
         DailyPaperFeedState.RateLimited -> stringResource(R.string.papers_daily_rate_limited)
+    }
+    if (message != null) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth().padding(vertical = ApexSpacing.s)
+        )
+    }
+}
+
+/**
+ * "Because you read <title>" — the shelf's provenance (#150). Naming the paper the request was
+ * built from is what makes a recommendation checkable rather than a black box, so the heading
+ * carries a title even when the request weighed several.
+ */
+@Composable
+private fun recommendationHeading(basis: List<Paper>): String = when {
+    basis.isEmpty() -> stringResource(R.string.papers_recommended)
+    basis.size == 1 -> stringResource(R.string.papers_recommended_because, basis.first().title)
+    else -> stringResource(
+        R.string.papers_recommended_because_more,
+        basis.first().title,
+        basis.size - 1
+    )
+}
+
+@Composable
+private fun RecommendationStatusMessage(state: RecommendationState) {
+    val message = when (state) {
+        RecommendationState.Idle -> null
+        RecommendationState.Loading -> stringResource(R.string.papers_recommended_loading)
+        RecommendationState.Unavailable -> stringResource(R.string.papers_daily_unavailable)
+        RecommendationState.RateLimited -> stringResource(R.string.papers_daily_rate_limited)
     }
     if (message != null) {
         Text(

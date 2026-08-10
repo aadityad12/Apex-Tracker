@@ -461,6 +461,11 @@
     <string name="papers_title">Reading</string>
     <string name="papers_today_pick">Today\'s paper</string>
     <string name="papers_queue">Queue</string>
+    <!-- Recommendation shelf (#150). The heading names the paper the request was built from. -->
+    <string name="papers_recommended">Recommended for you</string>
+    <string name="papers_recommended_because">Because you read %1$s</string>
+    <string name="papers_recommended_because_more">Because you read %1$s and %2$d more</string>
+    <string name="papers_recommended_loading">Finding papers like the ones you rated\u2026</string>
     <string name="papers_history">History</string>
     <string name="papers_empty">No papers yet — add one by link, or start from the classics</string>
     <string name="papers_add">Add paper</string>

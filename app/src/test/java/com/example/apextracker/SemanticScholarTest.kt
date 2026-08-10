@@ -210,4 +210,43 @@ class SemanticScholarTest {
         assertEquals("", paper.url)
         assertEquals("", paper.pdfUrl)
     }
+
+    // --- recommendations (Issue #150) ---
+
+    @Test
+    fun `recommendation response parses like a search response`() {
+        val json = """
+            {"recommendedPapers":[
+              {"paperId":"p1","title":"First","year":2026,"authors":[{"name":"A. Author"}]},
+              {"paperId":"p2","title":"Second"}
+            ]}
+        """.trimIndent()
+        val papers = parseS2RecommendationsJson(json)
+        assertEquals(listOf("First", "Second"), papers.map { it.title })
+        assertEquals("A. Author", papers.first().authors)
+    }
+
+    @Test
+    fun `a malformed recommendation row is skipped, not fatal`() {
+        val json = """{"recommendedPapers":[{"title":"no id"},{"paperId":"p2","title":"kept"}]}"""
+        assertEquals(listOf("kept"), parseS2RecommendationsJson(json).map { it.title })
+    }
+
+    @Test
+    fun `recommendation body carries both example lists`() {
+        val body = buildRecommendationsBody(
+            RecommendationExamples(positive = listOf("a", "b"), negative = listOf("c"))
+        )
+        val obj = org.json.JSONObject(body)
+        assertEquals(2, obj.getJSONArray("positivePaperIds").length())
+        assertEquals("c", obj.getJSONArray("negativePaperIds").getString(0))
+    }
+
+    @Test
+    fun `an empty negative list is still sent, as an empty array`() {
+        val obj = org.json.JSONObject(
+            buildRecommendationsBody(RecommendationExamples(listOf("a"), emptyList()))
+        )
+        assertEquals(0, obj.getJSONArray("negativePaperIds").length())
+    }
 }

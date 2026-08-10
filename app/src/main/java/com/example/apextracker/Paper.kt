@@ -17,6 +17,8 @@ object PaperSource {
     const val MANUAL = "MANUAL" // pasted link / id
     const val SEED = "SEED"     // the bundled starter list
     const val DAILY = "DAILY"   // daily Semantic Scholar topic discovery
+    /** Semantic Scholar recommendations drawn from what the reader finished and rated (#150). */
+    const val RECOMMENDED = "RECOMMENDED"
 }
 
 /**

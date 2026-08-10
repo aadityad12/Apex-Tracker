@@ -2,6 +2,7 @@ package com.example.apextracker
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -123,6 +124,28 @@ fun parseS2SearchJson(json: String): List<FetchedPaper> {
     }
 }
 
+/**
+ * Parses the `recommendedPapers` array from the recommendations API (Issue #150). Same
+ * skip-the-bad-row handling as [parseS2SearchJson]; only the wrapper key differs.
+ */
+fun parseS2RecommendationsJson(json: String): List<FetchedPaper> {
+    val papers = JSONObject(json).getJSONArray("recommendedPapers")
+    return (0 until papers.length()).mapNotNull { index ->
+        papers.optJSONObject(index)?.let { row -> runCatching { parseS2PaperJson(row.toString()) }.getOrNull() }
+    }
+}
+
+/**
+ * The request body for the batch recommendations endpoint. Built with `JSONObject`/`JSONArray`
+ * rather than string concatenation because paper ids come from stored rows, which came from a
+ * remote API — and hand-built JSON is how an unexpected character becomes a malformed request.
+ */
+fun buildRecommendationsBody(examples: RecommendationExamples): String =
+    JSONObject()
+        .put("positivePaperIds", JSONArray(examples.positive))
+        .put("negativePaperIds", JSONArray(examples.negative))
+        .toString()
+
 private const val S2_FIELDS = "title,authors,year,venue,abstract,tldr,url,openAccessPdf"
 
 /**
@@ -139,6 +162,10 @@ fun buildSearchUrl(field: String, keyword: String, today: LocalDate): String {
         "?query=$query&fields=$S2_FIELDS&limit=10" +
         "&publicationDateOrYear=$dateRange&fieldsOfStudy=$encodedField"
 }
+
+/** The batch recommendations endpoint, which takes positive *and* negative examples (Issue #150). */
+fun buildRecommendationsUrl(limit: Int): String =
+    "https://api.semanticscholar.org/recommendations/v1/papers?fields=$S2_FIELDS&limit=$limit"
 
 class SemanticScholarClient {
     /**
@@ -196,6 +223,43 @@ class SemanticScholarClient {
                 }
             }
         }
+
+    /**
+     * Papers similar to what the reader actually finished and liked (Issue #150).
+     *
+     * The batch `POST /recommendations/v1/papers` form rather than `forpaper/{id}`, because the
+     * whole point is to weigh several liked papers together *and* to say what was disliked —
+     * `forpaper` takes neither. Shares the 429 handling with [searchRecent]: both draw on the same
+     * unauthenticated pool, so a backoff earned by one applies to the other.
+     */
+    suspend fun fetchRecommendations(
+        examples: RecommendationExamples,
+        limit: Int
+    ): Result<List<FetchedPaper>> = withContext(Dispatchers.IO) {
+        runCatching {
+            val conn = URL(buildRecommendationsUrl(limit)).openConnection() as HttpURLConnection
+            try {
+                conn.requestMethod = "POST"
+                conn.doOutput = true
+                conn.connectTimeout = 10_000
+                conn.readTimeout = 15_000
+                conn.setRequestProperty("Accept", "application/json")
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.outputStream.use { it.write(buildRecommendationsBody(examples).toByteArray()) }
+                when (val code = conn.responseCode) {
+                    HttpURLConnection.HTTP_OK ->
+                        parseS2RecommendationsJson(conn.inputStream.bufferedReader().use { it.readText() })
+                    429 -> {
+                        val retrySeconds = conn.getHeaderField("Retry-After")?.toLongOrNull()
+                        throw SemanticScholarRateLimitedException(retrySeconds)
+                    }
+                    else -> throw IllegalStateException("Semantic Scholar HTTP $code")
+                }
+            } finally {
+                conn.disconnect()
+            }
+        }
+    }
 }
 
 class PaperNotFoundException : Exception("Paper not found")
