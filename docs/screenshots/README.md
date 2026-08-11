@@ -10,6 +10,10 @@ Organised as before/after pairs of the visual redesign:
 Each folder holds the same five screens: `dashboard.png`, `study_tracker.png`,
 `screen_time.png`, `budget_tracker.png`, `overview.png`.
 
+`features/` is different — not an identity pair, just one shot per feature that is hard to
+describe in prose, captured 2026-08-11 on the Graphite identity: `widgets.png` (cropped to the
+two home-screen widgets), `receipt_scan.png`, `papers_recommendations.png`.
+
 Capture recipe (so a re-shoot matches): install the debug build, put the status bar into
 SystemUI demo mode to hide personal icons, then for each screen `am force-stop` the app and
 cold-launch it with `--es navigate_to <route>` before `screencap`.
