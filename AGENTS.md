@@ -2,7 +2,7 @@
 
 This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
 
-Last full audit: 2026-07-07 (Firebase/auth follow-up: 2026-07-08; Known Issues fix pass + dependency bumps: 2026-07-09, branch `fix/known-issues-3-through-10`; Firebase sync unification (Issue #4): 2026-07-09, branch `fix/issue-4-firebase-sync`, merged as PR #16; bug-fix pass for issues #18–#31: 2026-07-10, merged as PRs #48/#50 — see "2026-07-10 Bug-Fix Pass" below; feature pass for issues #17/#32–#41/#53: 2026-07-11 → 2026-07-14, see "2026-07-11 → 2026-07-14 Feature Pass" below; doc-accuracy pass reconciling this file with the code: 2026-07-17; feature+verification pass 2026-07-18 → 2026-07-20: currency setting #76, category limits #75, notes export #77, screen-time app-list+chart #43, overview drill-in #47, subscriptions-colour #82, study subjects #78, and biometric lock #45 all merged, with the DB-migration (#78, v14) and biometric (#45) changes verified on-device — see the dated sections below; **Dashboard goal-tracking feature 2026-07-21 → 2026-07-22**, PRs #100–#103 merged + sync in progress, making the Dashboard the app home and bumping the DB to **v15** — see the "2026-07-21 → 2026-07-22 Dashboard" section; **bug/a11y/docs pass 2026-07-23** on branch `fix/issues-2026-07-23` covering issues #105–#120 and #97 — see the dated section at the end; **UI redesign foundation 2026-07-28 → 2026-07-29** on branch `redesign/foundation`, which replaced the whole theming layer, bundled real typefaces, and added a design-system skill — see "2026-07-29 Redesign foundation" at the end and **`Design.md` at the repo root**; **study timer flip clock 2026-08-01** on branch `feature/study-flip-clock`, which replaced the stopwatch readout with a split-flap digit display and added a focus mode — see "2026-08-01 Study timer flip clock" below). If you make significant architectural changes, update this file in the same session.
+Last full audit: 2026-07-07 (Firebase/auth follow-up: 2026-07-08; Known Issues fix pass + dependency bumps: 2026-07-09, branch `fix/known-issues-3-through-10`; Firebase sync unification (Issue #4): 2026-07-09, branch `fix/issue-4-firebase-sync`, merged as PR #16; bug-fix pass for issues #18–#31: 2026-07-10, merged as PRs #48/#50 — see "2026-07-10 Bug-Fix Pass" below; feature pass for issues #17/#32–#41/#53: 2026-07-11 → 2026-07-14, see "2026-07-11 → 2026-07-14 Feature Pass" below; doc-accuracy pass reconciling this file with the code: 2026-07-17; feature+verification pass 2026-07-18 → 2026-07-20: currency setting #76, category limits #75, notes export #77, screen-time app-list+chart #43, overview drill-in #47, subscriptions-colour #82, study subjects #78, and biometric lock #45 all merged, with the DB-migration (#78, v14) and biometric (#45) changes verified on-device — see the dated sections below; **Dashboard goal-tracking feature 2026-07-21 → 2026-07-22**, PRs #100–#103 merged + sync in progress, making the Dashboard the app home and bumping the DB to **v15** — see the "2026-07-21 → 2026-07-22 Dashboard" section; **bug/a11y/docs pass 2026-07-23** on branch `fix/issues-2026-07-23` covering issues #105–#120 and #97 — see the dated section at the end; **UI redesign foundation 2026-07-28 → 2026-07-29** on branch `redesign/foundation`, which replaced the whole theming layer, bundled real typefaces, and added a design-system skill — see "2026-07-29 Redesign foundation" at the end and **`Design.md` at the repo root**; **study timer flip clock 2026-08-01** on branch `feature/study-flip-clock`, which replaced the stopwatch readout with a split-flap digit display and added a focus mode — see "2026-08-01 Study timer flip clock" below; **feature pass 2026-08-10 → 2026-08-11** clearing the last five open issues one PR each — the at-a-glance widget (#44), the study-timer widget and the shared start/pause path in `StudyTimerControl.kt` (#132), Papers recommendations (#150), receipt scanning (#46), and **SQLCipher at-rest encryption of the database** (#117) — see "Database encryption", "Home-screen widgets", "Receipt scanning" above; **doc reconciliation 2026-08-11**: CLAUDE.md and AGENTS.md had drifted in *both* directions (each held sections the other lacked) and were merged back to one roster — if you update one, update the other, or collapse them). If you make significant architectural changes, update this file in the same session.
 
 **Doc-accuracy note (2026-07-17)**: issues #68–#74 were all filed against *this file* for drifting out of sync with the code — stale DB version, a test roster missing three files, shipped features listed as open work. Enumerated lists here rot; prefer pointing at the source of truth (`gh issue list`, `find app/src/test -name '*Test.kt'`) over restating it.
 
@@ -105,6 +105,93 @@ Screen Time supports per-app daily limits (Issue #124): `AppUsageLimit` stores e
   - **Snooze** → reads the row from Room (via `goAsync()`) and re-arms the alarm 10 minutes out, no DB write. It no-ops if the reminder is already completed or deleted (Issue #64) — the notification can outlive the reminder. A reboot mid-snooze re-arms from the real due time via `ReminderBootReceiver`, not the snooze (accepted tradeoff).
 - **When an alarm fires (`ReminderScheduler.resolveTriggerTime`, Issue #80, 2026-07-17)** — the single "when, if ever" decision, pure and unit-tested in `ReminderSchedulerTest`. The offset setting means "notify N minutes *before* the task", so for a task nearer than N minutes the raw `computeTriggerTime()` lands in the past. It used to be dropped silently (alarm cancelled, reminder still looking active, no feedback) — with the 30-minute default that meant **any reminder set less than 30 minutes out never notified**, which is exactly how the feature gets first tested. It now clamps to `now` and only gives up once the task's own due time has passed. All-day reminders take no offset, so their past trigger is the real notification time having gone by and is deliberately **not** clamped. `scheduleReminderIfNeeded` logs the give-up case — without it, "notifications are broken" is only diagnosable via `adb shell dumpsys alarm`.
 - `ReminderCompletion.kt` — **the shared completion path**: `completeReminder()` and `scheduleReminderIfNeeded()` are top-level functions used by *both* the in-app checkbox (`ReminderViewModel.toggleCompletion`) and the notification's Done action, so recurrence advancement / alarm cancel / cloud push can't drift apart. They're top-level precisely because a `BroadcastReceiver` has no `AndroidViewModel` to hang off. `completeReminder()` claims the completion with an atomic compare-and-set (`ReminderDao.markCompletedIfActive`, `WHERE id = :id AND isCompleted = 0`) and bails if it loses — the two call paths can race across *processes*, so `ReminderViewModel`'s in-memory `togglesInFlight` set can't cover it, and a lost race would insert a duplicate next occurrence for a recurring reminder (Issue #63). **Any new completion path must go through `completeReminder()`.**
+
+### Database encryption (Issue #117)
+`budget_database` is SQLCipher-encrypted under a 32-byte key wrapped by an Android Keystore
+AES-GCM key. `DatabaseEncryption.kt` owns all of it; `AppDatabase` just asks it for an
+`openHelperFactory`.
+
+- **What it protects**: the file once it leaves the device (a rooted pull, an offline image, a
+  file-access exploit). The Keystore key is deliberately **not** user-authentication-bound —
+  reminders, widgets and WorkManager all open the database while the screen is locked, and
+  requiring an unlock would break every one of them. Against someone holding the unlocked phone,
+  the biometric lock is the control, not this.
+- **Never destroys readable data.** Every failure path degrades instead: no Keystore key on a new
+  install → run unencrypted; conversion fails → the untouched plaintext file is opened as before;
+  an encrypted file with no key → renamed `.unreadable` and kept, never deleted, and the app
+  starts fresh (signed-in users re-pull, same guarantee `fallbackToDestructiveMigration` relies on).
+- **Existing installs convert once, in place**, before Room opens the file — that is the only
+  moment it can happen. `user_version` has to survive the copy or Room sees version 0 and runs the
+  destructive fallback.
+
+Four things about `net.zetetic:sqlcipher-android` that are not in the obvious docs, each of which
+cost a debug cycle here:
+1. **It does not load its own native library** and has no `loadLibs` helper (the old artifact did).
+   Without an explicit `System.loadLibrary("sqlcipher")` everything fails with `UnsatisfiedLinkError`.
+2. **Open flags propagate to `ATTACH`.** Opening the source without `CREATE_IF_NECESSARY` means the
+   attach cannot create the destination — `SQLITE_CANTOPEN`, or silently no file and no error.
+3. **A text key literal and the same bytes as a blob derive different keys.** `KEY 'text'` produces
+   a file that `SupportOpenHelperFactory(byte[])` then rejects as "file is not a database". Use the
+   `x'<hex>'` blob form everywhere, and verify by reopening through the byte[] overload.
+4. **`PRAGMA cipher_memory_security = OFF` is required in practice.** Its `mlock` of key pages fails
+   continuously against Android's small `RLIMIT_MEMLOCK` (`errno=12`), which ANR'd the app on first
+   load. Applied via an `SQLiteDatabaseHook` on every connection.
+
+Cost: **+0.35MB** of APK for the classes, plus ~4–6MB of `libsqlcipher.so` per ABI.
+
+### Home-screen widgets (Glance)
+Everything lives in `widget/`; each provider is a `GlanceAppWidget` + a `GlanceAppWidgetReceiver`
+registered in the manifest against an `res/xml/*_widget_info.xml`. **Don't restate the roster here**
+— read the `<receiver>` entries in `AndroidManifest.xml`.
+
+- **Glance runs in the launcher's process and cannot read the app's Compose `ColorScheme`.**
+  `WidgetPalette.kt` is the single hand-kept mirror of `ApexPalette`'s GRAPHITE dark values; nothing
+  enforces the correspondence, so changing `ApexPalette` means changing it too. Widgets are always
+  dark, in both launcher themes.
+- **A widget reads a snapshot, never a flow** — `loadDashboardSnapshot` (#130/#131),
+  `loadBudgetWidgetSnapshot` (#167), `loadTodaySnapshot` (#44). The snapshot function is where the
+  DAO calls and the pure logic meet, and it is shared with the app so the two can't disagree.
+- **Refresh is explicit.** `updatePeriodMillis` bottoms out at 30 minutes, so the `refresh*Widget`
+  helpers in `ApexWidgets.kt` are called from the app's own write points. Pick the hook by how
+  often the source changes: `ReminderViewModel` collects its table (six mutation methods, plus sync
+  and restore, for free), `StudyViewModel` fires only on start and the `forcePush` saves (**never
+  the per-second tick**), and `ScreenTimeViewModel` fires only when the *displayed minute* moves.
+  Updates land through a WorkManager `SessionWorker`, so a refresh issued as the app backgrounds
+  arrives a few seconds later — that lag is Glance, not a missed hook.
+- **Widgets are outside the biometric lock's reach** (Issue #187): a gated module withholds its
+  figures in the *snapshot*, not the layout, because the snapshot is what crosses into the
+  launcher's process. See `budgetWidgetSnapshot`.
+- Deep links go through `MainActivity.EXTRA_NAVIGATE_TO`, which `sanitizeRequestedRoute` filters
+  against `APP_ROUTES` (Issue #105).
+- **A widget that *writes* goes through a shared top-level path, never its own copy of the logic.**
+  The study widget's start/pause button (#132) calls `StudyTimerControl.kt`, which `StudyViewModel`
+  also calls — same reason `ReminderCompletion.kt` is top-level. `StudyTimerStateStore` is the
+  durable record of whether the stopwatch runs and Room is the record of what it has banked; the
+  ViewModel only *mirrors* both, and collects `StudyTimerStateStore.runningFlow()` so a launcher
+  toggle reaches it instead of leaving that mirror stale. Read `StudyTimerControl.kt` before adding
+  any other way to start or stop the stopwatch.
+
+### Receipt scanning (Issue #46)
+A camera button in `BudgetItemDialog`'s amount field picks a photo (`PickVisualMedia`, so **no
+permission is ever requested**) and prefills title / amount / date. Nothing is auto-saved and the
+image is never copied into app storage.
+
+- **`ReceiptOcr.kt` is the only file that touches ML Kit**, so the dependency is one deletion away.
+  It uses the **Play-Services-delivered** recognizer, not `com.google.mlkit:text-recognition`:
+  bundling the model costs 45MB of APK (39MB of native libraries, one per ABI) against 0.35MB for
+  the wrapper, and the app already requires Play Services. The manifest's
+  `com.google.mlkit.vision.DEPENDENCIES` meta-data asks for the model at install time.
+- **`ReceiptParse.kt` is where the feature actually lives** — pure and unit-tested in
+  `ReceiptParseTest`. Two things there are non-obvious and were both found by scanning a real
+  photo, not by reading the API:
+  - **`reflowReceiptLines` is load-bearing.** Text recognition groups by *block*, and a receipt's
+    label column and amount column are usually two blocks — so `Text.text` returns every label,
+    then every amount, and `TOTAL` never shares a line with its figure. Rebuilding visual rows from
+    the lines' bounding boxes is what makes label-based ranking work at all. Don't "simplify" this
+    back to `result.text`.
+  - Ranking: labelled lines (TOTAL/AMOUNT DUE…) first, subtotal/tax/change **dropped** rather than
+    ranked low, and among unlabelled numbers a figure *with cents* beats a larger bare integer —
+    otherwise a street number in the address wins.
 
 ### Permissions
 - `PACKAGE_USAGE_STATS` + `QUERY_ALL_PACKAGES` — Required for screen time tracking.
@@ -315,7 +402,7 @@ snapshot listeners, and every Papers mutation mirrors to the cloud while Room re
 of truth. **Daily discovery shipped in Issue #149**: `PapersDiscoverySettings.kt` stores selected
 Semantic Scholar fields, the last attempt date, and shared 429 backoff in DataStore. Opening
 Reading rotates through one field per day, makes at most one `/paper/search` request, deduplicates
-by `s2Id`, and inserts at most three `PaperSource.DAILY` rows. Recommendations remain #150.
+by `s2Id`, and inserts at most three `PaperSource.DAILY` rows. Recommendations shipped in #150 — see the Papers discovery section below.
 
 ## 2026-07-30 Graphite identity (Plan.md Phase 2, branch `redesign/graphite`)
 
@@ -389,6 +476,113 @@ clock") digit display, and added a focus mode.
 - DB v21 / `MIGRATION_20_21` adds the non-null cadence column with `DEFAULT 'DAILY'`. Firestore and
   backup parsing use the same legacy default. The v20→v21 migration and manual weekly workflow
   were verified on the connected physical device without losing its existing data.
+
+## 2026-08-07 Papers discovery redesign
+
+Replaced the old bare-field discovery (pick from 8 umbrella fields, one rotates per day, the S2
+query was literally the field name as text) with keyword-scoped topics and an engagement-weighted
+recommender. Scoped via a 14-question `/grill-me` interview before implementation; DB bumped to
+**v22** (`MIGRATION_21_22`).
+
+- **`PaperTopic`** (new entity, `paper_topics` table) — a user-added `(field, keyword)` pair, e.g.
+  Computer Science + "diffusion models"; `keyword` is the real S2 search query now, `field` stays
+  only as the `fieldsOfStudy` filter. Max **8** topics (`MAX_PAPER_TOPICS`). Each topic accumulates
+  `readCount`/`abandonedCount`/`ratingSum`/`ratingCount`/`consecutiveAbandons` and a
+  `lastCheckedDate`; `pausedAt` (non-null = muted) excludes it from rotation while keeping history.
+  `Paper` gained `topicCloudId` (the topic's *cloudId*, not local Room id — same
+  cross-device-reference reasoning as `resolveReminderParentLinks`; "" = MANUAL/SEED/deleted-topic,
+  falls back to neutral weight, no cleanup needed).
+- **Pure logic in `PapersDiscoveryScoring.kt`** (unit-tested in `PapersDiscoveryScoringTest`):
+  `topicEngagementScore` (0.5 neutral with no outcomes yet, else a blend of read-ratio and average
+  rating), `guaranteedSlotTopic` (oldest/never-checked topic — the "every topic gets covered"
+  guarantee), `bonusSlotTopics` (weighted-random by engagement, floor-weighted so a
+  consistently-abandoned topic is never fully unreachable — "healthy rotation" without starving
+  anyone), `dailyTopicFetchPlan` (1 guaranteed + up to 2 bonus slots/day), `shouldPromptMute` (3
+  consecutive abandons). `PapersLogic.dailyPick` changed signature to `(queue, topics)` — no longer
+  epoch-day-indexed; it's just "the WANT paper whose topic has the best track record," so
+  **same-day chaining is free**: marking the current pick READ/ABANDONED removes it from the WANT
+  queue, Room re-emits, and the next-best paper is promoted automatically without waiting for
+  tomorrow.
+- **Fetch volume**: up to 3 topic-slots/day, hard-capped at **5 new papers/day total** across
+  whichever slots run (`PapersViewModel.PER_SLOT_LIMIT`/`DAILY_TOTAL_CAP`). A slot's
+  `lastCheckedDate` only advances if its request actually ran — hitting the daily cap or a network
+  failure skips the slot without falsely marking it checked, so it stays "most overdue" and gets
+  priority next time.
+- **Reactivity gotcha, caught by on-device testing**: the daily-fetch trigger (`PapersViewModel`
+  init) must recompute on **both** `discoveryPrefs.preferences` *and* `discoveryTopics` changes —
+  adding your first topic doesn't touch the DataStore prefs, so a collector keyed only on
+  `preferences` (as the old bare-field version was, since fields lived in that same DataStore)
+  silently never fires until the next cold start. Fixed by `combine(discoveryPrefs.preferences,
+  discoveryTopics) { preferences, _ -> preferences }.collect { ... }` — verified end-to-end on the
+  emulator (add topic → immediate fetch attempt → real Semantic Scholar 429 handled cleanly, topic
+  correctly left unchecked for retry).
+- **Onboarding** — first opening Reading with zero topics shows a front-and-center "What do you
+  want to read about?" prompt (`PapersView.OnboardingPrompt`) ahead of the old "Import starter
+  list" empty-state action, with a `discoveryOnboardingDismissed`-style DataStore flag so it
+  doesn't nag once dismissed. Existing installs are **reset, not migrated** — the old
+  `PapersDiscoveryPrefs.fields` key is simply no longer read, and `paper_topics` starts empty for
+  everyone, which was an explicit decision in the grill-me interview.
+- **Mute nudge** — an inline dismissible row (not a snackbar) surfaces after 3 straight abandons
+  from one topic, offering Mute (pauses, doesn't delete) or Keep it.
+- **Sync** — `PaperTopic` follows the standard 5-part Firestore shape at
+  `users/{uid}/paper_topics/{cloudId}`, registered in `performInitialSync` and `SyncCoordinator`
+  alongside `papers`. Included in the full-dataset backup (`BackupData.paperTopics`).
+- **Verified on-device (2026-08-07, Medium_Phone emulator)**: onboarding prompt, topic
+  add/list/mute UI (including the `apexMenuBorder()` field dropdown), the reactive fetch-trigger
+  fix, real Semantic Scholar network integration (hit the documented unauthenticated rate limit
+  cleanly, no crash), seed import, mark-read with same-day chaining to the next queue item — all
+  confirmed working, no crashes in logcat throughout. Schema diffed against the exported
+  `app/schemas/…/22.json`.
+
+## 2026-08-07 Security & correctness pass (issues #186–#198)
+
+A full-codebase review filed thirteen issues and fixed all thirteen, one commit each, on branch
+`claude/codebase-security-review-934d59`. Verified by `assembleDebug` / `testDebugUnitTest` (399
+tests) / `lintDebug` (0 errors) / `assembleRelease`. **No device or emulator run** — the sync and
+migration changes below are the ones that most deserve an on-device check before release.
+
+- **Account switching wipes local data (#186)** — the highest-impact finding. `performInitialSync`
+  pushes *every* local row to the signed-in uid (that's how offline edits reach the cloud, Issue
+  #4), but nothing recorded *whose* rows they were, so signing in as B uploaded A's notes and
+  budget into `users/{B-uid}/...`. `AccountIdentity` persists the owning uid,
+  `shouldResetLocalDataForUid` is the pure decision (**null previous uid = first sign-in, keep the
+  data**), and `clearLocalUserData` wipes Room + note attachment files + the personal DataStores
+  before the sync runs. `FirebaseManager.firestore` is now a per-access getter so terminating the
+  client to clear its cache can't strand live managers on a dead instance.
+- **The biometric lock actually locks (#187)** — it gated two routes; the same data was readable
+  from the backup export (three taps, plaintext file), the Budget widget, and Overview.
+  `rememberUnlockedAction` is the new shape for a one-shot sensitive action on an unlocked surface
+  (`LockGate` can only protect a whole destination). The widget withholds figures in
+  `budgetWidgetSnapshot`, not the layout — the snapshot crosses into the launcher's process.
+  **The Dashboard was deliberately left alone**: `GoalStatus` carries only the goal and a
+  satisfied boolean, so a SPEND goal leaks no amount.
+- **`rescheduleAllReminders` is the one alarm sweep (#188, #195)** — reminders written by sync or a
+  backup restore never got an alarm and silently never fired. It is idempotent, so a blanket
+  re-arm is safe; **that is why it's a sweep rather than a call threaded through each write site**
+  — the next thing that inserts a `Reminder` gets it for free. `ReminderBootReceiver` now goes
+  through it too (it had been recomputing trigger times with `computeTriggerTime`, reintroducing
+  Issue #80 on every reboot) and listens for `MY_PACKAGE_REPLACED`.
+- **Restore replaces, in the cloud too (#189)** — `restoreBackupAndReconcile` stops the listeners,
+  restores, then `replaceCloudWithLocal` prunes and re-pushes. Previously the listeners re-inserted
+  everything the restore cleared. Screen time is exempt (per-device measurement, not this device's
+  to delete).
+- **Untrusted-data boundaries (#190–#194)** — `sanitizeWebUrl` at both paper-parse boundaries
+  (`file:` URIs were an uncaught `FileUriExposedException` crash); `csvEscape` neutralizes
+  spreadsheet formula triggers (**amounts deliberately bypass it** so a refund stays a number);
+  `noteAttachmentFile` is nullable and containment-checked, with sanitizing in `parseBackupJson`;
+  `parseReminderDoc` uses `parseRecurrenceSafe` like the Room converter always did; and
+  `note_attachments` + the personal DataStores are excluded from Android backup.
+- **Derived rows get derived identities (#196)** — subscription-generated `BudgetItem`s used a
+  random UUID, so every signed-in device minted its own row for the same charge and totals doubled.
+  `subscriptionItemCloudId(subscriptionCloudId, renewal)` keys on the **month**, since the day
+  drifts. `renewalDate` is now treated as monotonic in `applySubscriptionDoc` — it's a cursor, and
+  last-writer-wins would rewind it.
+- **R8 is on in release (#198)** — and this is the one to be careful with: `backupGson()`
+  serializes by *field name*, so `app/proguard-rules.pro` keeping those members is load-bearing.
+  A minified build without it writes an unreadable backup format. Read that file before touching
+  `isMinifyEnabled`. Verified by parsing the release DEX with `dexdump` — note that checking this
+  with `strings` gives false negatives, because DEX pool entries run together in its output.
+  `androidx.biometric` stays at 1.1.0: every later version on Google Maven is an alpha.
 
 ## Developer's own TODO list (from notes.txt, still current)
 - Budget: "Extract from receipt" (OCR/receipt-parsing) — not started.

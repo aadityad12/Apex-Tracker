@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Last full audit: 2026-07-07 (Firebase/auth follow-up: 2026-07-08; Known Issues fix pass + dependency bumps: 2026-07-09, branch `fix/known-issues-3-through-10`; Firebase sync unification (Issue #4): 2026-07-09, branch `fix/issue-4-firebase-sync`, merged as PR #16; bug-fix pass for issues #18–#31: 2026-07-10, merged as PRs #48/#50 — see "2026-07-10 Bug-Fix Pass" below; feature pass for issues #17/#32–#41/#53: 2026-07-11 → 2026-07-14, see "2026-07-11 → 2026-07-14 Feature Pass" below; doc-accuracy pass reconciling this file with the code: 2026-07-17; feature+verification pass 2026-07-18 → 2026-07-20: currency setting #76, category limits #75, notes export #77, screen-time app-list+chart #43, overview drill-in #47, subscriptions-colour #82, study subjects #78, and biometric lock #45 all merged, with the DB-migration (#78, v14) and biometric (#45) changes verified on-device — see the dated sections below; **Dashboard goal-tracking feature 2026-07-21 → 2026-07-22**, PRs #100–#103 merged + sync in progress, making the Dashboard the app home and bumping the DB to **v15** — see the "2026-07-21 → 2026-07-22 Dashboard" section; **bug/a11y/docs pass 2026-07-23** on branch `fix/issues-2026-07-23` covering issues #105–#120 and #97 — see the dated section at the end; **UI redesign foundation 2026-07-28 → 2026-07-29** on branch `redesign/foundation`, which replaced the whole theming layer, bundled real typefaces, and added a design-system skill — see "2026-07-29 Redesign foundation" at the end and **`Design.md` at the repo root**; **study timer flip clock 2026-08-01** on branch `feature/study-flip-clock`, which replaced the stopwatch readout with a split-flap digit display and added a focus mode — see "2026-08-01 Study timer flip clock" below; **Papers discovery redesign 2026-08-07**, which replaced the bare-field rotation with keyword topics and an engagement-weighted recommender, bumping the DB to **v22** — see "2026-08-07 Papers discovery redesign" below). If you make significant architectural changes, update this file in the same session.
+Last full audit: 2026-07-07 (Firebase/auth follow-up: 2026-07-08; Known Issues fix pass + dependency bumps: 2026-07-09, branch `fix/known-issues-3-through-10`; Firebase sync unification (Issue #4): 2026-07-09, branch `fix/issue-4-firebase-sync`, merged as PR #16; bug-fix pass for issues #18–#31: 2026-07-10, merged as PRs #48/#50 — see "2026-07-10 Bug-Fix Pass" below; feature pass for issues #17/#32–#41/#53: 2026-07-11 → 2026-07-14, see "2026-07-11 → 2026-07-14 Feature Pass" below; doc-accuracy pass reconciling this file with the code: 2026-07-17; feature+verification pass 2026-07-18 → 2026-07-20: currency setting #76, category limits #75, notes export #77, screen-time app-list+chart #43, overview drill-in #47, subscriptions-colour #82, study subjects #78, and biometric lock #45 all merged, with the DB-migration (#78, v14) and biometric (#45) changes verified on-device — see the dated sections below; **Dashboard goal-tracking feature 2026-07-21 → 2026-07-22**, PRs #100–#103 merged + sync in progress, making the Dashboard the app home and bumping the DB to **v15** — see the "2026-07-21 → 2026-07-22 Dashboard" section; **bug/a11y/docs pass 2026-07-23** on branch `fix/issues-2026-07-23` covering issues #105–#120 and #97 — see the dated section at the end; **UI redesign foundation 2026-07-28 → 2026-07-29** on branch `redesign/foundation`, which replaced the whole theming layer, bundled real typefaces, and added a design-system skill — see "2026-07-29 Redesign foundation" at the end and **`Design.md` at the repo root**; **study timer flip clock 2026-08-01** on branch `feature/study-flip-clock`, which replaced the stopwatch readout with a split-flap digit display and added a focus mode — see "2026-08-01 Study timer flip clock" below; **Papers discovery redesign 2026-08-07**, which replaced the bare-field rotation with keyword topics and an engagement-weighted recommender, bumping the DB to **v22** — see "2026-08-07 Papers discovery redesign" below; **feature pass 2026-08-10 → 2026-08-11** clearing the last five open issues one PR each — the at-a-glance widget (#44), the study-timer widget and the shared start/pause path in `StudyTimerControl.kt` (#132), Papers recommendations (#150), receipt scanning (#46), and **SQLCipher at-rest encryption of the database** (#117) — see "Database encryption", "Home-screen widgets", "Receipt scanning" above; **doc reconciliation 2026-08-11**: CLAUDE.md and AGENTS.md had drifted in *both* directions (each held sections the other lacked) and were merged back to one roster — if you update one, update the other, or collapse them). If you make significant architectural changes, update this file in the same session.
 
 **Doc-accuracy note (2026-07-17)**: issues #68–#74 were all filed against *this file* for drifting out of sync with the code — stale DB version, a test roster missing three files, shipped features listed as open work. Enumerated lists here rot; prefer pointing at the source of truth (`gh issue list`, `find app/src/test -name '*Test.kt'`) over restating it.
 
@@ -465,6 +465,32 @@ clock") digit display, and added a focus mode.
   and disables flap animation to reduce light and motion. Pausing restores the exact prior window
   brightness and normal theme. This is deliberately an in-app always-on surface; Android does not
   let a normal phone app replace the system/lock-screen AOD.
+
+## 2026-08-05 Weekly goal cadence (Issue #166)
+
+- `Goal.cadence` is `DAILY` (the migration/default for every existing goal) or `WEEKLY`.
+  Weekly means an ISO Monday–Sunday period; `goalCompletionDate()` canonicalizes manual check-offs
+  to that Monday, so every day in the same week reads/writes one stable completion row/document.
+- Automatic weekly goals aggregate the active portion of that period via
+  `metricsForGoalPeriod()` before reusing `evaluateAutoGoal()`. A mid-week start or archive clamps
+  the aggregation window so inactive days never contribute.
+- DB v21 / `MIGRATION_20_21` adds the non-null cadence column with `DEFAULT 'DAILY'`. Firestore and
+  backup parsing use the same legacy default. The v20→v21 migration and manual weekly workflow
+  were verified on the connected physical device without losing its existing data.
+
+## 2026-08-05 Daily Apex Tip (Issue #168)
+
+- `ApexTipViewModel` exposes an opt-in card on Dashboard. Before enabling, the card states exactly
+  which anonymous daily aggregates leave the device; names, notes, transaction details and app
+  names are never put in the prompt.
+- `ApexTipSettings` stores consent, the last attempt date and one locally cached response. Automatic
+  generation is capped at one attempt per local day; a failed request requires an explicit Retry.
+  The DataStore file is excluded from Android backup because the response is personal and dated.
+- `FirebaseApexTipGenerator` uses Firebase AI Logic with stable `gemini-3.5-flash-lite`; debug builds
+  use App Check's debug provider and release builds use Play Integrity. The Firebase project must
+  have AI Logic enabled and the local debug token allowlisted before a debug request can succeed.
+- Prompt construction, output bounding and daily-request decisions are pure logic covered by
+  `ApexTipTest`. Firebase remains behind the small generator boundary; Room is not involved.
 
 ## 2026-08-07 Papers discovery redesign
 

@@ -159,5 +159,9 @@ Bundled into PR #153 rather than a separate PR because the README's "after" imag
 graphite branch. **It is a draft for the owner to edit until it sounds like him** — that final
 pass is the one piece left, and it is deliberately the owner's, not the agent's.
 
-**All three workstreams are delivered.** Remaining open work is only the deferred issues
-(#149/#150/#151 for Papers) and the flagged Design.md full-table rewrite.
+**All three workstreams are delivered.** The Papers issues deferred out of Phase 1 have since
+shipped too — #151 (Firestore sync) and #149 (daily topic discovery) in the 2026-08-07 discovery
+redesign, and #150 (recommendations from reading history) on 2026-08-11. As of 2026-08-11 the
+issue tracker is empty, and the only work still flagged from this plan is the **Design.md
+full-table rewrite** onto Graphite: §0 carries the authoritative values and the rest of that file
+still describes Ember.

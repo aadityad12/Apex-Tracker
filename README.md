@@ -81,7 +81,8 @@ with Google only adds optional sync so the data can follow me to another device.
   active goals met. Goals can be manual check-offs or automatic ones evaluated from the other
   trackers ("screen time under 6h", "study 2h", "read a paper today").
 - **Budget** — expenses by category, per-category and overall monthly limits, a spending-trend
-  chart, subscriptions, a calendar view, and CSV export.
+  chart, subscriptions, a calendar view, CSV export, and a camera button that reads a receipt
+  photo and fills the form in for me.
 - **Study timer** — a split-flap digit display with per-subject tracking, daily history, and
   manual back-fill for sessions I forgot to time. Starting it drops into a full-screen focus mode
   that hides the app chrome and keeps the screen awake.
@@ -91,8 +92,27 @@ with Google only adds optional sync so the data can follow me to another device.
 - **Notes** — quick notes with pinning, search, and image attachments.
 - **Papers** — a reading log for academic papers: a queue, one rotating pick a day, and a short
   memo of what I learned once I've read one. It pulls metadata from Semantic Scholar and opens
-  the PDF externally — the app owns the knowledge, not the reading.
-- **Biometric lock** — optional; gates Budget and Notes behind a device unlock.
+  the PDF externally — the app owns the knowledge, not the reading. Rating what I finish feeds a
+  "Because you read …" shelf of similar papers.
+- **Home-screen widgets** — five of them: today at a glance, a study timer I can start and stop
+  without opening the app, this month's budget, the goal streak, and today's goals.
+- **Security** — the database file is encrypted at rest, and an optional biometric lock gates
+  Budget and Notes behind a device unlock.
+
+## The three most recent additions
+
+<table>
+<tr>
+<td width="33%" valign="top"><img src="docs/screenshots/features/widgets.png" alt="Two home-screen widgets: today at a glance, and a study timer with a start button"></td>
+<td width="33%" valign="top"><img src="docs/screenshots/features/receipt_scan.png" alt="The add-expense dialog, filled in from a receipt photo"></td>
+<td width="33%" valign="top"><img src="docs/screenshots/features/papers_recommendations.png" alt="A shelf of recommended papers headed 'Because you read BERT and 1 more'"></td>
+</tr>
+<tr valign="top">
+<td><sub><b>Widgets I don't have to open the app for.</b> Today's study and screen time with whatever's next on the list — and a study timer I can start from the launcher. That last one is why the timer's start/stop logic now lives in one shared file instead of inside the ViewModel: the widget and the in-app button have to bank time to exactly the same place, or a session that runs past midnight lands on the wrong day.</sub></td>
+<td><sub><b>Photograph a receipt, get an expense.</b> On-device text recognition, nothing uploaded, no camera permission (it uses the photo picker). The chips are the other amounts it found, in case it picked wrong — and it drops the subtotal and the tax rather than offering them, because a wrong candidate is worse than one fewer.</sub></td>
+<td><sub><b>Papers like the ones I actually finished.</b> Rating a paper 4–5 makes it a positive example, 1–2 or abandoning it a negative one, and Semantic Scholar returns neighbours. The heading names what it reasoned from, so a bad recommendation is traceable rather than mysterious.</sub></td>
+</tr>
+</table>
 
 ## What I learned
 
@@ -101,13 +121,25 @@ Jetpack Compose and an MVVM structure; Room, and the discipline of hand-writing 
 **migrations** so I never lose data across a schema change; requesting and handling **device
 permissions** (usage stats, exact alarms, notifications); wiring up **Firebase Auth and
 Firestore** for cross-device sync, and learning where client-side trust ends and security rules
-begin; background work with WorkManager and AlarmManager; and — most recently — building and
-enforcing a real **design system**, so the whole app can change its identity from one place.
+begin; background work with WorkManager and AlarmManager; **home-screen widgets** with Glance,
+which run in the launcher's process and can't see any of the app's theming or state; **on-device
+ML** for reading receipts; **encrypting the database at rest** with a key the Android Keystore
+holds; and building and enforcing a real **design system**, so the whole app can change its
+identity from one place.
+
+The lesson that keeps repeating is that **it isn't done until it's run on a device**. The receipt
+parser passed every test I wrote and then filled in the street number from the shop's address,
+because text recognition returns a receipt's labels and its amounts as two separate blocks — so
+"TOTAL" never shares a line with its figure. The encryption work took four rounds of the same
+thing: a native library that doesn't load itself, open flags that quietly propagate into `ATTACH`,
+two key formats that look identical and aren't, and a memory-locking default that stalled the app
+outright. None of that is in the documentation. All of it is now in mine.
 
 ## Tech stack
 
-Kotlin · Jetpack Compose · Material 3 · MVVM · Room · Firebase (Auth + Firestore) ·
-WorkManager · Coil · Glance widgets · minSdk 26 / targetSdk 35 / compileSdk 37.
+Kotlin · Jetpack Compose · Material 3 · MVVM · Room + SQLCipher · Firebase (Auth + Firestore) ·
+WorkManager · ML Kit text recognition · Coil · Glance widgets ·
+minSdk 26 / targetSdk 35 / compileSdk 37.
 
 The visual identity — type, colour, spacing, motion, the chart spec — lives in `ui/design/` and
 is documented in [`Design.md`](Design.md); the rules applied while building UI are in
