@@ -2,7 +2,7 @@
 
 This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
 
-Last full audit: 2026-07-07 (Firebase/auth follow-up: 2026-07-08; Known Issues fix pass + dependency bumps: 2026-07-09, branch `fix/known-issues-3-through-10`; Firebase sync unification (Issue #4): 2026-07-09, branch `fix/issue-4-firebase-sync`, merged as PR #16; bug-fix pass for issues #18–#31: 2026-07-10, merged as PRs #48/#50 — see "2026-07-10 Bug-Fix Pass" below; feature pass for issues #17/#32–#41/#53: 2026-07-11 → 2026-07-14, see "2026-07-11 → 2026-07-14 Feature Pass" below; doc-accuracy pass reconciling this file with the code: 2026-07-17; feature+verification pass 2026-07-18 → 2026-07-20: currency setting #76, category limits #75, notes export #77, screen-time app-list+chart #43, overview drill-in #47, subscriptions-colour #82, study subjects #78, and biometric lock #45 all merged, with the DB-migration (#78, v14) and biometric (#45) changes verified on-device — see the dated sections below; **Dashboard goal-tracking feature 2026-07-21 → 2026-07-22**, PRs #100–#103 merged + sync in progress, making the Dashboard the app home and bumping the DB to **v15** — see the "2026-07-21 → 2026-07-22 Dashboard" section; **bug/a11y/docs pass 2026-07-23** on branch `fix/issues-2026-07-23` covering issues #105–#120 and #97 — see the dated section at the end; **UI redesign foundation 2026-07-28 → 2026-07-29** on branch `redesign/foundation`, which replaced the whole theming layer, bundled real typefaces, and added a design-system skill — see "2026-07-29 Redesign foundation" at the end and **`Design.md` at the repo root**; **study timer flip clock 2026-08-01** on branch `feature/study-flip-clock`, which replaced the stopwatch readout with a split-flap digit display and added a focus mode — see "2026-08-01 Study timer flip clock" below; **Papers discovery redesign 2026-08-07**, which replaced the bare-field rotation with keyword topics and an engagement-weighted recommender, bumping the DB to **v22** — see "2026-08-07 Papers discovery redesign" below; **feature pass 2026-08-10 → 2026-08-11** clearing the last five open issues one PR each — the at-a-glance widget (#44), the study-timer widget and the shared start/pause path in `StudyTimerControl.kt` (#132), Papers recommendations (#150), receipt scanning (#46), and **SQLCipher at-rest encryption of the database** (#117) — see "Database encryption", "Home-screen widgets", "Receipt scanning" above; **doc reconciliation 2026-08-11**: CLAUDE.md and AGENTS.md had drifted in *both* directions (each held sections the other lacked) and were merged back to one roster — if you update one, update the other, or collapse them; **heatmap reverted to colour squares 2026-08-24**: the Dashboard's contribution-graph cells went back to GitHub-style fully-filled squares with colour-ramp intensity, undoing the 2026-07-30 Graphite pass's fill-height-bar experiment — see "2026-08-24 Heatmap reverted to colour squares" at the end). If you make significant architectural changes, update this file in the same session.
+Last full audit: 2026-07-07 (Firebase/auth follow-up: 2026-07-08; Known Issues fix pass + dependency bumps: 2026-07-09, branch `fix/known-issues-3-through-10`; Firebase sync unification (Issue #4): 2026-07-09, branch `fix/issue-4-firebase-sync`, merged as PR #16; bug-fix pass for issues #18–#31: 2026-07-10, merged as PRs #48/#50 — see "2026-07-10 Bug-Fix Pass" below; feature pass for issues #17/#32–#41/#53: 2026-07-11 → 2026-07-14, see "2026-07-11 → 2026-07-14 Feature Pass" below; doc-accuracy pass reconciling this file with the code: 2026-07-17; feature+verification pass 2026-07-18 → 2026-07-20: currency setting #76, category limits #75, notes export #77, screen-time app-list+chart #43, overview drill-in #47, subscriptions-colour #82, study subjects #78, and biometric lock #45 all merged, with the DB-migration (#78, v14) and biometric (#45) changes verified on-device — see the dated sections below; **Dashboard goal-tracking feature 2026-07-21 → 2026-07-22**, PRs #100–#103 merged + sync in progress, making the Dashboard the app home and bumping the DB to **v15** — see the "2026-07-21 → 2026-07-22 Dashboard" section; **bug/a11y/docs pass 2026-07-23** on branch `fix/issues-2026-07-23` covering issues #105–#120 and #97 — see the dated section at the end; **UI redesign foundation 2026-07-28 → 2026-07-29** on branch `redesign/foundation`, which replaced the whole theming layer, bundled real typefaces, and added a design-system skill — see "2026-07-29 Redesign foundation" at the end and **`Design.md` at the repo root**; **study timer flip clock 2026-08-01** on branch `feature/study-flip-clock`, which replaced the stopwatch readout with a split-flap digit display and added a focus mode — see "2026-08-01 Study timer flip clock" below; **Papers discovery redesign 2026-08-07**, which replaced the bare-field rotation with keyword topics and an engagement-weighted recommender, bumping the DB to **v22** — see "2026-08-07 Papers discovery redesign" below; **feature pass 2026-08-10 → 2026-08-11** clearing the last five open issues one PR each — the at-a-glance widget (#44), the study-timer widget and the shared start/pause path in `StudyTimerControl.kt` (#132), Papers recommendations (#150), receipt scanning (#46), and **SQLCipher at-rest encryption of the database** (#117) — see "Database encryption", "Home-screen widgets", "Receipt scanning" above; **doc reconciliation 2026-08-11**: CLAUDE.md and AGENTS.md had drifted in *both* directions (each held sections the other lacked) and were merged back to one roster — if you update one, update the other, or collapse them; **heatmap reverted to colour squares 2026-08-24**: the Dashboard's contribution-graph cells went back to GitHub-style fully-filled squares with colour-ramp intensity, undoing the 2026-07-30 Graphite pass's fill-height-bar experiment — see "2026-08-24 Heatmap reverted to colour squares" at the end; **backup key-wrapper fix 2026-08-25 (Issue #206)**: `database_key.xml` was missing from both backup-exclusion files, so a device restore left a passphrase this device's Keystore could never decrypt and the app silently fell back to an unencrypted database forever — fixed, plus a stale-wrapper self-heal in `DatabaseEncryption.kt` — see "2026-08-25 Backup excludes the SQLCipher key wrapper" at the end). If you make significant architectural changes, update this file in the same session.
 
 **Doc-accuracy note (2026-07-17)**: issues #68–#74 were all filed against *this file* for drifting out of sync with the code — stale DB version, a test roster missing three files, shipped features listed as open work. Enumerated lists here rot; prefer pointing at the source of truth (`gh issue list`, `find app/src/test -name '*Test.kt'`) over restating it.
 
@@ -453,7 +453,7 @@ clock") digit display, and added a focus mode.
   layout is pure logic in **`FlipClockDigits.kt`** (unit-tested in `FlipClockDigitsTest`) — the
   same field-layout job `StudyTrackerView.formatTime()` used to do as a string, now done as
   structured digit groups instead. `formatTime()` had exactly one caller and was **deleted**
-  rather than left behind (see `StudyTrackerView.kt:888`).
+  rather than left behind (`grep -n "formatTime() lived here" StudyTrackerView.kt` finds the note).
 - **Focus mode** — starting the timer collapses `StudyTrackerView` into a full-screen focus
   surface (`StudyFocusContent`): app bars/bottom nav hidden, screen kept awake
   (`FLAG_KEEP_SCREEN_ON` via `FocusWindowEffects`). Focus mode has no separate on/off flag — it's
@@ -676,3 +676,33 @@ version was built to avoid.
 - Verified on the `Medium_Phone` emulator: untracked days render the dim baseline shade, marking
   a goal complete immediately brightens today's cell to the perfect-day shade, and the `today`
   outline still tracks the current cell correctly.
+
+## 2026-08-25 Backup excludes the SQLCipher key wrapper (Issue #206)
+
+The Issue #62 backup exclusions (`data_extraction_rules.xml`/`backup_rules.xml`) excluded
+`budget_database` but not `database_key` — the SharedPreferences file `DatabaseEncryption.kt`
+wraps the SQLCipher passphrase in (Issue #117). Restoring that file onto a device whose Android
+Keystore key is necessarily different left `loadOrCreatePassphrase()` holding a wrapped passphrase
+it could never decrypt, on every single launch, forever — and since `budget_database` itself was
+correctly excluded and so never existed on the restored device, the app fell back to creating a
+**brand-new unencrypted** database with no error surfaced. Issue #117's guarantee was silently and
+permanently defeated on any backup restore or device transfer.
+
+- **Fix**: `database_key.xml` (`sharedpref` domain) is now excluded alongside `device_identity.xml`
+  in both files. A restored device now mints its own fresh passphrase and its own fresh encrypted
+  database, exactly like a new install.
+- **Defense in depth**: `loadOrCreatePassphrase()`'s stale-wrapper case (decrypt fails against the
+  current Keystore key — a wipe, a corrupted key, or this same restored-backup scenario if it ever
+  recurs some other way) now clears `PREF_WRAPPED`/`PREF_IV` via the new `clearStalePassphrase()`
+  rather than leaving them in place. Before this, a lost Keystore key wedged the app on the
+  unencrypted fallback permanently, because every subsequent launch re-read the same undecryptable
+  wrapper and failed the same way. Clearing it lets the *next* launch generate a fresh passphrase;
+  `databaseOpenHelperFactory` then finds a plaintext database (the one just created on the fallback
+  path) and encrypts it, self-healing back to encrypted storage instead of staying stuck. This is
+  only safe because it's gated behind the existing `passphrase == null` branch, which already
+  quarantines a real still-present encrypted file before falling through — it never overwrites a
+  wrapper this device could still legitimately use.
+- Not unit-testable beyond what `DatabaseEncryptionTest` already covers (`looksLikePlaintextSqlite`
+  is the only pure function in this file); the rest needs `Context`/`KeyStore` and a real backup/
+  restore cycle to exercise end-to-end, which is why this shipped as a careful read of the existing
+  code paths rather than a new automated test.

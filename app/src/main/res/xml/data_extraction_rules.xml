@@ -26,6 +26,14 @@
    - account_identity records which Firebase account the local Room data belongs to (Issue #186).
      Restoring it onto a device whose Room data came from elsewhere would make the account-switch
      guard believe the data is already the right user's and skip the wipe.
+   - database_key holds the SQLCipher passphrase (Issue #117), wrapped by *this device's*
+     Android Keystore key. Restoring it without budget_database would be harmless on its own,
+     but budget_database IS excluded above — so without this exclusion too, a restore leaves a
+     wrapped passphrase on the new device that its Keystore can never decrypt (Issue #206).
+     loadOrCreatePassphrase() then fails, and the app falls back to a brand-new *unencrypted*
+     database forever, silently defeating Issue #117's guarantee. Excluding it means a restored
+     device mints its own fresh passphrase and its own fresh encrypted database, same as a new
+     install — exactly like device_identity and account_identity above.
 
    Deliberately still backed up: reminder/note/study/currency/security settings. Those are device
    preferences, not personal data, and carrying them to a new device is the point of a backup.
@@ -36,6 +44,7 @@
         <exclude domain="database" path="budget_database-wal" />
         <exclude domain="database" path="budget_database-shm" />
         <exclude domain="sharedpref" path="device_identity.xml" />
+        <exclude domain="sharedpref" path="database_key.xml" />
         <exclude domain="file" path="note_attachments" />
         <exclude domain="file" path="datastore/daily_apex_tip.preferences_pb" />
         <exclude domain="file" path="datastore/budget_settings.preferences_pb" />
@@ -50,6 +59,7 @@
         <exclude domain="database" path="budget_database-wal" />
         <exclude domain="database" path="budget_database-shm" />
         <exclude domain="sharedpref" path="device_identity.xml" />
+        <exclude domain="sharedpref" path="database_key.xml" />
         <exclude domain="file" path="note_attachments" />
         <exclude domain="file" path="datastore/daily_apex_tip.preferences_pb" />
         <exclude domain="file" path="datastore/budget_settings.preferences_pb" />
