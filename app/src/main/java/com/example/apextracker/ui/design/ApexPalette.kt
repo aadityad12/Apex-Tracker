@@ -181,11 +181,12 @@ val ChartMutedDark = Color(0xFF33383E)
 val ChartMutedLight = Color(0xFFD3D7DC)
 
 /**
- * The gray intensity ramp, kept for surfaces that still need a fill-per-bucket scale (the Glance
- * widgets, the day legend fallback). The heatmap itself no longer uses it: with hue gone, a gray
- * ramp has less resolution than ember had, so the in-app heatmap switched to *fill-height bars*
- * (see ApexSemantics.heatInk/heatSlot and DashboardView.HeatCell) — intensity is carried by
- * geometry, which is also what stops the grid pattern-matching GitHub.
+ * The gray intensity ramp behind the Dashboard heatmap's filled-square cells, the legend, and the
+ * Glance widgets — index 0 is the untracked shade, 1..5 map to `intensityBucket()` 0..4. This is
+ * the GitHub-contribution-graph read: a full square whose *colour* carries the day's fraction of
+ * goals met. (An earlier Graphite-era pass tried encoding the fraction as bar height instead —
+ * see git history on DashboardView.HeatCell — but that read as a bespoke chart rather than the
+ * familiar contribution grid, so it was reverted.)
  */
 val ApexHeatRampDark = listOf(
     Color(0xFF17191C), // -1 untracked
@@ -204,8 +205,3 @@ val ApexHeatRampLight = listOf(
     Color(0xFF6E7883), // 3
     Color(0xFF30353C)  // 4 perfect
 )
-
-/** Bar ink for the heatmap's fill-height cells; partial days modulate its alpha, perfect days
- *  snap to full onSurface. Judged against slots ([GraphiteRaised]/[PaperRaised]) on the plate. */
-val HeatInkDark = Color(0xFFC2CAD3)
-val HeatInkLight = Color(0xFF30353C)

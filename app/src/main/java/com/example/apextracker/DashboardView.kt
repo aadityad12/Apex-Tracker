@@ -460,10 +460,7 @@ private fun HeatmapSection(
     // Resolve heatmap colours once, not once per cell — ~371 MaterialTheme reads was part of the ANR.
     val semantics = LocalApexSemantics.current
     val heatColors = HeatCellColors(
-        slot = semantics.heatSlot,
-        ink = semantics.heatInk,
-        perfect = MaterialTheme.colorScheme.onSurface,
-        baseline = MaterialTheme.colorScheme.outline,
+        ramp = semantics.heatRamp,
         today = MaterialTheme.colorScheme.primary
     )
 
@@ -573,21 +570,16 @@ private data class HeatCellLabels(
 
 /** Pre-resolved cell colours, so ~371 cells don't each read MaterialTheme (part of the ANR). */
 private data class HeatCellColors(
-    val slot: Color,     // the empty cell a bar grows inside — the grid's structure
-    val ink: Color,      // a partial bar's fill (alpha-modulated by the day's fraction)
-    val perfect: Color,  // a perfect day: full-height bar, full ink — the peak
-    val baseline: Color, // a tracked-but-nothing-met day: a thin baseline stub
-    val today: Color     // the outline marking today
+    val ramp: List<Color>, // 6-step gray ramp: index 0 = untracked, 1..5 = intensityBucket 0..4
+    val today: Color       // the outline marking today
 )
 
 /**
- * One heatmap cell, drawn as a **fill-height bar** rather than a coloured square (Plan.md
- * Phase 2). With the accent gone, a gray intensity ramp has too little resolution to be the
- * signature; geometry carries it instead — the bar's height *is* the fraction of goals met, and
- * a grid of varying-height bars is what stops this reading as GitHub's contribution graph.
- *
- * States, bottom-anchored: untracked = empty slot; tracked-but-none-met = a baseline stub;
- * partial = a bar of proportional height and opacity; perfect = the slot filled solid.
+ * One heatmap cell, drawn as a **fully-filled square** whose colour intensity carries the day's
+ * fraction of goals met — the classic GitHub contribution-graph read, restored after the Graphite
+ * pass's bar-height experiment (Plan.md Phase 2) traded it for geometry. `intensityBucket()` maps
+ * the fraction to a 0..4 step, offset by one into [colors.ramp] to make room for the untracked
+ * shade at index 0.
  */
 @Composable
 private fun HeatCell(
@@ -615,11 +607,13 @@ private fun HeatCell(
         String.format(labels.dayFormat, if (isToday) String.format(labels.todayFormat, dateText) else dateText, state)
     }
     val cellShape = RoundedCornerShape(ApexShapes.cell)
+    val frac = cell.fraction
+    val fill = if (frac == null) colors.ramp[0] else colors.ramp[intensityBucket(frac) + 1]
     Box(
         modifier
             .padding(1.dp)
             .clip(cellShape)
-            .background(colors.slot)
+            .background(fill)
             .then(
                 if (isToday) Modifier.border(1.5.dp, colors.today, cellShape)
                 else Modifier
@@ -629,67 +623,26 @@ private fun HeatCell(
                 interactionSource = interactionSource,
                 indication = null,
                 onClickLabel = labels.action
-            ) { onDayClick(cell.date) },
-        contentAlignment = Alignment.BottomCenter
-    ) {
-        val frac = cell.fraction
-        when {
-            // untracked: the slot alone. The cell exists; nothing was asked of it.
-            frac == null -> {}
-            // tracked, none met: a thin baseline so a zero day still reads as "on the grid, at 0".
-            frac <= 0.0 -> Box(Modifier.fillMaxWidth().height(2.dp).background(colors.baseline))
-            else -> {
-                val f = frac.toFloat().coerceIn(0f, 1f)
-                // Floor the height so even a small fraction shows a bar taller than the baseline;
-                // opacity rises with height too, so intensity is double-encoded (survives an
-                // AMOLED panel at ~20dp better than either channel alone).
-                val fill = if (f >= 1f) colors.perfect else colors.ink.copy(alpha = 0.55f + 0.45f * f)
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .fillMaxHeight((0.2f + 0.8f * f).coerceAtMost(1f))
-                        .clip(RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp))
-                        .background(fill)
-                )
-            }
-        }
-        // Semantics on the whole cell, not the bar, so the label doesn't move with the fill.
-        Box(
-            Modifier
-                .matchParentSize()
-                .semantics { contentDescription = label }
-        )
-    }
+            ) { onDayClick(cell.date) }
+            .semantics { contentDescription = label }
+    )
 }
 
 @Composable
 private fun HeatmapLegend() {
-    val semantics = LocalApexSemantics.current
-    val slot = semantics.heatSlot
-    val ink = semantics.heatInk
-    val perfect = MaterialTheme.colorScheme.onSurface
-    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+    val ramp = LocalApexSemantics.current.heatRamp
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
         Text(stringResource(R.string.dashboard_legend_less), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.width(6.dp))
-        // Mini bars at rising heights teach the new encoding: taller = more of the day's goals met.
-        listOf(0.15f, 0.4f, 0.65f, 0.85f, 1f).forEach { f ->
-            val fill = if (f >= 1f) perfect else ink.copy(alpha = 0.55f + 0.45f * f)
+        // Ramp swatches at rising intensity — the same 6-step ramp the cells themselves use.
+        ramp.drop(1).forEach { fill ->
             Box(
                 Modifier
                     .padding(horizontal = 2.dp)
                     .size(14.dp)
                     .clip(RoundedCornerShape(ApexShapes.cell))
-                    .background(slot),
-                contentAlignment = Alignment.BottomCenter
-            ) {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .fillMaxHeight((0.2f + 0.8f * f).coerceAtMost(1f))
-                        .clip(RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp))
-                        .background(fill)
-                )
-            }
+                    .background(fill)
+            )
         }
         Spacer(Modifier.width(6.dp))
         Text(stringResource(R.string.dashboard_legend_more), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
