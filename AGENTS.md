@@ -2,7 +2,7 @@
 
 This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
 
-Last full audit: 2026-07-07 (Firebase/auth follow-up: 2026-07-08; Known Issues fix pass + dependency bumps: 2026-07-09, branch `fix/known-issues-3-through-10`; Firebase sync unification (Issue #4): 2026-07-09, branch `fix/issue-4-firebase-sync`, merged as PR #16; bug-fix pass for issues #18–#31: 2026-07-10, merged as PRs #48/#50 — see "2026-07-10 Bug-Fix Pass" below; feature pass for issues #17/#32–#41/#53: 2026-07-11 → 2026-07-14, see "2026-07-11 → 2026-07-14 Feature Pass" below; doc-accuracy pass reconciling this file with the code: 2026-07-17; feature+verification pass 2026-07-18 → 2026-07-20: currency setting #76, category limits #75, notes export #77, screen-time app-list+chart #43, overview drill-in #47, subscriptions-colour #82, study subjects #78, and biometric lock #45 all merged, with the DB-migration (#78, v14) and biometric (#45) changes verified on-device — see the dated sections below; **Dashboard goal-tracking feature 2026-07-21 → 2026-07-22**, PRs #100–#103 merged + sync in progress, making the Dashboard the app home and bumping the DB to **v15** — see the "2026-07-21 → 2026-07-22 Dashboard" section; **bug/a11y/docs pass 2026-07-23** on branch `fix/issues-2026-07-23` covering issues #105–#120 and #97 — see the dated section at the end; **UI redesign foundation 2026-07-28 → 2026-07-29** on branch `redesign/foundation`, which replaced the whole theming layer, bundled real typefaces, and added a design-system skill — see "2026-07-29 Redesign foundation" at the end and **`Design.md` at the repo root**; **study timer flip clock 2026-08-01** on branch `feature/study-flip-clock`, which replaced the stopwatch readout with a split-flap digit display and added a focus mode — see "2026-08-01 Study timer flip clock" below; **feature pass 2026-08-10 → 2026-08-11** clearing the last five open issues one PR each — the at-a-glance widget (#44), the study-timer widget and the shared start/pause path in `StudyTimerControl.kt` (#132), Papers recommendations (#150), receipt scanning (#46), and **SQLCipher at-rest encryption of the database** (#117) — see "Database encryption", "Home-screen widgets", "Receipt scanning" above; **doc reconciliation 2026-08-11**: CLAUDE.md and AGENTS.md had drifted in *both* directions (each held sections the other lacked) and were merged back to one roster — if you update one, update the other, or collapse them). If you make significant architectural changes, update this file in the same session.
+Last full audit: 2026-07-07 (Firebase/auth follow-up: 2026-07-08; Known Issues fix pass + dependency bumps: 2026-07-09, branch `fix/known-issues-3-through-10`; Firebase sync unification (Issue #4): 2026-07-09, branch `fix/issue-4-firebase-sync`, merged as PR #16; bug-fix pass for issues #18–#31: 2026-07-10, merged as PRs #48/#50 — see "2026-07-10 Bug-Fix Pass" below; feature pass for issues #17/#32–#41/#53: 2026-07-11 → 2026-07-14, see "2026-07-11 → 2026-07-14 Feature Pass" below; doc-accuracy pass reconciling this file with the code: 2026-07-17; feature+verification pass 2026-07-18 → 2026-07-20: currency setting #76, category limits #75, notes export #77, screen-time app-list+chart #43, overview drill-in #47, subscriptions-colour #82, study subjects #78, and biometric lock #45 all merged, with the DB-migration (#78, v14) and biometric (#45) changes verified on-device — see the dated sections below; **Dashboard goal-tracking feature 2026-07-21 → 2026-07-22**, PRs #100–#103 merged + sync in progress, making the Dashboard the app home and bumping the DB to **v15** — see the "2026-07-21 → 2026-07-22 Dashboard" section; **bug/a11y/docs pass 2026-07-23** on branch `fix/issues-2026-07-23` covering issues #105–#120 and #97 — see the dated section at the end; **UI redesign foundation 2026-07-28 → 2026-07-29** on branch `redesign/foundation`, which replaced the whole theming layer, bundled real typefaces, and added a design-system skill — see "2026-07-29 Redesign foundation" at the end and **`Design.md` at the repo root**; **study timer flip clock 2026-08-01** on branch `feature/study-flip-clock`, which replaced the stopwatch readout with a split-flap digit display and added a focus mode — see "2026-08-01 Study timer flip clock" below; **Papers discovery redesign 2026-08-07**, which replaced the bare-field rotation with keyword topics and an engagement-weighted recommender, bumping the DB to **v22** — see "2026-08-07 Papers discovery redesign" below; **feature pass 2026-08-10 → 2026-08-11** clearing the last five open issues one PR each — the at-a-glance widget (#44), the study-timer widget and the shared start/pause path in `StudyTimerControl.kt` (#132), Papers recommendations (#150), receipt scanning (#46), and **SQLCipher at-rest encryption of the database** (#117) — see "Database encryption", "Home-screen widgets", "Receipt scanning" above; **doc reconciliation 2026-08-11**: CLAUDE.md and AGENTS.md had drifted in *both* directions (each held sections the other lacked) and were merged back to one roster — if you update one, update the other, or collapse them; **heatmap reverted to colour squares 2026-08-24**: the Dashboard's contribution-graph cells went back to GitHub-style fully-filled squares with colour-ramp intensity, undoing the 2026-07-30 Graphite pass's fill-height-bar experiment — see "2026-08-24 Heatmap reverted to colour squares" at the end). If you make significant architectural changes, update this file in the same session.
 
 **Doc-accuracy note (2026-07-17)**: issues #68–#74 were all filed against *this file* for drifting out of sync with the code — stale DB version, a test roster missing three files, shipped features listed as open work. Enumerated lists here rot; prefer pointing at the source of truth (`gh issue list`, `find app/src/test -name '*Test.kt'`) over restating it.
 
@@ -15,6 +15,7 @@ Last full audit: 2026-07-07 (Firebase/auth follow-up: 2026-07-08; Known Issues f
   If Android Studio isn't installed at that path, find another JDK 17+ via `/usr/libexec/java_home -V`.
 - **Android Studio must be Quail 1 (2026.1.1) or newer to sync this project.** The 2026-07-09 dependency bump moved the project to AGP 9.2.1; Studio Otter 3 (2025.2.3, installed on this machine as of 2026-07-10) caps IDE sync at AGP 9.0.0 and fails with "The project is using an incompatible version (AGP 9.2.1)". Downgrading AGP instead is NOT viable: `core-ktx:1.19.0` and the `lifecycle:2.11.0` artifacts require AGP 9.1+ (AAR metadata check fails the build). **CLI Gradle is unaffected** — build/test/lint/installDebug all work regardless of Studio version, so use the terminal to install on a device if Studio hasn't been updated yet.
 - **`app/google-services.json` is required by the Google Services Gradle plugin but is gitignored** (it contains real Firebase project secrets — it was committed once by accident and deleted in commit `bd3f18e`, then re-added to `.gitignore`). As of 2026-07-08 this machine has the **real** config in place (project `apex-tracker-3ed29`) with the debug SHA-1 fingerprint registered in the Firebase console — Google Sign-In is verified working end-to-end on a physical device. On a **fresh clone/new machine**, you'll need to redo this yourself: Firebase Console → Project Settings → your Android app → add your machine's debug SHA-1 (`keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android`) → download `google-services.json` → place at `app/google-services.json`. Without it, the build still succeeds with a stub placeholder, but sign-in/Firestore won't function.
+  - **Key rotation (Issue #60, 2026-08-03)**: the Android API key committed by accident in `0428af5` (still retrievable from public git history even after `bd3f18e` deleted the file — GitHub history is immutable) was **regenerated** in Google Cloud Console and the old value is dead. The new key is restricted under Application restrictions → Android apps to `com.example.apextracker` + this machine's debug SHA-1 (`03:13:DC:3F:C0:44:38:BD:B3:A9:1A:5A:81:89:FF:5C:47:55:88:88`) — a fresh `google-services.json` was pulled and swapped into place, `assembleDebug` verified successful against it. **Any other machine's debug keystore (or a release keystore) must have its SHA-1 added under the same key in Cloud Console, or sign-in will fail on that machine/build with an unrestricted-app error.** Git history itself was left unscrubbed (the dead key has no further value to rotate away from); `firestore.rules` (added 2026-07-17) remains the real access-control boundary, not the API key.
 
 ## Build & Run Commands
 
@@ -63,7 +64,7 @@ Note: unit tests cover the pure logic extracted during the fix passes — run `f
 | `screen_time` | `ScreenTimeTrackerView.kt` | `ScreenTimeViewModel.kt` | `ScreenTimeSession`, `ExcludedApp`, `AppUsageLimit` |
 | `reminders` | `ReminderView.kt` | `ReminderViewModel.kt` | `Reminder` |
 | `notes` | `NoteView.kt` | `NoteViewModel.kt` | `Note` |
-| `papers` | `PapersView.kt` | `PapersViewModel.kt` | `Paper` |
+| `papers` | `PapersView.kt` | `PapersViewModel.kt` | `Paper`, `PaperTopic` |
 
 Settings dialogs for each module live in `*Settings.kt` files (e.g., `BudgetSettings.kt`, `ReminderSettings.kt`).
 
@@ -72,8 +73,8 @@ Screen Time supports per-app daily limits (Issue #124): `AppUsageLimit` stores e
 `BudgetCalendar.kt`'s `BudgetCalendarView` is reachable as of 2026-07-11 (Issue #32): a list/calendar `IconButton` toggle in the Budget top bar, with the selected month hoisted into `BudgetTrackerApp` and shared between both views.
 
 ### Database
-- `AppDatabase.kt` — Room singleton (`budget_database`), `exportSchema = true`. **Don't trust a version number written here** — this line has gone stale twice (it said v15 while the code was at v19); read the `@Database` annotation in `AppDatabase.kt` for the current version and DAO roster. As of 2026-08-05 it's **v21** (v20→v21 added the `goals.cadence` column for Issue #166).
-- **Migration policy**: **do not maintain a migration roster here** — read the `.addMigrations(...)` call in `AppDatabase.kt`, which is the source of truth and must register every hand-written `Migration(n, n+1)` through the current `@Database` version. As of DB v21, it registers the complete `MIGRATION_11_12` through `MIGRATION_20_21` chain before `.fallbackToDestructiveMigration()`. `MIGRATION_14_15` (Dashboard feature) is a **purely additive** migration — two `CREATE TABLE IF NOT EXISTS` for `goals` + `goal_completions`, no data copy — and the simplest pattern to copy for a new table (its DDL was diffed against the exported `app/schemas/…/15.json` and verified on a real populated v14→v15 upgrade on-device). `MIGRATION_11_12` (Issue #40's `isPinned` column on `notes`), `MIGRATION_12_13` (Issue #75's `monthlyLimit` column on `categories`), and `MIGRATION_13_14` (Issue #78's per-subject study sessions) are real hand-written `Migration`s and the pattern to follow — **add** a new `Migration(n, n+1)` to the `addMigrations(...)` chain for every schema change. `MIGRATION_13_14` is the one to copy for a **primary-key** change: `study_sessions` moved from PK `(date)` to PK `(date, subject)`, which SQLite can't do in place, so it does the create-new / copy / drop / rename dance and copies every old daily total into the `subject = ''` ("No subject") bucket for its date — no study data lost. Note no SQL `DEFAULT` on `subject` (the entity declares only a Kotlin default, which Room does not emit as a column default; adding one would make TableInfo mismatch at runtime). The `fallbackToDestructiveMigration()` behind the chain is the backstop for versions with no migration path, and it **drops every table** — see the MIGRATION POLICY comment at the top of `AppDatabase.kt` (Issue #17).
+- `AppDatabase.kt` — Room singleton (`budget_database`), `exportSchema = true`. **Don't trust a version number written here** — this line has gone stale twice (it said v15 while the code was at v19); read the `@Database` annotation in `AppDatabase.kt` for the current version and DAO roster. As of 2026-08-07 it's **v23** (v22→v23 added indices on the sync join keys, Issue #197).
+- **Migration policy**: **do not maintain a migration roster here** — read the `.addMigrations(...)` call in `AppDatabase.kt`, which is the source of truth and must register every hand-written `Migration(n, n+1)` through the current `@Database` version. As of DB v23, it registers the complete `MIGRATION_11_12` through `MIGRATION_22_23` chain before `.fallbackToDestructiveMigration()`. `MIGRATION_14_15` (Dashboard feature) is a **purely additive** migration — two `CREATE TABLE IF NOT EXISTS` for `goals` + `goal_completions`, no data copy — and the simplest pattern to copy for a new table (its DDL was diffed against the exported `app/schemas/…/15.json` and verified on a real populated v14→v15 upgrade on-device). `MIGRATION_11_12` (Issue #40's `isPinned` column on `notes`), `MIGRATION_12_13` (Issue #75's `monthlyLimit` column on `categories`), and `MIGRATION_13_14` (Issue #78's per-subject study sessions) are real hand-written `Migration`s and the pattern to follow — **add** a new `Migration(n, n+1)` to the `addMigrations(...)` chain for every schema change. `MIGRATION_13_14` is the one to copy for a **primary-key** change: `study_sessions` moved from PK `(date)` to PK `(date, subject)`, which SQLite can't do in place, so it does the create-new / copy / drop / rename dance and copies every old daily total into the `subject = ''` ("No subject") bucket for its date — no study data lost. Note no SQL `DEFAULT` on `subject` (the entity declares only a Kotlin default, which Room does not emit as a column default; adding one would make TableInfo mismatch at runtime). The `fallbackToDestructiveMigration()` behind the chain is the backstop for versions with no migration path, and it **drops every table** — see the MIGRATION POLICY comment at the top of `AppDatabase.kt` (Issue #17).
 - `Converters.kt` — Type converters for `LocalDate`/`LocalDateTime`/`Recurrence` and other non-primitive types. This is the **only** `@TypeConverters` class registered on `AppDatabase`.
 - `Recurrence.kt` — Data model for recurring reminders (frequency, end condition, custom days). Persisted via `Converters.kt` (Gson round-trip).
 - There used to be a separate `RecurrenceConverter.kt` with a duplicate, never-registered implementation of the same conversion logic — it was **deleted** during the 2026-07-07 cleanup pass since it was entirely dead code (not wired into `AppDatabase`, not referenced anywhere).
@@ -82,7 +83,7 @@ Screen Time supports per-app daily limits (Issue #124): `AppUsageLimit` stores e
 - `AuthViewModel.kt` — Manages Google Sign-In via Credential Manager API (`androidx.credentials` + `googleid`), wraps `FirebaseAuth`. Exposes `user: StateFlow<FirebaseUser?>`, `isSyncing: StateFlow<Boolean>`, and `signInError: StateFlow<String?>`.
 - `FirebaseManager.kt` — Handles all Firestore operations. Syncs, under `users/{uid}/...`: app settings (theme/dark mode), budget items, categories, subscriptions, notes, reminders, study sessions, excluded apps, per-device screen time (`users/{uid}/devices/{deviceId}/screen_time`), and — as of the Dashboard feature — **goals** (`users/{uid}/goals/{cloudId}`, UUID cloudId like reminders) and **goal completions** (`users/{uid}/goal_completions/{goalCloudId}|{date}`, composite doc id like study sessions via `goalCompletionDocId()`). Both follow the standard 5-part shape (`parseXDoc`/`pushX`+`deleteX`+`pullAllX`/`applyXDoc`+`removeX`/`collectXChanges`/`syncX`), are registered in `performInitialSync` and `SyncCoordinator`, and are unit-tested in `FirebaseDocParsingTest`. `DashboardViewModel` pushes fire-and-forget via `safeCloudCall` on every mutation, same convention as the other ViewModels.
 - Cloud sync is optional — the app works fully offline using Room as the source of truth.
-- **Firestore rules (`firestore.rules` at repo root, added 2026-07-17 for Issue #61)** — the only real enforcement of per-user isolation. `FirebaseManager` builds every path from `auth.currentUser?.uid`, but that's client-side and proves nothing; sign-in is open registration (`setFilterByAuthorizedAccounts(false)`), so any Google account is an authenticated client. The rule is `request.auth.uid == userId` on `users/{userId}/{document=**}`, default-deny everything else. **Committing the file does not deploy it** — run `firebase use <project-id> && firebase deploy --only firestore:rules`, and treat the Firebase console (Firestore → Rules) as the source of truth for what's actually live. There is deliberately no `.firebaserc` (it would commit the project id while Issue #60 — the key/project-id exposure in git history — is still open); pick the project with `firebase use` instead.
+- **Firestore rules (`firestore.rules` at repo root, added 2026-07-17 for Issue #61, deployed 2026-08-03)** — the only real enforcement of per-user isolation. `FirebaseManager` builds every path from `auth.currentUser?.uid`, but that's client-side and proves nothing; sign-in is open registration (`setFilterByAuthorizedAccounts(false)`), so any Google account is an authenticated client. The rule is `request.auth.uid == userId` on `users/{userId}/{document=**}`, default-deny everything else. **Committing the file does not deploy it** — run `firebase use <project-id> && firebase deploy --only firestore:rules`, and treat the Firebase console (Firestore → Rules) as the source of truth for what's actually live. **The rules were only actually deployed on 2026-08-03** (alongside the #60 key rotation) — from 2026-07-17 to then, the committed file had zero effect on the live project; before that, sync had been failing outright with `PERMISSION_DENIED` because the Cloud Firestore API itself was never enabled for `apex-tracker-3ed29` (a separate toggle from the rules — enabling one doesn't enable the other), which is also now fixed. Verified on-device: signed-in writes now land under `users/{uid}/...` in the Firebase console with no `PERMISSION_DENIED` in logcat. There is deliberately no `.firebaserc` (it would commit the project id) — pick the project with `firebase use` instead; this is no longer tied to #60's exposure risk (key is rotated) but avoiding it costs nothing.
 - **Backup exclusions (`res/xml/data_extraction_rules.xml` + `res/xml/backup_rules.xml`, Issue #62)** — `allowBackup` is still true, but the Room DB and the `device_identity` prefs are excluded from both cloud backup and device transfer. Empty rules mean "back up everything", so those files are load-bearing; the rationale for each exclusion is in the XML comments. The two files must be kept in sync (API 31+ reads the first, API 26–30 the second).
 - **Sync architecture (rebuilt 2026-07-09, Issue #4, branch `fix/issue-4-firebase-sync`)**: every ViewModel holds its own `FirebaseManager(application)` and pushes/deletes fire-and-forget on every mutation via the shared `safeCloudCall()` helper (top-level in `FirebaseManager.kt`) — failures are logged, never crash, Room stays source of truth. `cloudId` (UUID) + `modifiedAt` are assigned in the ViewModel at creation time; updates bump `modifiedAt` (and assign a cloudId if empty, covering pre-existing rows). Study sessions throttle to one push per 60s while the timer runs (`shouldSyncNow()` in `SyncThrottle.kt`), forced on pause/reset/day-rollover. `performInitialSync()` runs on **two** triggers (Issue #17, 2026-07-13, PR #51): the interactive sign-in transition (null → non-null user), and cold start with a persisted signed-in session — Firebase Auth restores the user before composition, so the sign-in transition never fires for returning users, and without the cold-start trigger cross-device changes only arrived after a manual sign-out/sign-in. `shouldRunInitialSync(signedIn, wasSignedOut, alreadyRanThisProcess)` in `InitialSyncGate.kt` is the pure decision function (unit-tested in `InitialSyncGateTest`); `MainActivity` guards the `performInitialSync()` call site with it. The sync itself: parses each pulled doc via pure `parseXDoc()` functions (top of `FirebaseManager.kt`, unit-tested in `FirebaseDocParsingTest`) with per-doc try/catch+logging; isolates each entity behind `syncStep()` so one failure can't abort the others; migrates legacy blank-cloudId budget docs written by the old ad-hoc path (`classifyLegacyBudgetDoc()`, unit-tested in `LegacyBudgetDocMigrationTest`); and pushes **all** local rows after the pull (assigning UUIDs where missing) so data created/edited while signed out reaches the cloud. **Real-time sync (Issue #37, 2026-07-13)**: `SyncCoordinator` (object, started/stopped from `MainActivity`'s existing sign-in `LaunchedEffect` after `performInitialSync()` completes) runs one live Firestore listener per entity via `FirebaseManager.collectXChanges(db)` — `callbackFlow` + `addSnapshotListener`, using `snapshot.documentChanges` (`ADDED`/`MODIFIED`/`REMOVED`) rather than diffing full result sets, same `hasPendingWrites()` echo-guard as `getSettingsFlow()`. The "apply one cloud doc to Room" logic is shared between `performInitialSync` and the listeners via `applyXDoc()`/`removeXByCloudId()` helpers (top of `FirebaseManager.kt`) — no duplicated parse/reconcile logic. Reminders' parent-link resolution is similarly shared via `resolveReminderParentLinks()`. Study sessions are insert-only (no remote-delete handling — local timer stays source of truth); excluded apps' `REMOVED` events map directly to the existing `includeApp()` DAO call (no cloudId indirection, `packageName` is the doc id). Cross-device screen time is separate — `getOtherDevicesScreenTimeFlow()` isn't Room-backed, it feeds `ScreenTimeViewModel`'s `DeviceSession` list directly via a parent listener on `devices` plus dynamically-managed child listeners per device's `screen_time/{today}` doc. **Known limitation, unaffected by this change**: deletes performed while signed out still leave the cloud doc in place (no tombstones) → the item resurrects on the next initial sync.
 
@@ -90,7 +91,7 @@ Screen Time supports per-app daily limits (Issue #124): `AppUsageLimit` stores e
 - **The `ui/theme/` package no longer exists.** `Color.kt`, `Theme.kt` and `Type.kt` were deleted in the 2026-07-29 redesign foundation; everything moved to `ui/design/`. There is one theme entry point, not two.
 - `ui/design/ApexPalette.kt` — hand-authored dark and light `ColorScheme`s plus the heatmap ramp. `shiftColorForLightMode()` is **gone**: light mode is authored, not HSV-derived from dark.
 - `ui/design/ApexType.kt` — `ApexTypography` (**Martian Mono** display+headline / Geist UI) and `ApexNumerals` (**Martian Mono**, for every user-facing quantity). Fonts are bundled in `res/font/`, OFL text in `assets/licenses/`. (As of the 2026-07-30 Graphite pass, Instrument Serif and Geist Mono are **retired** — the display voice and the numerals are one mono. See "2026-07-30 Graphite identity" below.)
-- `ui/design/ApexTokens.kt` — `ApexSpacing`, `ApexShapes`, `ApexMotion`, `ApexSemantics`/`LocalApexSemantics`, the `ApexTheme` enum, and `ApexTrackerTheme`.
+- `ui/design/ApexTokens.kt` — `ApexSpacing`, `ApexShapes`, `ApexMotion`, `ApexElevation`, `isLightScheme`, `ApexSemantics`/`LocalApexSemantics`, the `ApexTheme` enum, and `ApexTrackerTheme`. **`ApexElevation` is how a control that genuinely lifts separates from the substrate** — a shadow in light, a hairline ring in dark, because `shadowElevation` renders nothing over the dark background (`GraphiteBase`, `#0E0F11`). See `Design.md` §5 for which half keys off the theme and which off the fill; don't hand-roll a `shadowElevation` at a call site.
 - `ui/design/ApexComponents.kt` — the shared component vocabulary (`ApexSectionHeader`, `ApexDivider`, `ApexStatRow`, `ApexChartFrame`, `ApexGroup`, `ApexEmptyState`).
 - **`ApexTheme` has one entry (`GRAPHITE`)** — the cold-monochrome identity (2026-07-30), down from four accents then the single warm `EMBER`. The enum survives so a second identity is a drop-in; the settings accent picker is gone. `FirebaseManager` still round-trips the field by name and legacy values (`EMBER`/`EMERALD`/…) fail `valueOf` and fall back, which is correct.
 - **Sage (the positive semantic) is deliberately NOT in the `ColorScheme`** — it lives only in `ApexSemantics.positive`. It used to be `secondary`/`secondaryContainer`, which made every M3 component defaulting to secondary render "goal met" green.
@@ -300,7 +301,7 @@ The UI-polish issues (#32–#36) are documented inline in the sections above (Na
 
 ## 2026-07-20 Biometric lock (Issue #45)
 
-- **Opt-in convenience lock for Budget and Notes** — gates the module UI behind a fresh device unlock. **NOT encryption**: Room stays plaintext; this only shields the in-app screens. `SecuritySettings.kt` holds everything: DataStore flags (`budget_lock_enabled`/`notes_lock_enabled`), the pure `biometricAvailabilityFrom()` mapper (unit-tested in `SecuritySettingsTest`), the process-scoped `UnlockSession` holder, `promptUnlock()` (the `BiometricPrompt` glue, authenticators = `BIOMETRIC_WEAK or DEVICE_CREDENTIAL` so PIN/pattern is the fallback and no-biometric devices still work), and the `LockGate`/`LockOverlay`/`ModuleLockSetting` composables.
+- **Opt-in convenience lock for Budget and Notes** — gates the module UI behind a fresh device unlock. **Not the encryption**: this shields the in-app screens; the database file itself is encrypted separately (Issue #117, see "Database encryption" above). `SecuritySettings.kt` holds everything: DataStore flags (`budget_lock_enabled`/`notes_lock_enabled`), the pure `biometricAvailabilityFrom()` mapper (unit-tested in `SecuritySettingsTest`), the process-scoped `UnlockSession` holder, `promptUnlock()` (the `BiometricPrompt` glue, authenticators = `BIOMETRIC_WEAK or DEVICE_CREDENTIAL` so PIN/pattern is the fallback and no-biometric devices still work), and the `LockGate`/`LockOverlay`/`ModuleLockSetting` composables.
 - **`MainActivity` is now a `FragmentActivity`, not `ComponentActivity`** — `androidx.biometric`'s `BiometricPrompt` requires one. `FragmentActivity` *is* a `ComponentActivity`, so `setContent`/`viewModel()`/`registerForActivityResult` are unaffected. If you add another Activity that shows a biometric prompt, it must also be a `FragmentActivity`.
 - **Session policy**: `MainActivity.onStop()` calls `UnlockSession.lockAll()`, so backgrounding re-locks; within one foreground session an unlocked module isn't re-prompted. The gate lives in `AppNavigation` (wraps the `budget_tracker` and `notes` composables); cancel/error pops back to the menu, and it **fails closed** while the DataStore flag is still `null` (loading) so a locked module can't flash its data.
 - Toggles live in the Budget and Notes settings sheets; greyed out (with an explanation) when the device has no screen lock, and enabling requires one successful auth first. **Verified on-device (2026-07-20)**: the toggle renders, availability detection is correct, and tapping it fires the real system prompt hosted by the FragmentActivity (no crash). Completing an auth needs real biometric/PIN input (not adb-automatable), so the enable→gate→re-lock cycle end-to-end is the one path checked by wiring/inference rather than a full automated tap-through.
@@ -311,18 +312,10 @@ New home surface: a GitHub-contribution-style heatmap scoring each day by the fr
 
 - **Model** — `Goal` is `MANUAL` (a `GoalCompletion` check-off per day) or `AUTO` (a `metric` ∈ {`SCREEN_TIME`,`STUDY`,`SPEND`} + `comparator` ∈ {`UNDER`,`OVER`} + hour/currency `threshold`, optional study `subject`). AUTO goals store nothing per day — they're evaluated on read from the existing `ScreenTimeSession`/`StudySession`/`BudgetItem` tables. Each goal has a `startDate` (counts from) and nullable `archivedDate` (stops counting on/after), so editing goals never rewrites past days. `GoalCompletion` is keyed `(goalCloudId, date)` so its Firestore doc id is device-stable.
 - **Pure scoring** — `DashboardScoring.kt` (`activeGoalsOn`, `evaluateAutoGoal`, `dayFraction`, `intensityBucket`, `perfectDayStreak`, `goalStreak`), unit-tested in `DashboardScoringTest`. `OVER` is met at-or-above the threshold, `UNDER` at-or-below; a day with no active goals is a `null` fraction (empty cell, ≠ a 0.0 missed day); only a perfect day hits intensity 4.
-- **UI** — `DashboardViewModel` `combine`s goals/completions/study/screen/budget/**papers** flows (mirrors `OverviewViewModel`). `DashboardView` draws the heatmap by hand (vertical weeks-as-rows, **newest week on top**, today outlined; as of the 2026-07-30 Graphite pass the cells are **fill-height bars**, not colour-ramp squares — intensity is bar height) with a Today checklist; tapping any cell opens a day-detail `ModalBottomSheet` that backfills MANUAL goals for that date. `GoalsView` (route `goals`) manages goals (add/edit/archive/unarchive/delete) via a shared `GoalEditDialog`.
+- **UI** — `DashboardViewModel` `combine`s goals/completions/study/screen/budget/**papers** flows (mirrors `OverviewViewModel`). `DashboardView` draws the heatmap by hand (vertical weeks-as-rows, **newest week on top**, today outlined; cells are **fully-filled squares whose colour intensity carries the day's fraction of goals met** — the classic GitHub contribution-graph read, restored 2026-08-24 after the 2026-07-30 Graphite pass's fill-height-bar experiment, see "2026-08-24 Heatmap reverted to colour squares" below) with a Today checklist; tapping any cell opens a day-detail `ModalBottomSheet` that backfills MANUAL goals for that date. `GoalsView` (route `goals`) manages goals (add/edit/archive/unarchive/delete) via a shared `GoalEditDialog`.
 - **Nav** — Phase 4 made the Dashboard the home behind the bottom nav bar and retired `MainMenu` (see Navigation above).
 - **Sync** — see Cloud Sync above. **On-device round-trip is signed-in-only and was not automatable** (Google sign-in needs real user interaction, which the safety rules bar the agent from completing); build/unit-tests/lint pass and the signed-out path is a verified no-op. A signed-in two-session round-trip (create a goal → confirm `users/{uid}/goals` in the Firestore console → reinstall+sign-in pulls it back) is the one check owed before fully closing this out. Note the `firestore-api-disabled` memory: if goal pushes log `PERMISSION_DENIED`, Firestore isn't enabled/deployed for the project.
 - **Known behavior**: the perfect-day streak reads "No streak yet" each morning until today's goals are ticked (streak counts today inclusive) — deliberate, trivially changed. A primary bottom-bar destination (e.g. Budget) still shows its own top-bar back arrow alongside the bar — minor redundancy, left to avoid touching each module's Scaffold.
-- **Home-screen widgets** — `widget/` contains Glance widgets for the perfect-day streak (#130),
-  today's goal list (#131), and monthly spending versus the overall Budget limit (#167). All read
-  one-shot snapshots from Room/DataStore. Goal changes call `refreshApexWidgets()`; Budget changes,
-  cloud pulls, currency changes, and backup restores call the provider-specific
-  `refreshBudgetWidget()` so unrelated Glance sessions cannot coalesce its update. Android's 30-minute
-  provider cadence is only a backstop. Widget taps open the relevant app route through the validated
-  `navigate_to` intent extra. Glance cannot consume the Compose theme, so its Graphite-dark palette
-  is a hand-kept mirror of `ApexPalette.kt`.
 
 ## 2026-07-08 Follow-up (PR #2)
 
@@ -402,7 +395,15 @@ snapshot listeners, and every Papers mutation mirrors to the cloud while Room re
 of truth. **Daily discovery shipped in Issue #149**: `PapersDiscoverySettings.kt` stores selected
 Semantic Scholar fields, the last attempt date, and shared 429 backoff in DataStore. Opening
 Reading rotates through one field per day, makes at most one `/paper/search` request, deduplicates
-by `s2Id`, and inserts at most three `PaperSource.DAILY` rows. Recommendations shipped in #150 — see the Papers discovery section below.
+by `s2Id`, and inserts at most three `PaperSource.DAILY` rows. **Recommendations shipped in Issue
+#150**: `PapersRecommendations.kt` turns the reading log into positive (READ, signal 4–5) and
+negative (signal 1–2, or ABANDONED) examples for S2's batch `/recommendations/v1/papers` endpoint,
+and the results land as `PaperSource.RECOMMENDED` WANT rows — ordinary queue rows, so `paperQueue`
+/`dailyPick` are untouched; the "Because you read …" shelf is a *view* over them, which is why the
+queue section renders `queueRest`. Papers with no `s2Id` (every bundled seed) can't be examples and
+are skipped rather than resolved, to spare the rate-limited unauthenticated pool. Its day gate is
+`lastRecommendationDate` — separate from topic search — but the **429 backoff window is shared**,
+because both draw on that same pool.
 
 ## 2026-07-30 Graphite identity (Plan.md Phase 2, branch `redesign/graphite`)
 
@@ -422,8 +423,10 @@ still describes Ember and is marked superseded (full table rewrite deferred). Th
   contrasts in Design.md §0.
 - **Heatmap reshaped** (`DashboardView.HeatCell`) — **fill-height bars, not colour squares**: bar
   height = fraction of the day's goals met, bottom-anchored in a fixed slot; perfect = solid ink
-  fill. This is the signature and is what stops it reading as GitHub's grid. `ApexSemantics` gained
-  `heatInk`/`heatSlot`; the gray `heatRamp` survives only for the Glance widgets.
+  fill. Pitched at the time as the signature that stops the grid reading as GitHub's.
+  **Superseded 2026-08-24** — the owner wanted the GitHub read back; see "2026-08-24 Heatmap
+  reverted to colour squares" below. `ApexSemantics`' `heatInk`/`heatSlot` (added for this) are
+  gone again as of that revert.
 - **`ApexTheme.EMBER` → `GRAPHITE`**. Glance widgets carry a hand-kept mirror of the graphite dark
   hexes (a met goal keeps Sage). Screenshot baselines (`app/src/screenshotTestDebug/reference/`)
   re-recorded. Verified on the SM-S931U1 in both themes + 200% font; no screen's hierarchy needed
@@ -476,6 +479,20 @@ clock") digit display, and added a focus mode.
 - DB v21 / `MIGRATION_20_21` adds the non-null cadence column with `DEFAULT 'DAILY'`. Firestore and
   backup parsing use the same legacy default. The v20→v21 migration and manual weekly workflow
   were verified on the connected physical device without losing its existing data.
+
+## 2026-08-05 Daily Apex Tip (Issue #168)
+
+- `ApexTipViewModel` exposes an opt-in card on Dashboard. Before enabling, the card states exactly
+  which anonymous daily aggregates leave the device; names, notes, transaction details and app
+  names are never put in the prompt.
+- `ApexTipSettings` stores consent, the last attempt date and one locally cached response. Automatic
+  generation is capped at one attempt per local day; a failed request requires an explicit Retry.
+  The DataStore file is excluded from Android backup because the response is personal and dated.
+- `FirebaseApexTipGenerator` uses Firebase AI Logic with stable `gemini-3.5-flash-lite`; debug builds
+  use App Check's debug provider and release builds use Play Integrity. The Firebase project must
+  have AI Logic enabled and the local debug token allowlisted before a debug request can succeed.
+- Prompt construction, output bounding and daily-request decisions are pure logic covered by
+  `ApexTipTest`. Firebase remains behind the small generator boundary; Room is not involved.
 
 ## 2026-08-07 Papers discovery redesign
 
@@ -534,6 +551,57 @@ recommender. Scoped via a 14-question `/grill-me` interview before implementatio
   confirmed working, no crashes in logcat throughout. Schema diffed against the exported
   `app/schemas/…/22.json`.
 
+## Developer's own TODO list (from notes.txt, still current)
+- Budget: "Extract from receipt" — shipped as the ML Kit scan in `BudgetItemDialog` (#46, see below).
+- Study Timer: "Always on display" support — shipped as the dimmed in-app ambient display (#171).
+- Ideas floated for later: animated ring-chart visualizations (Canvas-based, like `ApexLogo`). (Home-screen widgets, biometric lock and Daily Apex Tip have all shipped — see "Home-screen widgets" below.)
+
+## 2026-07-29 Redesign foundation (branch `redesign/foundation`, not yet merged)
+
+A UI redesign, planned via `/grill-me` and settled as twelve explicit decisions. **`Design.md` at
+the repo root is the specification** — values, measured contrast ratios, chart spec, screen
+inventory, and the reasoning. Do not restate its values here.
+
+- **Skills are now in-repo** under `.claude/skills/`: `android-product-design` (a fork of
+  Anthropic's `frontend-design`, narrowed to this app's locked identity and platform floor) plus
+  four vendored from github.com/android/skills — `adaptive`, `edge-to-edge`, `testing-setup`,
+  `perfetto-trace-analysis`. `migrate-to-compose` and `agp-9-upgrade` were deliberately **not**
+  taken (0 XML layouts; already on AGP 9.2.1). The `android` CLI is a separate download and is not
+  installed on this machine; the skills were copied from a clone.
+- **Identity**: Instrument Serif (display) + Geist (UI) + Geist Mono (all numerals), one accent
+  (Ember), hand-authored dark **and** light, no Dynamic Color. Stable material3 1.4.0 — **M3
+  Expressive was rejected**, its motion/shape APIs are 1.5.0-alpha only.
+- **Geist is bundled as static weights, not its variable file**, because every
+  `FontVariation.Settings` overload is `@ExperimentalTextApi`. Costs ~340KB more, needs no opt-in.
+- **Screenshot testing works here** (`com.android.compose.screenshot`, 8 baselines in
+  `app/src/screenshotTestDebug/reference/`). It renders through **Layoutlib, not Robolectric**, so
+  the serialization clash that blocks Room's `MigrationTestHelper` does not apply. Gotchas: the
+  enabling flag is needed in **both** `gradle.properties` and the module's `experimentalProperties`,
+  and `@PreviewTest` needs an explicit `screenshot-validation-api` dependency.
+- **A debug-only style plate** (`app/src/debug/.../StylePlateActivity.kt`) renders the whole design
+  system on a real device. Launch:
+  `adb shell am start -n com.example.apextracker/com.example.apextracker.design.StylePlateActivity`.
+  It exists because five values were correct on paper and wrong on an AMOLED panel — invisible
+  hairlines, a heatmap ramp that compressed to nothing, and an Ember/Alarm pair that rendered as
+  one colour in light mode. **Judge design changes there before touching a screen.**
+- **All eight screens have landed** (PRs #140–#146, merged 2026-07-29/30). `Design.md` §10 tracks
+  per-screen state; don't restate it here.
+- **Category colours are mapped on read, never migrated** (`CategoryPalette.kt`). The picker offers
+  the eight validated hues from `Design.md` §6; every legacy `Category.colorHex` still sits in Room
+  and Firestore untouched, and `resolveCategoryHex()` maps it onto a palette slot at render time.
+  **Every surface that paints a category colour must go through `categoryColorOf()`/
+  `resolveCategoryHex()`** — a raw `parseColorSafe(category.colorHex)` reintroduces the two-palette
+  split. The mapping is many-to-one, so colour is never the only channel: always show the category
+  name too. Collapse table and rationale in `Design.md` §8.
+- **Every `ColorScheme` slot the app touches must exist in both schemes.** An undefined slot falls
+  back to Material's *default* scheme, not to something neutral — that's how the Overview's
+  screen-time card rendered in Material Purple.
+- **`outline` is for borders, dividers and strokes — never for text or a meaningful icon.** Raising it
+  for hairline visibility silently dropped 51 text call sites across eleven files to ~2.5:1. Text uses
+  `onSurfaceVariant`.
+- **Still untouched**: the settings sheets, `CalendarGrid`, and the various dialogs/editors — left out
+  of the per-screen PRs deliberately to keep diffs reviewable.
+
 ## 2026-08-07 Security & correctness pass (issues #186–#198)
 
 A full-codebase review filed thirteen issues and fixed all thirteen, one commit each, on branch
@@ -584,69 +652,27 @@ migration changes below are the ones that most deserve an on-device check before
   with `strings` gives false negatives, because DEX pool entries run together in its output.
   `androidx.biometric` stays at 1.1.0: every later version on Google Maven is an alpha.
 
-## Developer's own TODO list (from notes.txt, still current)
-- Budget: "Extract from receipt" (OCR/receipt-parsing) — not started.
-- Study Timer: "Always on display" support — shipped as the dimmed in-app ambient display (#171).
-- Ideas floated for later: home screen widgets (Glance — issue #44; the focused widgets in
-  #130/#131/#167 have shipped) and animated ring-chart visualizations (Canvas-based, like
-  `ApexLogo`). (Biometric lock shipped 2026-07-20; Daily Apex Tip shipped 2026-08-05.)
+## 2026-08-24 Heatmap reverted to colour squares
 
-## 2026-08-05 Daily Apex Tip (Issue #168)
+The 2026-07-30 Graphite pass drew the Dashboard heatmap cells as **fill-height bars** (bar height
+= fraction of that day's goals met), explicitly to stop the grid reading as GitHub's contribution
+graph. On seeing it running, the owner asked for the opposite: a fully-filled square per day, with
+colour intensity — not geometry — carrying the fraction, i.e. the GitHub read the bar-height
+version was built to avoid.
 
-- `ApexTipViewModel` exposes an opt-in card on Dashboard. Before enabling, the card states exactly
-  which anonymous daily aggregates leave the device; names, notes, transaction details and app
-  names are never put in the prompt.
-- `ApexTipSettings` stores consent, the last attempt date and one locally cached response. Automatic
-  generation is capped at one attempt per local day; a failed request requires an explicit Retry.
-  The DataStore file is excluded from Android backup because the response is personal and dated.
-- `FirebaseApexTipGenerator` uses Firebase AI Logic with stable `gemini-3.5-flash-lite`; debug builds
-  use App Check's debug provider and release builds use Play Integrity. The Firebase project must
-  have AI Logic enabled and the local debug token allowlisted before a debug request can succeed.
-- Prompt construction, output bounding and daily-request decisions are pure logic covered by
-  `ApexTipTest`. Firebase remains behind the small generator boundary; Room is not involved.
-
-## 2026-07-29 Redesign foundation (branch `redesign/foundation`, not yet merged)
-
-A UI redesign, planned via `/grill-me` and settled as twelve explicit decisions. **`Design.md` at
-the repo root is the specification** — values, measured contrast ratios, chart spec, screen
-inventory, and the reasoning. Do not restate its values here.
-
-- **Skills are now in-repo** under `.claude/skills/`: `android-product-design` (a fork of
-  Anthropic's `frontend-design`, narrowed to this app's locked identity and platform floor) plus
-  four vendored from github.com/android/skills — `adaptive`, `edge-to-edge`, `testing-setup`,
-  `perfetto-trace-analysis`. `migrate-to-compose` and `agp-9-upgrade` were deliberately **not**
-  taken (0 XML layouts; already on AGP 9.2.1). The `android` CLI is a separate download and is not
-  installed on this machine; the skills were copied from a clone.
-- **Identity**: Instrument Serif (display) + Geist (UI) + Geist Mono (all numerals), one accent
-  (Ember), hand-authored dark **and** light, no Dynamic Color. Stable material3 1.4.0 — **M3
-  Expressive was rejected**, its motion/shape APIs are 1.5.0-alpha only.
-- **Geist is bundled as static weights, not its variable file**, because every
-  `FontVariation.Settings` overload is `@ExperimentalTextApi`. Costs ~340KB more, needs no opt-in.
-- **Screenshot testing works here** (`com.android.compose.screenshot`, 8 baselines in
-  `app/src/screenshotTestDebug/reference/`). It renders through **Layoutlib, not Robolectric**, so
-  the serialization clash that blocks Room's `MigrationTestHelper` does not apply. Gotchas: the
-  enabling flag is needed in **both** `gradle.properties` and the module's `experimentalProperties`,
-  and `@PreviewTest` needs an explicit `screenshot-validation-api` dependency.
-- **A debug-only style plate** (`app/src/debug/.../StylePlateActivity.kt`) renders the whole design
-  system on a real device. Launch:
-  `adb shell am start -n com.example.apextracker/com.example.apextracker.design.StylePlateActivity`.
-  It exists because five values were correct on paper and wrong on an AMOLED panel — invisible
-  hairlines, a heatmap ramp that compressed to nothing, and an Ember/Alarm pair that rendered as
-  one colour in light mode. **Judge design changes there before touching a screen.**
-- **All eight screens have landed** (PRs #140–#146, merged 2026-07-29/30). `Design.md` §10 tracks
-  per-screen state; don't restate it here.
-- **Category colours are mapped on read, never migrated** (`CategoryPalette.kt`). The picker offers
-  the eight validated hues from `Design.md` §6; every legacy `Category.colorHex` still sits in Room
-  and Firestore untouched, and `resolveCategoryHex()` maps it onto a palette slot at render time.
-  **Every surface that paints a category colour must go through `categoryColorOf()`/
-  `resolveCategoryHex()`** — a raw `parseColorSafe(category.colorHex)` reintroduces the two-palette
-  split. The mapping is many-to-one, so colour is never the only channel: always show the category
-  name too. Collapse table and rationale in `Design.md` §8.
-- **Every `ColorScheme` slot the app touches must exist in both schemes.** An undefined slot falls
-  back to Material's *default* scheme, not to something neutral — that's how the Overview's
-  screen-time card rendered in Material Purple.
-- **`outline` is for borders, dividers and strokes — never for text or a meaningful icon.** Raising it
-  for hairline visibility silently dropped 51 text call sites across eleven files to ~2.5:1. Text uses
-  `onSurfaceVariant`.
-- **Still untouched**: the settings sheets, `CalendarGrid`, and the various dialogs/editors — left out
-  of the per-screen PRs deliberately to keep diffs reviewable.
+- **`DashboardView.HeatCell`** now fills the whole cell with one of six ramp shades
+  (`intensityBucket(fraction) + 1`, or index 0 for an untracked/no-active-goals day) instead of
+  drawing a bottom-anchored bar inside a slot colour. `HeatmapLegend` follows the same ramp. The
+  `today` outline is unchanged.
+- **`ApexSemantics.heatInk`/`heatSlot`**, added by the 2026-07-30 pass specifically for the bar
+  rendering, are deleted — nothing else referenced them. `heatRamp` (already used by the Glance
+  widgets and the style plate) is now the *only* heatmap colour source, in-app and in the widgets,
+  which incidentally closes a small drift: the two had already diverged in how "intensity" was
+  encoded and now can't.
+- **No DB/schema change** — this is a pure rendering change over the same `dayFraction`/
+  `intensityBucket` pipeline from `DashboardScoring.kt`; `DayCell`/`GoalStatus` etc. are untouched.
+- Screenshot baselines under `app/src/screenshotTestDebug/reference/` covering the Dashboard were
+  re-recorded against the new cell rendering.
+- Verified on the `Medium_Phone` emulator: untracked days render the dim baseline shade, marking
+  a goal complete immediately brightens today's cell to the perfect-day shade, and the `today`
+  outline still tracks the current cell correctly.

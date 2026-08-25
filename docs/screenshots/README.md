@@ -4,8 +4,11 @@ Organised as before/after pairs of the visual redesign:
 
 - `ember/` — the previous **Ember** identity (warm near-black + terracotta accent + serif
   display), captured 2026-07-30 before the redesign landed.
-- `graphite/` — the current **Graphite** identity (cold monochrome, mono display, fill-height
-  heatmap), captured 2026-07-30.
+- `graphite/` — the current **Graphite** identity (cold monochrome, mono display, gray-ramp
+  heatmap). Most shots captured 2026-07-30; `dashboard.png` was re-captured 2026-08-24 after the
+  heatmap's cell rendering reverted from a fill-height-bar experiment back to filled squares, on
+  the `Medium_Phone` emulator rather than the original physical device — so it carries a fresh,
+  minimal goal set rather than the physical device's weeks of real history.
 
 Each folder holds the same five screens: `dashboard.png`, `study_tracker.png`,
 `screen_time.png`, `budget_tracker.png`, `overview.png`.

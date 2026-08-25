@@ -42,9 +42,11 @@ one person. That was always the point.
 The app just went through a full visual redesign. It used to wear a warm identity — near-black
 with a terracotta accent and a serif display face. It was nice, but honestly it read like a lot
 of other things I'd seen, so I pulled it in a direction that feels like an *instrument*: cold
-graphite, no accent colour at all, a monospaced display voice, and the consistency heatmap
-redrawn as fill-height bars instead of coloured squares. Colour now only ever means something —
-green for a goal met, red for a limit blown — and nothing else.
+graphite, no accent colour at all, and a monospaced display voice. The consistency heatmap kept
+its familiar squares — only now their intensity comes from a gray ramp instead of an accent hue
+(I did briefly try reshaping it into bars, but that just made it *harder* to read at a glance, so
+it went back). Colour now only ever means something — green for a goal met, red for a limit
+blown — and nothing else.
 
 Here is the same app, before (Ember) and after (Graphite):
 
@@ -54,7 +56,7 @@ Here is the same app, before (Ember) and after (Graphite):
 <td><img src="docs/screenshots/ember/dashboard.png" width="300" alt="Dashboard, Ember identity"></td>
 <td><img src="docs/screenshots/graphite/dashboard.png" width="300" alt="Dashboard, Graphite identity"></td>
 </tr>
-<tr><td colspan="2"><sub><b>Dashboard</b> — the home. The consistency graph went from coloured squares to bars whose height is the share of that day's goals I met; the accent gave way to plain ink, and the display type is now a monospace.</sub></td></tr>
+<tr><td colspan="2"><sub><b>Dashboard</b> — the home. The consistency graph is still full squares — the accent that used to colour them gave way to plain ink and a gray intensity ramp, and the display type is now a monospace.</sub></td></tr>
 <tr>
 <td><img src="docs/screenshots/ember/study_tracker.png" width="300" alt="Study timer, Ember identity"></td>
 <td><img src="docs/screenshots/graphite/study_tracker.png" width="300" alt="Study timer, Graphite identity"></td>
