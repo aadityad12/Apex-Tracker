@@ -122,11 +122,12 @@ default look does not occupy:
 - **Density.** The default look is airy and editorial. This app is dense and instrumental.
   Resist whitespace as a solution; monochrome makes empty space read as *unfinished*, so
   fill screens with structure (hairlines, eyebrows, rhythm), not padding.
-- **The heatmap is the signature, and it is fill-height BARS, not coloured squares.** With
-  hue gone, intensity is geometry: each cell is a bar whose height is the fraction of goals
-  met, bottom-anchored in a fixed slot, perfect days snapping to a solid fill. It must never
-  regress to a gray-square GitHub grid — the varying heights are the whole point. Everything
-  around it stays quiet.
+- **The heatmap is the signature, and it is a full-square gray-ramp grid** — the classic
+  GitHub contribution-graph read. A short-lived variant tried encoding intensity as bar height
+  instead (each cell a bottom-anchored bar, perfect days snapping to a solid fill); it was
+  reverted 2026-08-24 because it made the grid *harder* to scan at a glance, which defeats the
+  point of a signature surface. Don't reintroduce bar-height geometry here. Everything around
+  the heatmap stays quiet.
 - **Shape language.** `androidx.graphics:graphics-shapes` morphing is available and the
   default look has no shape vocabulary at all. Use it for state transitions.
 
