@@ -42,13 +42,14 @@ light `#AE1F38`, over/failed), and a negative state always also carries an icon 
 - Measured on the plate (both bumped to clear the 3:1 floor): body-on-bg 16.1:1 dark, hairline
   3.2:1 dark / 3.1:1 light; Sage 7.0:1 dark / 4.6:1 light, Crimson 4.4:1 / 6.3:1.
 
-**The heatmap is now fill-height BARS, not coloured squares** (`DashboardView.HeatCell`). A gray
-ramp has less resolution than ember had, so intensity is carried by *geometry*: each cell is a
-bar bottom-anchored in a fixed slot whose height = the fraction of the day's goals met; untracked
-= empty slot, tracked-none-met = a 2px baseline stub, perfect = the slot filled solid in ink.
-Opacity rises with height too (double-encoding for AMOLED at ~20dp). This is the signature and the
-thing that stops the grid reading as GitHub's. The gray `heatRamp` survives in `ApexSemantics`
-only for the Glance widgets. `ApexSemantics` gained `heatInk`/`heatSlot` for the bars.
+**The heatmap is fully-filled colour squares** (`DashboardView.HeatCell`) — the classic GitHub
+contribution-graph read. Each cell fills entirely with one of six gray `heatRamp` shades, picked
+by `intensityBucket(fraction) + 1` (index 0 is the untracked/no-active-goals shade). Graphite
+briefly tried the opposite — bars bottom-anchored in a fixed slot, height = fraction of goals met,
+sold at the time as *the* signature and the thing that would stop the grid reading as GitHub's —
+but that was reverted 2026-08-24: the owner wanted the GitHub read back, not away from it.
+`ApexSemantics.heatInk`/`heatSlot`, added for the bar rendering, are gone again; `heatRamp` is now
+the single colour source shared by the in-app heatmap, its legend, and the Glance widgets.
 
 **`ApexTheme` enum entry is now `GRAPHITE`** (was `EMBER`). Legacy persisted names fail `valueOf`
 and fall back to default, which is correct. The Glance widgets (`GoalsWidget`/`StreakWidget`)
@@ -195,8 +196,9 @@ Distinctiveness has to come from the axes that default look does not occupy:
   tracker is mostly numbers; here they are monospaced, aligned, and given real size. *(Graphite
   goes further: the display voice is mono too, not just the numerals.)*
 - **Density.** The default look is airy and editorial. This is dense and instrumental.
-- **The heatmap is the signature** — the one place to spend boldness, and it must not read as
-  GitHub's contribution graph. *(Graphite makes it fill-height bars — see §0.)*
+- **The heatmap is the signature** — the one place to spend boldness. *(Graphite briefly avoided
+  the GitHub contribution-graph read with fill-height bars; reverted 2026-08-24 back to filled
+  colour squares — see §0.)*
 - **Shape language.** The default look has no shape vocabulary at all.
 
 ---

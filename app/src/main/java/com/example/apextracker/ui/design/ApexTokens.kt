@@ -129,21 +129,16 @@ data class ApexSemantics(
     val positive: Color,
     /** Fill for non-current chart marks — see ChartMutedDark/Light on why it is not an alpha. */
     val chartMuted: Color,
-    /** Gray fill-per-bucket ramp; still used by the legend fallback and the Glance widgets. */
-    val heatRamp: List<Color>,
-    /** Bar ink for the heatmap's fill-height cells (partial = alpha, perfect = full). */
-    val heatInk: Color,
-    /** The empty cell a heatmap bar grows inside — the grid's structure with no data. */
-    val heatSlot: Color
+    /** Gray fill-per-bucket ramp: index 0 = untracked, 1..5 = intensityBucket 0..4. Drives the
+     *  heatmap cells, the legend, the Glance widgets, and the style plate's ramp swatch. */
+    val heatRamp: List<Color>
 )
 
 val LocalApexSemantics = staticCompositionLocalOf {
     ApexSemantics(
         positive = SageDark,
         chartMuted = ChartMutedDark,
-        heatRamp = ApexHeatRampDark,
-        heatInk = HeatInkDark,
-        heatSlot = GraphiteRaised
+        heatRamp = ApexHeatRampDark
     )
 }
 
@@ -174,9 +169,7 @@ fun ApexTrackerTheme(
         ApexTheme.GRAPHITE -> ApexSemantics(
             positive = if (darkTheme) SageDark else SageLight,
             chartMuted = if (darkTheme) ChartMutedDark else ChartMutedLight,
-            heatRamp = if (darkTheme) ApexHeatRampDark else ApexHeatRampLight,
-            heatInk = if (darkTheme) HeatInkDark else HeatInkLight,
-            heatSlot = if (darkTheme) GraphiteRaised else PaperRaised
+            heatRamp = if (darkTheme) ApexHeatRampDark else ApexHeatRampLight
         )
     }
     CompositionLocalProvider(LocalApexSemantics provides semantics) {
