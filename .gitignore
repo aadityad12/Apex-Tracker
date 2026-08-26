@@ -19,3 +19,9 @@ local.properties
 # Each developer/CI must supply their own from the Firebase console.
 app/google-services.json
 .kotlin/
+
+# Release signing (Play Store packaging) — the keystore is a permanent, irreplaceable secret
+# and the properties file holds its passwords in plain text. See docs/release-signing.md.
+keystore.properties
+*.jks
+*.keystore
