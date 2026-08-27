@@ -777,3 +777,35 @@ the current state of the backlog rather than trusting a snapshot here.
   end — segmented toggle, category picker hiding, the pie/trend/limits/widget/calendar all
   correctly excluding the $2,000 test income from spend while the transaction list and day
   breakdown both show it in Sage with the net balance updating live.
+- **[Issue #209] Overview's Screen Time stat no longer reads 0m while the Screen Time tracker
+  shows real usage for the same day** — Room's `screen_time_sessions` row for today was only as
+  fresh as `ScreenTimeViewModel`'s own 30-second poll, which runs only while that screen has been
+  opened recently. Overview, often the first screen opened, could read a stale/zero figure on any
+  day Screen Time hadn't been visited yet. `ScreenTimeRefresh.kt` (new) extracts
+  `ScreenTimeViewModel`'s live `UsageStatsManager` query (`calculateTodayAppUsage`, was
+  `calculateAppSpecificUsage`) and its `AppOpsManager` permission check (`hasUsageAccess`, was
+  inlined in `checkPermission()`) into shared top-level functions — `ScreenTimeViewModel` now
+  delegates to both rather than holding its own copy, so the two call sites can't drift. The new
+  `refreshTodayScreenTime(db, context)` reruns the same filtered total `updateScreenTime()`
+  computes (excluded apps, this app itself, the launcher, systemui) **minus** the
+  `installedApps`-restriction, which only narrows further and which a caller outside
+  `ScreenTimeViewModel` has no cheap way to load — omitting it matches the *existing* fallback
+  `updateScreenTime()` itself already uses while that list is still loading. It's a no-op without
+  Usage Access, so a device that never granted it can't have this overwrite real Room data with a
+  false zero. `OverviewViewModel` calls it once on init and again from `selectDate()` whenever the
+  newly-selected date is today; `dayOverview`'s existing `combine()` picks up the fresh Room row
+  automatically since `getAllSessions()` is a Flow — no direct wiring into the reactive pipeline
+  needed, and no risk of the live query re-running on every unrelated emission. **Verified on the
+  Medium_Phone emulator with real usage data**: force-stopped the app, foregrounded the Clock app
+  for ~70s (confirmed via `adb shell dumpsys usagestats`), then opened Overview directly (deep
+  link, Screen Time screen never opened) — the Screen stat correctly showed 1m on first load,
+  where it previously would have shown 0m.
+  - **Found in passing, not fixed here (flagged as a follow-up task, not yet a filed issue):** the
+    `resolveActivity(ACTION_MAIN + CATEGORY_HOME)` call both this and the original
+    `ScreenTimeViewModel` code use to identify "the launcher, so being on the home screen doesn't
+    count as screen time" can apparently misresolve to a just-used app instead of the real
+    launcher under some circumstances (reproduced on the emulator after repeatedly launching
+    Settings via `am start`) — confirmed pre-existing and not introduced by this change, because
+    `ScreenTimeViewModel`'s own "TOTAL APEX TIME" headline showed the same wrong 0m at the same
+    time its own itemized "Today's Apps" list correctly showed nonzero usage for the misidentified
+    app. Root cause not yet investigated.

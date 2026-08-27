@@ -1,29 +1,20 @@
 package com.example.apextracker
 
 import android.app.Application
-import android.app.AppOpsManager
-import android.app.usage.UsageEvents
-import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.os.Build
-import android.os.Process
 import android.provider.Settings
-import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.apextracker.widget.refreshTodayWidget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.time.LocalDate
-import java.util.Calendar
-
-private const val TAG = "ScreenTimeViewModel"
 
 data class AppUsageInfo(
     val packageName: String,
@@ -116,22 +107,9 @@ class ScreenTimeViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun checkPermission() {
-        val appOps = getApplication<Application>().getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
-        val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            appOps.unsafeCheckOpNoThrow(
-                AppOpsManager.OPSTR_GET_USAGE_STATS,
-                Process.myUid(),
-                getApplication<Application>().packageName
-            )
-        } else {
-            @Suppress("DEPRECATION")
-            appOps.checkOpNoThrow(
-                AppOpsManager.OPSTR_GET_USAGE_STATS,
-                Process.myUid(),
-                getApplication<Application>().packageName
-            )
-        }
-        _hasPermission.value = mode == AppOpsManager.MODE_ALLOWED
+        // Delegates to the stateless check in ScreenTimeRefresh.kt (Issue #209) so Overview's
+        // refresh path and this one can't drift into two different definitions of "granted".
+        _hasPermission.value = hasUsageAccess(getApplication())
     }
 
     fun openPermissionSettings() {
@@ -258,53 +236,10 @@ class ScreenTimeViewModel(application: Application) : AndroidViewModel(applicati
         _aggregatedUsage.value = listOf(currentDevice) + latestOtherDevices
     }
 
-    // queryEvents is a blocking binder call and the event loop iterates the whole day's events;
-    // this used to run on Main from the 30s poll and the installedApps combine (jank/ANR risk).
-    private suspend fun calculateAppSpecificUsage(): Map<String, Long> = withContext(Dispatchers.IO) {
-        val usageStatsManager = getApplication<Application>().getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-        val calendar = Calendar.getInstance()
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
-        val startTime = calendar.timeInMillis
-        val endTime = System.currentTimeMillis()
-
-        // Usage access can be revoked while the app is running (Settings > Special app access),
-        // and queryEvents then throws SecurityException from the binder — which crashed the app
-        // on the next 30s poll. Treat a revoked permission as "no data"; the screen already has a
-        // permission banner driven by checkPermission().
-        val usageEvents = try {
-            usageStatsManager.queryEvents(startTime, endTime)
-        } catch (e: SecurityException) {
-            Log.w(TAG, "Usage access unavailable; reporting no app usage", e)
-            return@withContext emptyMap()
-        }
-        val event = UsageEvents.Event()
-
-        val events = mutableListOf<ForegroundEvent>()
-        while (usageEvents.hasNextEvent()) {
-            usageEvents.getNextEvent(event)
-            val kind = when (event.eventType) {
-                UsageEvents.Event.ACTIVITY_RESUMED -> ForegroundEventKind.RESUMED
-                UsageEvents.Event.ACTIVITY_PAUSED, UsageEvents.Event.ACTIVITY_STOPPED -> ForegroundEventKind.PAUSED
-                else -> {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
-                        event.eventType == UsageEvents.Event.SCREEN_NON_INTERACTIVE
-                    ) {
-                        ForegroundEventKind.SCREEN_OFF
-                    } else {
-                        null
-                    }
-                }
-            }
-            if (kind != null) {
-                events.add(ForegroundEvent(kind, event.packageName ?: "", event.timeStamp))
-            }
-        }
-
-        aggregateForegroundDurations(events, startTime, endTime)
-    }
+    // Delegates to the shared query in ScreenTimeRefresh.kt (Issue #209) so Overview's refresh
+    // path runs the exact same UsageStatsManager query and event aggregation as this screen.
+    private suspend fun calculateAppSpecificUsage(): Map<String, Long> =
+        calculateTodayAppUsage(getApplication())
 
     private suspend fun saveTodayScreenTime(millis: Long) {
         val today = LocalDate.now()

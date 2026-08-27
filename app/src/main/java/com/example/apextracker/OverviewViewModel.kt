@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 data class DayOverview(
@@ -25,6 +26,22 @@ class OverviewViewModel(application: Application) : AndroidViewModel(application
 
     private val _selectedDate = MutableStateFlow(LocalDate.now())
     val selectedDate: StateFlow<LocalDate> = _selectedDate.asStateFlow()
+
+    init {
+        // Issue #209: Room's today row for screen time is only as fresh as ScreenTimeViewModel's
+        // last 30s-loop write, which only runs while that screen has been open recently — so
+        // Overview, often the first screen opened, could read 0m/stale on a day Screen Time
+        // hasn't been visited yet. Freshen it once on load; dayOverview picks up the write
+        // automatically since getAllSessions() is a Flow. No-op without Usage Access.
+        refreshTodayScreenTimeIfToday(LocalDate.now())
+    }
+
+    private fun refreshTodayScreenTimeIfToday(date: LocalDate) {
+        if (date != LocalDate.now()) return
+        viewModelScope.launch {
+            refreshTodayScreenTime(db, getApplication())
+        }
+    }
 
     val dayOverview: StateFlow<DayOverview?> = _selectedDate.flatMapLatest { date ->
         combine(
@@ -66,5 +83,6 @@ class OverviewViewModel(application: Application) : AndroidViewModel(application
 
     fun selectDate(date: LocalDate) {
         _selectedDate.value = date
+        refreshTodayScreenTimeIfToday(date)
     }
 }
