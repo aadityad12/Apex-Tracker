@@ -10,7 +10,8 @@ import androidx.work.WorkManager
 class ReminderAlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val reminderId = intent.getLongExtra(ReminderScheduler.EXTRA_REMINDER_ID, 0)
-        val reminderName = intent.getStringExtra(ReminderScheduler.EXTRA_REMINDER_NAME) ?: "Reminder"
+        val reminderName = intent.getStringExtra(ReminderScheduler.EXTRA_REMINDER_NAME)
+            ?: context.getString(R.string.reminder_default_name)
         val reminderDescription = intent.getStringExtra(ReminderScheduler.EXTRA_REMINDER_DESCRIPTION)
         val reminderPriority = intent.getStringExtra(ReminderScheduler.EXTRA_REMINDER_PRIORITY)
 

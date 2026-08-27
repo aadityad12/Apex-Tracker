@@ -48,8 +48,16 @@ suspend fun recognizeReceipt(
  * Returns text reflowed from the recognised lines' bounding boxes rather than `Text.text`. That
  * property groups by block, and a receipt's two columns are usually two blocks — so it hands back
  * every label, then every amount, and `TOTAL` never shares a line with its figure. See
- * [reflowReceiptLines]. If a box is missing (nothing in the API guarantees one), fall back to the
- * plain text rather than dropping the line.
+ * [reflowReceiptLines].
+ *
+ * A line's `boundingBox` is nullable by API contract, not guaranteed non-null per line (Issue
+ * #211) — a mixed result (some lines boxed, some not) used to silently drop every boxless one,
+ * since [reflowReceiptLines] only ever saw the boxed subset. A boxless line can't be placed into
+ * a visual row without a position, so it's appended below the reflowed rows on its own line
+ * instead — not reunited with whatever label or amount shared its row, but no longer invisible to
+ * the amount/date/merchant heuristics in `ReceiptParse.kt` either. Only when *every* line lacks a
+ * box does this fall back to the whole unreflowed `result.text` blob, which already contains
+ * those lines' text — appending them again there would duplicate it.
  */
 private suspend fun readImageText(context: Context, imageUri: Uri): String {
     val image = InputImage.fromFilePath(context, imageUri)
@@ -58,16 +66,22 @@ private suspend fun readImageText(context: Context, imageUri: Uri): String {
         suspendCancellableCoroutine { continuation ->
             recognizer.process(image)
                 .addOnSuccessListener { result ->
-                    val elements = result.textBlocks
-                        .flatMap { block -> block.lines }
-                        .mapNotNull { line ->
-                            line.boundingBox?.let { box ->
-                                ReceiptTextElement(line.text, box.top, box.bottom, box.left)
-                            }
+                    val lines = result.textBlocks.flatMap { block -> block.lines }
+                    val elements = lines.mapNotNull { line ->
+                        line.boundingBox?.let { box ->
+                            ReceiptTextElement(line.text, box.top, box.bottom, box.left)
                         }
-                    continuation.resume(
-                        if (elements.isEmpty()) result.text else reflowReceiptLines(elements)
-                    )
+                    }
+                    val text = if (elements.isEmpty()) {
+                        result.text
+                    } else {
+                        val boxless = lines
+                            .filter { it.boundingBox == null }
+                            .map { it.text.trim() }
+                            .filter { it.isNotBlank() }
+                        (listOf(reflowReceiptLines(elements)) + boxless).joinToString("\n")
+                    }
+                    continuation.resume(text)
                 }
                 .addOnFailureListener { error -> continuation.cancel(error) }
         }

@@ -16,7 +16,8 @@ class ReminderWorker(
 ) : CoroutineWorker(context, workerParams) {
 
     override suspend fun doWork(): Result {
-        val reminderName = inputData.getString("reminder_name") ?: "Reminder"
+        val reminderName = inputData.getString("reminder_name")
+            ?: applicationContext.getString(R.string.reminder_default_name)
         val reminderDescription = inputData.getString("reminder_description")
         val reminderId = inputData.getLong("reminder_id", 0)
         val priority = parseReminderPriority(inputData.getString("reminder_priority"))
@@ -33,10 +34,10 @@ class ReminderWorker(
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,
-                "Reminders",
+                applicationContext.getString(R.string.reminder_channel_name),
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                this.description = "Notifications for tasks and reminders"
+                this.description = applicationContext.getString(R.string.reminder_channel_desc)
             }
             notificationManager.createNotificationChannel(channel)
         }
@@ -86,8 +87,8 @@ class ReminderWorker(
 
         val builder = NotificationCompat.Builder(applicationContext, channelId)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle("Reminder: $name")
-            .setContentText(description ?: "Your task is due!")
+            .setContentTitle(applicationContext.getString(R.string.reminder_notif_title, name))
+            .setContentText(description ?: applicationContext.getString(R.string.reminder_notif_text))
             .setPriority(notificationPriorityFor(priority))
             .setAutoCancel(true)
             .setContentIntent(contentIntent)
