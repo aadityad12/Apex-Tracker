@@ -12,6 +12,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.example.apextracker.ui.design.ApexSpacing
 import com.example.apextracker.ui.design.apexMenuBorder
 import java.time.DayOfWeek
 import java.time.format.TextStyle
@@ -34,7 +35,7 @@ fun RecurrencePickerDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.recurrence_dialog_title)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(ApexSpacing.l)) {
                 // Frequency
                 ExposedDropdownMenuBox(expanded = frequencyExpanded, onExpandedChange = { frequencyExpanded = it })
                  {
@@ -63,7 +64,7 @@ fun RecurrencePickerDialog(
                 if (frequency == RecurrenceFrequency.CUSTOM) {
                     Text(stringResource(R.string.recurrence_repeat_on))
                     val locale = LocalLocale.current.platformLocale
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(ApexSpacing.xs)) {
                         DayOfWeek.values().forEach { day ->
                             val isSelected = customDays.contains(day)
                             Box(

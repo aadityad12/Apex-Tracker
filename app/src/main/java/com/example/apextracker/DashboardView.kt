@@ -83,7 +83,7 @@ fun DashboardView(
             CenterAlignedTopAppBar(
                 title = { Text(stringResource(R.string.dashboard_title), style = MaterialTheme.typography.titleSmall) },
                 navigationIcon = {
-                    ApexLogo(modifier = Modifier.padding(start = 16.dp).size(22.dp))
+                    ApexLogo(modifier = Modifier.padding(start = ApexSpacing.l).size(22.dp))
                 },
                 actions = {
                     if (signedIn) {
@@ -91,7 +91,7 @@ fun DashboardView(
                             imageVector = if (isSyncing) Icons.Default.CloudSync else Icons.Default.CloudDone,
                             contentDescription = stringResource(R.string.cd_sync_status),
                             tint = if (isSyncing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                            modifier = Modifier.padding(end = 4.dp).size(20.dp)
+                            modifier = Modifier.padding(end = ApexSpacing.xs).size(20.dp)
                         )
                     }
                     IconButton(onClick = onManageGoals) {
@@ -629,6 +629,8 @@ private fun HeatCell(
     val fill = if (frac == null) colors.ramp[0] else colors.ramp[intensityBucket(frac) + 1]
     Box(
         modifier
+            // 1dp, not ApexSpacing.hairline (2dp): cells range 14-30dp, and a 2dp gap on each
+            // side would eat up to a quarter of the smallest cell's width across a 7-wide row.
             .padding(1.dp)
             .clip(cellShape)
             .background(fill)
@@ -656,7 +658,7 @@ private fun HeatmapLegend() {
         ramp.drop(1).forEach { fill ->
             Box(
                 Modifier
-                    .padding(horizontal = 2.dp)
+                    .padding(horizontal = ApexSpacing.hairline)
                     .size(14.dp)
                     .clip(RoundedCornerShape(ApexShapes.cell))
                     .background(fill)
@@ -678,13 +680,13 @@ private fun DayDetailSheet(
 ) {
     val statuses = state.dayGoalStatuses(date)
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = ApexSpacing.xl)) {
             Text(
                 date.format(DateTimeFormatter.ofPattern("EEEE, MMM d")),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(ApexSpacing.m))
             if (statuses.isEmpty()) {
                 Text(stringResource(R.string.dashboard_day_no_goals), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {

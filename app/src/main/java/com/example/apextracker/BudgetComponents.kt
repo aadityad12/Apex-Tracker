@@ -239,7 +239,7 @@ fun BudgetItemDialog(
             }
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(ApexSpacing.m)) {
                 // Income has no category of its own — a paycheck isn't a spending category — so
                 // switching to it clears whatever the user had picked while on Expense (Issue #218).
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
@@ -372,7 +372,7 @@ fun CategoryDropdown(categories: List<Category>, selectedCategory: Category?, ex
                     text = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(modifier = Modifier.size(12.dp).background(categoryColorOf(category.colorHex), CircleShape))
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(ApexSpacing.s))
                             Text(category.name)
                         }
                     },

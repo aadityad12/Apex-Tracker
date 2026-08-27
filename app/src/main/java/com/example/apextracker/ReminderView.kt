@@ -191,7 +191,7 @@ fun ReminderView(onBackToMenu: () -> Unit, viewModel: ReminderViewModel = viewMo
         ) {
             if (notificationsEnabled && !canScheduleExact) {
                 item {
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(ApexSpacing.s))
                     // A real alert treatment rather than a soft tinted blob (Design.md §10 flagged
                     // this). The outline plus the Alarm-coloured icon say "something is wrong";
                     // the action stays Ember because Ember is emphasis — the thing to press — and
@@ -271,7 +271,7 @@ fun ReminderView(onBackToMenu: () -> Unit, viewModel: ReminderViewModel = viewMo
 
             if (completedReminders.isNotEmpty()) {
                 item {
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(ApexSpacing.l))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -473,7 +473,7 @@ fun ReminderEditDialog(
             }
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(ApexSpacing.s)) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -487,7 +487,7 @@ fun ReminderEditDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
                 
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(ApexSpacing.s)) {
                     Button(
                         onClick = { showDatePicker = true },
                         modifier = Modifier.weight(1f)
@@ -506,7 +506,7 @@ fun ReminderEditDialog(
                 // Importance (Issue #126): orders the list within a day and sets the
                 // notification's priority.
                 Text(stringResource(R.string.reminders_priority_label), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(ApexSpacing.s)) {
                     ReminderPriority.entries.forEach { option ->
                         FilterChip(
                             selected = priority == option,
@@ -522,8 +522,8 @@ fun ReminderEditDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-                
+                Spacer(modifier = Modifier.height(ApexSpacing.s))
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -607,7 +607,7 @@ fun ReminderSettingsDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.reminders_settings_title)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(ApexSpacing.l)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.reminders_enable_notifications), modifier = Modifier.weight(1f))
                     Switch(checked = enabled, onCheckedChange = onToggleEnabled)
@@ -741,7 +741,7 @@ fun ReminderItemModern(
                 }
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = ApexSpacing.hairline)) {
                 Icon(
                     imageVector = Icons.Default.AccessTime,
                     contentDescription = null,

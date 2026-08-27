@@ -139,7 +139,7 @@ fun BudgetTrackerApp(onBackToMenu: () -> Unit, viewModel: BudgetViewModel = view
                 onClick = { showAddDialog = true },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(ApexShapes.control)
             ) {
                 Icon(Icons.Default.Add, contentDescription = stringResource(R.string.cd_add_item))
             }

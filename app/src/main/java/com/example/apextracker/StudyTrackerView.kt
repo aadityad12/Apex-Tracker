@@ -580,7 +580,7 @@ fun SubjectPickerDialog(
         title = { Text(stringResource(R.string.study_choose_subject)) },
         text = {
             Column {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(ApexSpacing.s)) {
                     options.forEach { option ->
                         FilterChip(
                             selected = option == current,
@@ -589,7 +589,7 @@ fun SubjectPickerDialog(
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(ApexSpacing.l))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
                         value = newSubject,
@@ -601,7 +601,7 @@ fun SubjectPickerDialog(
                             onDone = { if (newSubject.isNotBlank()) onSelect(newSubject) }
                         )
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(ApexSpacing.s))
                     IconButton(
                         onClick = { if (newSubject.isNotBlank()) onSelect(newSubject) },
                         enabled = newSubject.isNotBlank()
@@ -785,7 +785,7 @@ fun StudyGoalDialog(currentMinutes: Int, onDismiss: () -> Unit, onSave: (Int) ->
         text = {
             Column {
                 Text(stringResource(R.string.study_goal_desc), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(ApexSpacing.m))
                 OutlinedTextField(
                     value = text,
                     onValueChange = { text = it.filter { c -> c.isDigit() }.take(4) },
@@ -893,7 +893,7 @@ fun StudyWeeklyChart(sessions: List<StudySession>, goalMinutes: Int) {
                             Canvas(modifier = Modifier.fillMaxWidth(0.56f).fillMaxHeight(heightFraction)) {
                                 drawRoundRect(
                                     color = if (day == today) accent else muted,
-                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx())
+                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(ApexShapes.cell.toPx())
                                 )
                             }
                         }
@@ -1032,9 +1032,9 @@ fun ManualSessionDialog(
                     Text(date.format(DateTimeFormatter.ofPattern("EEE, MMM d, yyyy")))
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(ApexSpacing.m))
                 Text(stringResource(R.string.study_subject_label), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(ApexSpacing.s)) {
                     options.forEach { option ->
                         FilterChip(
                             selected = normalizeSubject(option) == normalizeSubject(subject),
@@ -1051,8 +1051,8 @@ fun ManualSessionDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Spacer(modifier = Modifier.height(ApexSpacing.m))
+                Row(horizontalArrangement = Arrangement.spacedBy(ApexSpacing.s)) {
                     OutlinedTextField(
                         value = hours,
                         onValueChange = { hours = it },

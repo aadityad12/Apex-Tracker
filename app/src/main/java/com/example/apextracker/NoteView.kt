@@ -260,7 +260,7 @@ fun NoteRow(note: Note, onClick: () -> Unit, onDelete: () -> Unit, onTogglePin: 
                     text = attachmentCount.toString(),
                     style = ApexNumerals.small,
                     color = cs.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 2.dp)
+                    modifier = Modifier.padding(start = ApexSpacing.hairline)
                 )
             }
             // No "PINNED" badge: the filled accent pin icon above already says it, and the DAO
@@ -326,7 +326,7 @@ fun NoteEditor(note: Note, onDismiss: () -> Unit, onTogglePin: () -> Unit, onSav
             )
         }
     ) { innerPadding ->
-        Column(modifier = Modifier.padding(innerPadding).fillMaxSize().padding(16.dp)) {
+        Column(modifier = Modifier.padding(innerPadding).fillMaxSize().padding(ApexSpacing.l)) {
             TextField(
                 value = title,
                 onValueChange = { title = it },
@@ -340,7 +340,7 @@ fun NoteEditor(note: Note, onDismiss: () -> Unit, onTogglePin: () -> Unit, onSav
                 ),
                 textStyle = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(ApexSpacing.s))
             TextField(
                 value = contentValue,
                 onValueChange = { newValue ->
@@ -370,8 +370,8 @@ fun NoteEditor(note: Note, onDismiss: () -> Unit, onTogglePin: () -> Unit, onSav
 
             // Helper bar for lists
             Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier.fillMaxWidth().padding(vertical = ApexSpacing.s),
+                horizontalArrangement = Arrangement.spacedBy(ApexSpacing.s)
             ) {
                 InputToolButton(icon = Icons.Default.Image, label = stringResource(R.string.notes_tool_attach)) {
                     pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
@@ -524,18 +524,18 @@ fun RecycleBinView(
             }
         } else {
             LazyColumn(
-                modifier = Modifier.padding(innerPadding).fillMaxSize().padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier.padding(innerPadding).fillMaxSize().padding(ApexSpacing.l),
+                verticalArrangement = Arrangement.spacedBy(ApexSpacing.m)
             ) {
                 items(notes) { note ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
+                        Column(modifier = Modifier.padding(ApexSpacing.l)) {
                             Text(note.title.ifBlank { stringResource(R.string.notes_untitled) }, fontWeight = FontWeight.Bold)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Spacer(modifier = Modifier.height(ApexSpacing.s))
+                            Row(horizontalArrangement = Arrangement.spacedBy(ApexSpacing.s)) {
                                 Button(
                                     onClick = { onRestore(note) },
                                     modifier = Modifier.weight(1f),
@@ -580,7 +580,7 @@ fun NoteSettingsDialog(viewModel: NoteViewModel, onDismiss: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(ApexSpacing.l))
                 Slider(
                     value = sliderValue,
                     onValueChange = { sliderValue = it },
@@ -592,9 +592,9 @@ fun NoteSettingsDialog(viewModel: NoteViewModel, onDismiss: () -> Unit) {
                     Text(stringResource(R.string.notes_retention_72h), style = MaterialTheme.typography.labelSmall)
                     Text(stringResource(R.string.notes_retention_168h), style = MaterialTheme.typography.labelSmall)
                 }
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(ApexSpacing.l))
                 HorizontalDivider()
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(ApexSpacing.l))
                 ModuleLockSetting(
                     checked = notesLocked,
                     titleRes = R.string.security_lock_notes_title,
@@ -625,8 +625,8 @@ fun NoteAttachmentStrip(filenames: List<String>, onRemove: (String) -> Unit) {
     var viewing by remember { mutableStateOf<String?>(null) }
 
     LazyRow(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = Modifier.fillMaxWidth().padding(vertical = ApexSpacing.s),
+        horizontalArrangement = Arrangement.spacedBy(ApexSpacing.s)
     ) {
         items(filenames, key = { it }) { filename ->
             Box {
@@ -636,14 +636,14 @@ fun NoteAttachmentStrip(filenames: List<String>, onRemove: (String) -> Unit) {
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .size(88.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(ApexShapes.container))
                         .clickable { viewing = filename }
                 )
                 // Remove badge in the corner.
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(4.dp)
+                        .padding(ApexSpacing.xs)
                         .size(22.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
@@ -667,7 +667,7 @@ fun NoteAttachmentStrip(filenames: List<String>, onRemove: (String) -> Unit) {
                 model = noteAttachmentFile(context, filename),
                 contentDescription = stringResource(R.string.cd_note_attachment),
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(ApexShapes.container))
             )
         }
     }

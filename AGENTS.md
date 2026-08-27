@@ -951,3 +951,28 @@ the current state of the backlog rather than trusting a snapshot here.
   it came back already-loaded rather than mid-load. The change is a minimal, direct application
   of an already-proven pattern already in the same file, compiles clean, and passes
   `testDebugUnitTest`/`lintDebug`.
+- **[Issue #214] Raw `.dp` literals swept onto `ApexSpacing`/`ApexShapes` tokens across 10
+  screen files** (`NoteView.kt`, `DashboardView.kt`, `StudyTrackerView.kt`,
+  `ScreenTimeTrackerView.kt`, `ReminderView.kt`, `OverviewView.kt`, `BudgetComponents.kt`,
+  `SecuritySettings.kt`, `BudgetTrackerView.kt`, `RecurrencePickerDialog.kt` — `BudgetSettings.kt`
+  and `GoalsView.kt` were audited too and needed no changes, their few remaining raw values are
+  already-named one-off dimension constants or min-touch-target `heightIn`s, not spacing/radius).
+  Exact-match spacing values (2/4/8/12/16/24/40dp) became `hairline`/`xs`/`s`/`m`/`l`/`xl`/`xxl`;
+  exact-match corner radii (3/9/14/26dp) became `cell`/`control`/`container`/`sheet`. Left alone,
+  deliberately: icon/avatar/component sizes (`Modifier.size`), stroke widths, min touch targets,
+  named one-off geometry constants (`DONUT_SIZE`-style), and a handful of non-matching values
+  (mostly 20dp/32dp paddings) with no inferable reason to force onto a token — under-fixing was
+  the explicit instruction over guessing a wrong mapping. Two corner-radius calls landed on a
+  token 5-7dp off their original literal (12/16dp → `container`'s 14dp, on note-attachment
+  thumbnails and a full-width image viewer) — an intentional, barely-visible unification the issue
+  itself called for, not an oversight. One found the sweep was *fixing* a genuine inconsistency
+  rather than introducing one: Budget's FAB was hardcoded at `RoundedCornerShape(16.dp)` while
+  Notes' and Reminders' FABs already used `ApexShapes.control` (9dp) — the sweep brought Budget in
+  line with the other two, it didn't invent a new look. `StudyTrackerView.kt`'s chart-bar corner
+  radius (2dp, no exact token match) was mapped to `ApexShapes.cell` (3dp) by direct analogy with
+  `BudgetTrends.kt`'s identical already-tokenized chart-bar pattern. One value was deliberately
+  kept as a raw literal with a new comment explaining why (`DashboardView.kt`'s heatmap cell
+  padding: 1dp, not `hairline`'s 2dp, because cells run as small as 14dp and a 2dp gap eats a
+  quarter of that). Verified: clean `assembleDebug`/`testDebugUnitTest`/`lintDebug`, plus an
+  on-device visual pass on the `Medium_Phone` emulator (Budget's FAB, Overview's selected calendar
+  day cell, Dashboard's heatmap) confirming no call site reads as visually broken or unintentional.

@@ -128,7 +128,7 @@ fun OverviewView(
 
                         // Reminders Section — the header doubles as a "see all" jump to the Reminders screen.
                         item {
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(ApexSpacing.s))
                             ApexSectionHeader(
                                 stringResource(R.string.overview_tasks),
                                 modifier = Modifier.clickable { onNavigate("reminders") },
@@ -349,8 +349,8 @@ fun CalendarGrid(selectedDate: LocalDate, onDateSelected: (LocalDate) -> Unit) {
             }
         }
         
-        Spacer(modifier = Modifier.height(12.dp))
-        
+        Spacer(modifier = Modifier.height(ApexSpacing.m))
+
         // Days grid
         var day = 1
         for (i in 0 until 6) {
@@ -368,8 +368,8 @@ fun CalendarGrid(selectedDate: LocalDate, onDateSelected: (LocalDate) -> Unit) {
                             modifier = Modifier
                                 .weight(1f)
                                 .aspectRatio(1f)
-                                .padding(2.dp)
-                                .clip(RoundedCornerShape(12.dp))
+                                .padding(ApexSpacing.hairline)
+                                .clip(RoundedCornerShape(ApexShapes.control))
                                 .background(
                                     when {
                                         isSelected -> MaterialTheme.colorScheme.primary

@@ -129,8 +129,8 @@ fun ScreenTimeTrackerView(onBackToMenu: () -> Unit, viewModel: ScreenTimeViewMod
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(vertical = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                    contentPadding = PaddingValues(vertical = ApexSpacing.l),
+                    verticalArrangement = Arrangement.spacedBy(ApexSpacing.xl)
                 ) {
                     item {
                         TotalApexTime(aggregatedUsage)
@@ -317,7 +317,7 @@ fun AppLimitDialog(app: AppUsageInfo, onDismiss: () -> Unit, onSave: (Int?) -> U
         text = {
             Column {
                 Text(stringResource(R.string.screen_limit_dialog_desc), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(ApexSpacing.m))
                 OutlinedTextField(
                     value = text,
                     onValueChange = { text = it.filter { c -> c.isDigit() }.take(4) },
@@ -358,12 +358,12 @@ fun ExcludeAppsList(apps: List<AppUsageInfo>, onToggle: (AppUsageInfo) -> Unit) 
             stringResource(R.string.screen_tracking_prefs_desc),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 16.dp)
+            modifier = Modifier.padding(bottom = ApexSpacing.l)
         )
-        
+
         LazyColumn(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(ApexSpacing.xs)
         ) {
             items(apps) { app ->
                 AppToggleItem(app, onToggle)
@@ -384,7 +384,7 @@ fun AppToggleItem(app: AppUsageInfo, onToggle: (AppUsageInfo) -> Unit) {
     ) {
         Row(
             modifier = Modifier
-                .padding(12.dp)
+                .padding(ApexSpacing.m)
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -395,7 +395,7 @@ fun AppToggleItem(app: AppUsageInfo, onToggle: (AppUsageInfo) -> Unit) {
                     modifier = Modifier.size(40.dp)
                 )
             }
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(ApexSpacing.l))
             Column(modifier = Modifier.weight(1f)) {
                 Text(app.appName, fontWeight = FontWeight.Medium)
                 Text(
@@ -415,22 +415,22 @@ fun AppToggleItem(app: AppUsageInfo, onToggle: (AppUsageInfo) -> Unit) {
 @Composable
 fun PermissionRequestCard(onGrantClick: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        modifier = Modifier.fillMaxWidth().padding(ApexSpacing.l),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
     ) {
-        Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(modifier = Modifier.padding(ApexSpacing.l), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 stringResource(R.string.screen_permission_title),
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onErrorContainer
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(ApexSpacing.s))
             Text(
                 stringResource(R.string.screen_permission_text),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onErrorContainer
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(ApexSpacing.l))
             Button(onClick = onGrantClick) {
                 Text(stringResource(R.string.screen_grant_permission))
             }

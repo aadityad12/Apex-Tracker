@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import com.example.apextracker.ui.design.ApexSpacing
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.datastore.core.DataStore
@@ -283,7 +284,7 @@ fun ModuleLockSetting(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(ApexSpacing.m))
         Switch(
             checked = checked,
             enabled = enabled,
@@ -320,14 +321,14 @@ fun LockOverlay(onUnlockClick: () -> Unit) {
             modifier = Modifier.size(48.dp),
             tint = MaterialTheme.colorScheme.primary
         )
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(ApexSpacing.l))
         Text(
             stringResource(R.string.security_locked_message),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(ApexSpacing.xl))
         Button(onClick = onUnlockClick) {
             Text(stringResource(R.string.security_unlock_button))
         }
