@@ -10,7 +10,7 @@ import java.time.format.DateTimeFormatter
  * Characters that make Excel / Sheets / LibreOffice treat a cell as a formula rather than text.
  * Quoting does not help — a spreadsheet evaluates `"=1+1"` from a quoted CSV field just the same.
  */
-private val CSV_FORMULA_TRIGGERS = charArrayOf('=', '+', '-', '@', '\t', '\r')
+internal val CSV_FORMULA_TRIGGERS = charArrayOf('=', '+', '-', '@', '\t', '\r')
 
 /**
  * RFC 4180 quoting, plus a leading apostrophe on anything a spreadsheet would evaluate.

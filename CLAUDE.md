@@ -862,3 +862,28 @@ the current state of the backlog rather than trusting a snapshot here.
   outside the normal alarm/WorkManager path proved more effort than the change's risk profile
   warrants — it is a mechanical text-literal-to-resource move with no logic change, verified by a
   clean `assembleDebug`/`testDebugUnitTest`/`lintDebug` and by matching an already-proven pattern.
+- **[Issue #219] Budget can now import CSV, round-tripping its own export format.** New
+  `BudgetCsvImport.kt`: `parseCsvRows()` is a small RFC-4180-aware tokenizer (quoted fields can
+  hold commas, doubled quotes, and literal newlines — the same reason `csvEscape()` quotes them
+  on the way out), `parseBudgetCsv()` turns rows into `BudgetCsvImportRow`s that are either valid
+  or carry a per-row `error` string (never silently dropped), and `resolveImportedCategoryId()`
+  matches a row's free-text category name against the live list case-insensitively (no match =
+  uncategorized — a "Subscriptions" label from a prior export is **not** special-cased back onto
+  the synthetic -1L bucket). Deliberately scoped to this app's own `date,title,amount,type,
+  category,description` format (always skips row 1 as the header) rather than an arbitrary bank
+  CSV, per the issue's own suggested scope. `csvEscape()`'s formula-neutralizer prefix
+  (`CSV_FORMULA_TRIGGERS`, now `internal` instead of `private` so both files can share it) is
+  reversed on import so re-importing an exported file round-trips exactly. Unit-tested in
+  `BudgetCsvImportTest` (26 cases) including a full `buildBudgetCsv` → `parseBudgetCsv` round trip.
+  UI: `BudgetSettingsDialog` gained an "Import CSV" item beside "Export CSV", using
+  `ActivityResultContracts.GetContent()` (`text/*`, no persisted URI permission needed — a
+  one-shot read, same reasoning as the receipt-photo picker) to read the file, then
+  `BudgetImportPreviewDialog` shows the valid count and every row's error before anything commits
+  — Confirm is disabled with nothing valid to import. `BudgetViewModel.importItems()` commits
+  exactly like `addItem()` (fresh cloudId, fire-and-forget cloud push) for each valid row.
+  Verified on-device end to end: pushed a CSV with one income row, one expense row, and one
+  malformed row (bad date) to the emulator, imported through the real file-picker → preview →
+  confirm flow — the preview correctly reported "2 transactions ready to import" and
+  "Line 4: Unreadable date", and after confirming, Budget's totals updated to exactly the
+  expected `$53.63` spent / `$2,300.00` income / `$2,246.37` net, with both new rows appearing in
+  the transaction list (description and INCOME styling intact) and the bad row absent.

@@ -118,6 +118,20 @@
     <string name="budget_export_scope_title">Export Budget CSV</string>
     <string name="budget_export_current_month">Current Month</string>
     <string name="budget_export_all_time">All Time</string>
+    <!-- CSV import (Issue #219) -->
+    <string name="budget_import_csv">Import CSV</string>
+    <string name="budget_import_preview_title">Import preview</string>
+    <string name="budget_import_read_failed">Couldn\'t read that file</string>
+    <plurals name="budget_import_valid_count">
+        <item quantity="one">%1$d transaction ready to import</item>
+        <item quantity="other">%1$d transactions ready to import</item>
+    </plurals>
+    <plurals name="budget_import_invalid_count">
+        <item quantity="one">%1$d row couldn\'t be read:</item>
+        <item quantity="other">%1$d rows couldn\'t be read:</item>
+    </plurals>
+    <string name="budget_import_row_error">Line %1$d: %2$s</string>
+    <string name="budget_import_confirm">Import %1$d</string>
     <string name="budget_settings_title">Budget Settings</string>
     <string name="budget_manage_categories">Manage Categories</string>
     <string name="budget_manage_subscriptions">Manage Subscriptions</string>

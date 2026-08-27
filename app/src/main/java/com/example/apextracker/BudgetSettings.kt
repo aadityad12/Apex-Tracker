@@ -1,5 +1,7 @@
 package com.example.apextracker
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,6 +25,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -54,11 +57,39 @@ fun BudgetSettingsDialog(
     var activeSubScreen by remember { mutableStateOf<String?>(null) }
     var showExportDialog by remember { mutableStateOf(false) }
     var showOverallLimitDialog by remember { mutableStateOf(false) }
+    var importPreview by remember { mutableStateOf<BudgetCsvImportResult?>(null) }
     val overallLimit by viewModel.overallMonthlyLimit.collectAsState(initial = null)
     val context = LocalContext.current
     val securitySettings = remember { SecuritySettings(context) }
     val budgetLocked by securitySettings.budgetLockEnabled.collectAsState(initial = false)
     val scope = rememberCoroutineScope()
+    // Resolved at composition time (not inside the launcher callback) so a Configuration change
+    // can't leave a stale value cached off LocalContext.current.
+    val importReadFailedMessage = stringResource(R.string.budget_import_read_failed)
+
+    // GetContent, not OpenDocument: this is a one-shot read, not a persisted URI permission the
+    // app needs to hold onto (same reasoning as the receipt-photo picker in BudgetItemDialog).
+    val pickCsvFile = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val text = runCatching {
+            context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+        }.getOrNull()
+        importPreview = if (text != null) {
+            parseBudgetCsv(text)
+        } else {
+            // A single unreadable "row" carries the failure through the same preview dialog
+            // rather than a separate error path — one less state to design and test.
+            BudgetCsvImportResult(
+                listOf(
+                    BudgetCsvImportRow(
+                        lineNumber = 0, date = null, title = "", amount = null,
+                        type = TransactionType.EXPENSE, categoryName = "", description = null,
+                        error = importReadFailedMessage
+                    )
+                )
+            )
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -108,6 +139,7 @@ fun BudgetSettingsDialog(
                                     ?: stringResource(R.string.budget_limit_none)
                             ) { showOverallLimitDialog = true }
                             BudgetSettingsItem(stringResource(R.string.budget_export_csv)) { showExportDialog = true }
+                            BudgetSettingsItem(stringResource(R.string.budget_import_csv)) { pickCsvFile.launch("text/*") }
                             HorizontalDivider()
                             ModuleLockSetting(
                                 checked = budgetLocked,
@@ -162,6 +194,67 @@ fun BudgetSettingsDialog(
             }
         )
     }
+
+    importPreview?.let { result ->
+        BudgetImportPreviewDialog(
+            result = result,
+            onDismiss = { importPreview = null },
+            onConfirm = {
+                viewModel.importItems(result.valid, categories)
+                importPreview = null
+            }
+        )
+    }
+}
+
+/**
+ * What a picked CSV will do before it does it — every valid row's count, plus a per-line reason
+ * for anything that couldn't be read, so an import never silently drops rows the user can't see
+ * (Issue #219). Confirm is disabled when there's nothing valid to import.
+ */
+@Composable
+fun BudgetImportPreviewDialog(
+    result: BudgetCsvImportResult,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.budget_import_preview_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(ApexSpacing.s)) {
+                Text(
+                    pluralStringResource(R.plurals.budget_import_valid_count, result.valid.size, result.valid.size),
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                if (result.invalid.isNotEmpty()) {
+                    Text(
+                        pluralStringResource(R.plurals.budget_import_invalid_count, result.invalid.size, result.invalid.size),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                    Column(
+                        modifier = Modifier.heightIn(max = 150.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(ApexSpacing.xs)
+                    ) {
+                        result.invalid.forEach { row ->
+                            Text(
+                                stringResource(R.string.budget_import_row_error, row.lineNumber, row.error ?: ""),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = onConfirm, enabled = result.valid.isNotEmpty()) {
+                Text(stringResource(R.string.budget_import_confirm, result.valid.size))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } }
+    )
 }
 
 @Composable

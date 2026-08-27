@@ -165,6 +165,36 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    /**
+     * Commits already-validated CSV rows (Issue #219) — the preview step is what decided which
+     * rows are "valid"; this trusts that and inserts every one, same identity/sync conventions as
+     * [addItem] (fresh cloudId, fire-and-forget push). Category is resolved here, not in the pure
+     * parser, since only the ViewModel has the live category list.
+     */
+    fun importItems(rows: List<BudgetCsvImportRow>, categories: List<Category>) {
+        viewModelScope.launch {
+            var inserted = false
+            rows.filter { it.isValid }.forEach { row ->
+                val item = BudgetItem(
+                    title = row.title,
+                    amount = row.amount!!,
+                    description = row.description,
+                    date = row.date!!,
+                    categoryId = resolveImportedCategoryId(row.categoryName, categories),
+                    type = row.type,
+                    cloudId = UUID.randomUUID().toString(),
+                    modifiedAt = System.currentTimeMillis()
+                )
+                budgetDao.insertItem(item)
+                inserted = true
+                safeCloudCall(TAG, "push imported budget item") {
+                    firebaseManager.pushBudgetItem(item, categoryCloudIdFor(item.categoryId))
+                }
+            }
+            if (inserted) refreshBudgetWidget(getApplication())
+        }
+    }
+
     fun updateItem(item: BudgetItem) {
         viewModelScope.launch {
             val updated = item.copy(
