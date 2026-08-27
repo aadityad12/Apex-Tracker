@@ -12,17 +12,20 @@ import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.LinearProgressIndicator
 import androidx.glance.appwidget.action.actionStartActivity
+import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
+import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
+import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import com.example.apextracker.AppDatabase
 import com.example.apextracker.BudgetPrefs
@@ -63,6 +66,11 @@ private fun BudgetWidgetContent(snapshot: BudgetWidgetSnapshot, context: Context
         .uppercase(locale)
     val openBudget = Intent(context, MainActivity::class.java)
         .putExtra(MainActivity.EXTRA_NAVIGATE_TO, "budget_tracker")
+    // Issue #222: same destination, plus the flag BudgetTrackerApp reads to open the add-item
+    // dialog immediately, saving the one extra tap the widget used to always require.
+    val openBudgetQuickAdd = Intent(context, MainActivity::class.java)
+        .putExtra(MainActivity.EXTRA_NAVIGATE_TO, "budget_tracker")
+        .putExtra(MainActivity.EXTRA_BUDGET_QUICK_ADD, true)
 
     Column(
         modifier = GlanceModifier
@@ -150,6 +158,27 @@ private fun BudgetWidgetContent(snapshot: BudgetWidgetSnapshot, context: Context
                 )
             )
         }
+
+        Spacer(GlanceModifier.height(7.dp))
+        // A distinct clickable region nested inside the whole-widget "open Budget" click (Issue
+        // #222) — Glance/RemoteViews give each clickable view its own tap target, so tapping this
+        // pill fires its own PendingIntent instead of the outer Column's, the same way a button
+        // inside a clickable card works in the full app.
+        Text(
+            text = context.getString(R.string.widget_budget_add_expense),
+            modifier = GlanceModifier
+                .fillMaxWidth()
+                .background(track)
+                .cornerRadius(9.dp)
+                .padding(vertical = 8.dp)
+                .clickable(actionStartActivity(openBudgetQuickAdd)),
+            style = TextStyle(
+                color = ink,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
+        )
     }
 }
 

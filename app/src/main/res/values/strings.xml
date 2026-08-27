@@ -452,6 +452,7 @@
     <!-- Shown instead of any figure while the Budget module lock is on (Issue #187). -->
     <string name="widget_budget_locked">Locked</string>
     <string name="widget_budget_locked_hint">Tap to unlock in the app</string>
+    <string name="widget_budget_add_expense">+ Add expense</string>
     <string name="widget_today_title">TODAY</string>
     <string name="widget_today_study">Study</string>
     <string name="widget_today_study_running">Study · running</string>

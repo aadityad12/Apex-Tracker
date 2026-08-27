@@ -56,11 +56,25 @@ import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BudgetTrackerApp(onBackToMenu: () -> Unit, viewModel: BudgetViewModel = viewModel()) {
+fun BudgetTrackerApp(
+    onBackToMenu: () -> Unit,
+    viewModel: BudgetViewModel = viewModel(),
+    // Issue #222: the home-screen widget's quick-add button lands here already navigated to
+    // this screen — this just saves the one extra tap to open the dialog. Consumed immediately
+    // so backing out and returning to this screen later doesn't reopen it.
+    openAddDialogOnLaunch: Boolean = false,
+    onAddDialogConsumed: () -> Unit = {}
+) {
     val items by viewModel.allItems.collectAsState(initial = emptyList())
     val categories by viewModel.allCategories.collectAsState(initial = emptyList())
     val subscriptions by viewModel.allSubscriptions.collectAsState(initial = emptyList())
     var showAddDialog by remember { mutableStateOf(false) }
+    LaunchedEffect(openAddDialogOnLaunch) {
+        if (openAddDialogOnLaunch) {
+            showAddDialog = true
+            onAddDialogConsumed()
+        }
+    }
     var itemToEdit by remember { mutableStateOf<BudgetItem?>(null) }
     var showSettingsDialog by remember { mutableStateOf(false) }
     var showCalendar by rememberSaveable { mutableStateOf(false) }

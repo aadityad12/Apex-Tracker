@@ -86,6 +86,13 @@ class MainActivity : FragmentActivity() {
         /** Intent extra naming a navigation route to open (e.g. from a notification tap). */
         const val EXTRA_NAVIGATE_TO = "navigate_to"
 
+        /**
+         * Paired with [EXTRA_NAVIGATE_TO] = "budget_tracker" by the Budget widget's quick-add
+         * button (Issue #222) so Budget opens straight into the add-item dialog instead of an
+         * extra tap once the app is already open. Ignored for any other route.
+         */
+        const val EXTRA_BUDGET_QUICK_ADD = "budget_quick_add"
+
         // Process-scoped so activity recreation (rotation, theme change) doesn't
         // re-trigger the cold-start initial sync. See shouldRunInitialSync().
         private var initialSyncRanThisProcess = false
@@ -97,10 +104,13 @@ class MainActivity : FragmentActivity() {
 
     // Route requested by the launching intent; consumed (nulled) once navigated.
     private var pendingRoute by mutableStateOf<String?>(null)
+    // Issue #222: consumed (reset to false) once BudgetTrackerApp has opened the dialog.
+    private var pendingBudgetQuickAdd by mutableStateOf(false)
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         pendingRoute = sanitizeRequestedRoute(intent.getStringExtra(EXTRA_NAVIGATE_TO))
+        pendingBudgetQuickAdd = intent.getBooleanExtra(EXTRA_BUDGET_QUICK_ADD, false)
     }
 
     override fun onStop() {
@@ -125,6 +135,7 @@ class MainActivity : FragmentActivity() {
         configureAppCheck()
         enableEdgeToEdge()
         pendingRoute = sanitizeRequestedRoute(intent?.getStringExtra(EXTRA_NAVIGATE_TO))
+        pendingBudgetQuickAdd = intent?.getBooleanExtra(EXTRA_BUDGET_QUICK_ADD, false) ?: false
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -247,7 +258,9 @@ class MainActivity : FragmentActivity() {
                             }
                         },
                         requestedRoute = pendingRoute,
-                        onRequestedRouteConsumed = { pendingRoute = null }
+                        onRequestedRouteConsumed = { pendingRoute = null },
+                        openBudgetAddOnLaunch = pendingBudgetQuickAdd,
+                        onBudgetAddConsumed = { pendingBudgetQuickAdd = false }
                     )
                 }
             }
@@ -262,7 +275,9 @@ fun AppNavigation(
     currencyCode: String,
     onCurrencyChange: (String) -> Unit,
     requestedRoute: String? = null,
-    onRequestedRouteConsumed: () -> Unit = {}
+    onRequestedRouteConsumed: () -> Unit = {},
+    openBudgetAddOnLaunch: Boolean = false,
+    onBudgetAddConsumed: () -> Unit = {}
 ) {
     val navController = rememberNavController()
 
@@ -404,7 +419,11 @@ fun AppNavigation(
                 promptSubtitle = stringResource(R.string.security_lock_subtitle),
                 onCancelled = { navController.popBackStack() }
             ) {
-                BudgetTrackerApp(onBackToMenu = { navController.popBackStack() })
+                BudgetTrackerApp(
+                    onBackToMenu = { navController.popBackStack() },
+                    openAddDialogOnLaunch = openBudgetAddOnLaunch,
+                    onAddDialogConsumed = onBudgetAddConsumed
+                )
             }
         }
         composable("study_tracker") {

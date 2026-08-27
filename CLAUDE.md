@@ -976,3 +976,23 @@ the current state of the backlog rather than trusting a snapshot here.
   quarter of that). Verified: clean `assembleDebug`/`testDebugUnitTest`/`lintDebug`, plus an
   on-device visual pass on the `Medium_Phone` emulator (Budget's FAB, Overview's selected calendar
   day cell, Dashboard's heatmap) confirming no call site reads as visually broken or unintentional.
+- **[Issue #222] The Budget home-screen widget has a quick-add-expense button, not just
+  navigate-only.** `BudgetWidget.kt` gained a second clickable region — a small pill button below
+  the existing progress row — nested inside the whole-widget "open Budget" click, the same way
+  Glance/RemoteViews already give `StudyWidget`'s start/pause button its own tap target distinct
+  from its container. It fires `actionStartActivity` against a second `Intent` carrying both
+  `MainActivity.EXTRA_NAVIGATE_TO = "budget_tracker"` (the existing deep-link extra) and a new
+  `MainActivity.EXTRA_BUDGET_QUICK_ADD` boolean. `MainActivity` threads that flag down through
+  `AppNavigation` to `BudgetTrackerApp` (mirroring the already-proven `pendingRoute`/
+  `onRequestedRouteConsumed` pattern notification taps use), where a `LaunchedEffect` opens the
+  add-item dialog immediately and consumes the flag so returning to Budget later doesn't reopen
+  it. Deliberately the "simpler" option from the issue's suggested scope (deep-link into the
+  existing dialog) rather than a Glance-native amount-entry surface, since Glance has no text
+  input widget to build one with. Verified on-device: simulating the exact intent the widget
+  button constructs (`am start` with both extras) reliably opened Budget straight into the
+  add-item dialog on a cold start, confirming the `MainActivity` → `AppNavigation` →
+  `BudgetTrackerApp` wiring end to end. The widget-side click itself (Glance button → this same
+  intent) wasn't verified with an actually-placed widget instance — placing a *new* widget via
+  drag-and-drop proved too unreliable to automate over adb on this emulator — but the button is
+  structurally identical to `StudyWidget`'s already-working one, just a different destination
+  `Intent`.
