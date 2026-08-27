@@ -569,4 +569,9 @@
     <string name="goal_threshold_papers">Artículos</string>
     <string name="goal_rule_papers_over">Leer %1$s+ artículos</string>
     <string name="goal_rule_papers_under">Máximo %1$s artículos</string>
+    <string name="papers_related_label">Artículos relacionados</string>
+    <string name="papers_related_add">Vincular un artículo</string>
+    <string name="papers_link_picker_title">Vincular a artículo</string>
+    <string name="papers_link_picker_empty">No hay otros artículos para vincular</string>
+    <string name="cd_papers_unlink">Quitar el vínculo con %1$s</string>
 </resources>

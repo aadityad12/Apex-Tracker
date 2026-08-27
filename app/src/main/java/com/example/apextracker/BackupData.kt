@@ -25,7 +25,7 @@ data class BackupData(
     // the @Database version in AppDatabase.kt; an on-device export caught it still reading 22
     // after the v23 index migration (Issue #197). Not load-bearing, which is exactly why it
     // rots quietly.
-    val appDbVersion: Int = 24,
+    val appDbVersion: Int = 25,
     val exportedAt: String = "",
     val budgetItems: List<BudgetItem> = emptyList(),
     val categories: List<Category> = emptyList(),
@@ -41,7 +41,9 @@ data class BackupData(
     // Absent in pre-Papers backups; Gson leaves the default, so old files restore cleanly.
     val papers: List<Paper> = emptyList(),
     // Absent in pre-discovery-redesign backups; Gson leaves the default, so old files restore cleanly.
-    val paperTopics: List<PaperTopic> = emptyList()
+    val paperTopics: List<PaperTopic> = emptyList(),
+    // Absent in pre-linking backups (Issue #223); Gson leaves the default, so old files restore cleanly.
+    val paperLinks: List<PaperLink> = emptyList()
 )
 
 /**
@@ -77,7 +79,7 @@ fun parseBackupJson(json: String): BackupData? {
     listOf(
         "budgetItems", "categories", "subscriptions", "studySessions", "screenTimeSessions",
         "excludedApps", "reminders", "notes", "goals", "goalCompletions", "appUsageLimits", "papers",
-        "paperTopics"
+        "paperTopics", "paperLinks"
     ).forEach { field ->
         if (!objectRoot.has(field) || objectRoot.get(field).isJsonNull) objectRoot.add(field, JsonArray())
     }

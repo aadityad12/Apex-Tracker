@@ -512,4 +512,30 @@ class FirebaseDocParsingTest {
             parsePaperTopicDoc(mapOf("cloudId" to "t1", "keyword" to "quantum", "createdDate" to "2026-08-01"))
         }
     }
+
+    // ── Paper Links ──────────────────────────────────────────────────────────
+
+    @Test
+    fun `paper link doc round-trips all fields`() {
+        val parsed = parsePaperLinkDoc(
+            mapOf(
+                "cloudId" to "l1", "paperCloudId" to "p1", "relatedPaperCloudId" to "p2",
+                "createdDate" to "2026-08-01", "modifiedAt" to 999L
+            )
+        )
+        assertEquals("l1", parsed.cloudId)
+        assertEquals("p1", parsed.paperCloudId)
+        assertEquals("p2", parsed.relatedPaperCloudId)
+        assertEquals(LocalDate.of(2026, 8, 1), parsed.createdDate)
+        assertEquals(999L, parsed.modifiedAt)
+    }
+
+    @Test
+    fun `paper link doc without paperCloudId throws`() {
+        assertThrows(IllegalStateException::class.java) {
+            parsePaperLinkDoc(
+                mapOf("cloudId" to "l1", "relatedPaperCloudId" to "p2", "createdDate" to "2026-08-01")
+            )
+        }
+    }
 }

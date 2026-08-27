@@ -9,9 +9,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -21,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
@@ -49,6 +52,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.width
 import androidx.core.net.toUri
 import androidx.compose.ui.platform.LocalContext
@@ -77,6 +82,7 @@ fun PapersView(
     val state by viewModel.uiState.collectAsState()
     val discoveryPreferences by viewModel.discoveryPreferences.collectAsState()
     val discoveryTopics by viewModel.discoveryTopics.collectAsState()
+    val paperLinks by viewModel.paperLinks.collectAsState()
     val dailyFeedState by viewModel.dailyFeedState.collectAsState()
     val recommendationState by viewModel.recommendationState.collectAsState()
     val muteSuggestion by viewModel.muteSuggestion.collectAsState()
@@ -249,8 +255,16 @@ fun PapersView(
         )
     }
     detailPaper?.let { paper ->
+        val relatedPapers = remember(paper, paperLinks, allPapers) {
+            relatedPapersFor(paper, paperLinks, allPapers)
+        }
+        val linkCandidates = remember(paper, paperLinks, allPapers) {
+            linkablePapersFor(paper, paperLinks, allPapers)
+        }
         PaperDetailSheet(
             paper = paper,
+            relatedPapers = relatedPapers,
+            linkCandidates = linkCandidates,
             onDismiss = { detailPaper = null },
             onMarkRead = {
                 detailPaper = null
@@ -267,7 +281,15 @@ fun PapersView(
             onDelete = {
                 viewModel.deletePaper(paper)
                 detailPaper = null
-            }
+            },
+            onOpenRelated = { detailPaper = it },
+            onUnlink = { related ->
+                paperLinks.firstOrNull {
+                    (it.paperCloudId == paper.cloudId && it.relatedPaperCloudId == related.cloudId) ||
+                        (it.paperCloudId == related.cloudId && it.relatedPaperCloudId == paper.cloudId)
+                }?.let { viewModel.removeLink(it) }
+            },
+            onLink = { related -> viewModel.addLink(paper, related) }
         )
     }
     memoTarget?.let { paper ->
@@ -635,13 +657,19 @@ private val historyDateFormat: DateTimeFormatter = DateTimeFormatter.ofLocalized
 @Composable
 private fun PaperDetailSheet(
     paper: Paper,
+    relatedPapers: List<Paper>,
+    linkCandidates: List<Paper>,
     onDismiss: () -> Unit,
     onMarkRead: () -> Unit,
     onAbandon: () -> Unit,
     onRequeue: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onOpenRelated: (Paper) -> Unit,
+    onUnlink: (Paper) -> Unit,
+    onLink: (Paper) -> Unit
 ) {
     val context = LocalContext.current
+    var showLinkPicker by remember { mutableStateOf(false) }
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
         Column(
             Modifier
@@ -681,7 +709,34 @@ private fun PaperDetailSheet(
                 color = if (paper.abstractText.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant
                 else MaterialTheme.colorScheme.onSurface
             )
-            Spacer(Modifier.height(ApexSpacing.xl))
+            Spacer(Modifier.height(ApexSpacing.l))
+            ApexSectionHeader(stringResource(R.string.papers_related_label))
+            Spacer(Modifier.height(ApexSpacing.xs))
+            relatedPapers.forEach { related ->
+                Row(
+                    Modifier.fillMaxWidth().clickable { onOpenRelated(related) },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        related.title,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f).padding(vertical = ApexSpacing.s)
+                    )
+                    IconButton(onClick = { onUnlink(related) }) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = stringResource(R.string.cd_papers_unlink, related.title)
+                        )
+                    }
+                }
+            }
+            TextButton(onClick = { showLinkPicker = true }) {
+                Text(stringResource(R.string.papers_related_add))
+            }
+            Spacer(Modifier.height(ApexSpacing.s))
             if (paper.url.isNotBlank() || paper.pdfUrl.isNotBlank()) {
                 Button(onClick = { openPaper(context, paper) }, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.papers_open))
@@ -703,6 +758,57 @@ private fun PaperDetailSheet(
             }
         }
     }
+    if (showLinkPicker) {
+        PaperLinkPickerDialog(
+            candidates = linkCandidates,
+            onDismiss = { showLinkPicker = false },
+            onPick = { candidate ->
+                onLink(candidate)
+                showLinkPicker = false
+            }
+        )
+    }
+}
+
+/** Picker for [PaperDetailSheet]'s "Link a paper" action (Issue #223) — [candidates] is already
+ * [linkablePapersFor]'s result, so every row here is a valid pick. */
+@Composable
+private fun PaperLinkPickerDialog(
+    candidates: List<Paper>,
+    onDismiss: () -> Unit,
+    onPick: (Paper) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.papers_link_picker_title)) },
+        text = {
+            if (candidates.isEmpty()) {
+                Text(
+                    stringResource(R.string.papers_link_picker_empty),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                Column(Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState())) {
+                    candidates.forEachIndexed { i, candidate ->
+                        if (i > 0) ApexDivider()
+                        Text(
+                            candidate.title,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onPick(candidate) }
+                                .padding(vertical = ApexSpacing.s)
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        }
+    )
 }
 
 /** Mark-read / edit-memo dialog: the structured memo (text + 1–5 signal) written at finish time. */

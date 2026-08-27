@@ -32,6 +32,7 @@ object SyncCoordinator {
         scope.launch { firebaseManager.collectGoalCompletionChanges(db) }
         scope.launch { firebaseManager.collectPaperTopicChanges(db) }
         scope.launch { firebaseManager.collectPaperChanges(db) }
+        scope.launch { firebaseManager.collectPaperLinkChanges(db) }
         Log.d(TAG, "Listeners started")
     }
 

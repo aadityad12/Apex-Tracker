@@ -292,6 +292,14 @@ internal fun parsePaperDoc(data: Map<String, Any?>): Paper = Paper(
     modifiedAt = data.optLong("modifiedAt")
 )
 
+internal fun parsePaperLinkDoc(data: Map<String, Any?>): PaperLink = PaperLink(
+    paperCloudId = data.requireString("paperCloudId"),
+    relatedPaperCloudId = data.requireString("relatedPaperCloudId"),
+    createdDate = LocalDate.parse(data.requireString("createdDate")),
+    cloudId = data.requireCloudId(),
+    modifiedAt = data.optLong("modifiedAt")
+)
+
 internal fun parsePaperTopicDoc(data: Map<String, Any?>): PaperTopic = PaperTopic(
     field = data.requireString("field"),
     keyword = data.requireString("keyword"),
@@ -818,6 +826,99 @@ class FirebaseManager(private val context: Context) {
         }
     }
 
+    // ── Paper Links ───────────────────────────────────────────────────────────
+
+    suspend fun pushPaperLink(link: PaperLink) {
+        val uid = userId ?: return
+        if (link.cloudId.isEmpty()) return
+        firestore.collection("users").document(uid)
+            .collection("paper_links").document(link.cloudId)
+            .set(
+                mapOf(
+                    "cloudId" to link.cloudId,
+                    "paperCloudId" to link.paperCloudId,
+                    "relatedPaperCloudId" to link.relatedPaperCloudId,
+                    "createdDate" to link.createdDate.toString(),
+                    "modifiedAt" to link.modifiedAt
+                ),
+                SetOptions.merge()
+            ).await()
+    }
+
+    suspend fun deletePaperLink(cloudId: String) {
+        val uid = userId ?: return
+        if (cloudId.isEmpty()) return
+        firestore.collection("users").document(uid)
+            .collection("paper_links").document(cloudId)
+            .delete().await()
+    }
+
+    private suspend fun pullAllPaperLinks(): List<Pair<String, Map<String, Any>>> {
+        val uid = userId ?: return emptyList()
+        return firestore.collection("users").document(uid)
+            .collection("paper_links")
+            .get().await()
+            .documents.mapNotNull { d -> d.data?.let { d.id to it } }
+    }
+
+    private suspend fun applyPaperLinkDoc(db: AppDatabase, docId: String, data: Map<String, Any?>) {
+        try {
+            val parsed = parsePaperLinkDoc(data)
+            val local = db.paperLinkDao().getByCloudId(parsed.cloudId)
+            if (local == null) {
+                db.paperLinkDao().insertLink(parsed)
+            } else if (parsed.modifiedAt > local.modifiedAt) {
+                db.paperLinkDao().updateLink(parsed.copy(id = local.id))
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Skipping malformed paper link doc $docId", e)
+        }
+    }
+
+    private suspend fun removePaperLinkByCloudId(db: AppDatabase, cloudId: String) {
+        val local = db.paperLinkDao().getByCloudId(cloudId) ?: return
+        db.paperLinkDao().deleteLink(local)
+    }
+
+    private fun paperLinkChangesFlow(): Flow<List<DocumentChange>> = callbackFlow {
+        val uid = userId ?: return@callbackFlow awaitClose { }
+        val listener = firestore.collection("users").document(uid)
+            .collection("paper_links")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) { Log.w(TAG, "Paper link listener error", error); return@addSnapshotListener }
+                if (snapshot == null || snapshot.metadata.hasPendingWrites()) return@addSnapshotListener
+                trySend(snapshot.documentChanges)
+            }
+        awaitClose { listener.remove() }
+    }
+
+    suspend fun collectPaperLinkChanges(db: AppDatabase) {
+        paperLinkChangesFlow().collect { changes ->
+            for (change in changes) {
+                val docId = change.document.id
+                when (change.type) {
+                    DocumentChange.Type.ADDED, DocumentChange.Type.MODIFIED ->
+                        applyPaperLinkDoc(db, docId, change.document.data)
+                    DocumentChange.Type.REMOVED -> removePaperLinkByCloudId(db, docId)
+                }
+            }
+        }
+    }
+
+    private suspend fun syncPaperLinks(db: AppDatabase) {
+        for ((docId, data) in pullAllPaperLinks()) {
+            applyPaperLinkDoc(db, docId, data)
+        }
+        // Assign cloudIds where missing, then push every local row so signed-out edits reconcile.
+        for (link in db.paperLinkDao().getAllOneShot()) {
+            val toPush = if (link.cloudId.isEmpty()) {
+                link.copy(cloudId = UUID.randomUUID().toString(), modifiedAt = System.currentTimeMillis())
+                    .also { db.paperLinkDao().updateLink(it) }
+            } else link
+            pushPaperLink(toPush)
+        }
+    }
+
     // ── Paper Topics ──────────────────────────────────────────────────────────
 
     suspend fun pushPaperTopic(topic: PaperTopic) {
@@ -1072,6 +1173,7 @@ class FirebaseManager(private val context: Context) {
         syncStep("goal completions") { syncGoalCompletions(db) }
         syncStep("paper topics") { syncPaperTopics(db) }
         syncStep("papers") { syncPapers(db) }
+        syncStep("paper links") { syncPaperLinks(db) }
         // Belt-and-braces after applyReminderDoc's per-row scheduling: a reminder whose doc was
         // skipped as malformed, or one whose alarm was lost to a destructive migration, still
         // gets armed here. Idempotent (Issue #188).
@@ -1173,6 +1275,11 @@ class FirebaseManager(private val context: Context) {
             val local = db.paperDao().getAllPapersOneShot()
             deleteStaleDocs("papers", local.mapNotNullTo(mutableSetOf()) { it.cloudId.ifEmpty { null } })
             local.forEach { pushPaper(it) }
+        }
+        syncStep("replace paper links") {
+            val local = db.paperLinkDao().getAllOneShot()
+            deleteStaleDocs("paper_links", local.mapNotNullTo(mutableSetOf()) { it.cloudId.ifEmpty { null } })
+            local.forEach { pushPaperLink(it) }
         }
         syncStep("replace excluded apps") {
             val local = db.excludedAppDao().getAllExcludedAppsOneShot()

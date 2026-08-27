@@ -26,7 +26,8 @@ suspend fun exportBackup(db: AppDatabase, now: String): BackupData = withContext
         goalCompletions = db.goalCompletionDao().getAllCompletionsOneShot(),
         appUsageLimits = db.appUsageLimitDao().getLimitsOneShot(),
         papers = db.paperDao().getAllPapersOneShot(),
-        paperTopics = db.paperTopicDao().getAllOneShot()
+        paperTopics = db.paperTopicDao().getAllOneShot(),
+        paperLinks = db.paperLinkDao().getAllOneShot()
     )
 }
 
@@ -59,6 +60,7 @@ suspend fun restoreBackup(context: Context, db: AppDatabase, data: BackupData) =
         db.appUsageLimitDao().clearAll()
         db.paperTopicDao().clearAll()
         db.paperDao().clearAll()
+        db.paperLinkDao().clearAll()
 
         data.categories.forEach { db.categoryDao().insertCategory(it) }
         data.budgetItems.forEach { db.budgetDao().insertItem(it) }
@@ -73,6 +75,7 @@ suspend fun restoreBackup(context: Context, db: AppDatabase, data: BackupData) =
         data.appUsageLimits.forEach { db.appUsageLimitDao().setLimit(it) }
         data.paperTopics.forEach { db.paperTopicDao().insertTopic(it) }
         data.papers.forEach { db.paperDao().insertPaper(it) }
+        data.paperLinks.forEach { db.paperLinkDao().insertLink(it) }
     }
 
     // Outside the transaction: AlarmManager is not transactional, so arming alarms for rows that

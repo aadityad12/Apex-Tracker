@@ -186,7 +186,23 @@ val MIGRATION_23_24 = object : Migration(23, 24) {
     }
 }
 
-@Database(entities = [BudgetItem::class, Category::class, Subscription::class, StudySession::class, ScreenTimeSession::class, ExcludedApp::class, Reminder::class, Note::class, Goal::class, GoalCompletion::class, AppUsageLimit::class, Paper::class, PaperTopic::class], version = 24, exportSchema = true)
+// Issue #223: explicit paper-to-paper linking, deferred in Plan.md's settled decisions. New
+// table, additive — mirrors MIGRATION_21_22 (paper_topics). DDL diffed against the exported
+// app/schemas/…/25.json.
+val MIGRATION_24_25 = object : Migration(24, 25) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `paper_links` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`paperCloudId` TEXT NOT NULL, `relatedPaperCloudId` TEXT NOT NULL, " +
+                "`createdDate` TEXT NOT NULL, `cloudId` TEXT NOT NULL, `modifiedAt` INTEGER NOT NULL)"
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_paper_links_cloudId` ON `paper_links` (`cloudId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_paper_links_paperCloudId` ON `paper_links` (`paperCloudId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_paper_links_relatedPaperCloudId` ON `paper_links` (`relatedPaperCloudId`)")
+    }
+}
+
+@Database(entities = [BudgetItem::class, Category::class, Subscription::class, StudySession::class, ScreenTimeSession::class, ExcludedApp::class, Reminder::class, Note::class, Goal::class, GoalCompletion::class, AppUsageLimit::class, Paper::class, PaperTopic::class, PaperLink::class], version = 25, exportSchema = true)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun budgetDao(): BudgetDao
@@ -202,6 +218,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun appUsageLimitDao(): AppUsageLimitDao
     abstract fun paperDao(): PaperDao
     abstract fun paperTopicDao(): PaperTopicDao
+    abstract fun paperLinkDao(): PaperLinkDao
 
     companion object {
         @Volatile
@@ -213,7 +230,7 @@ abstract class AppDatabase : RoomDatabase() {
             return INSTANCE ?: synchronized(this) {
                 val appContext = context.applicationContext
                 val builder = Room.databaseBuilder(appContext, AppDatabase::class.java, DB_NAME)
-                    .addMigrations(MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24)
+                    .addMigrations(MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25)
                     .fallbackToDestructiveMigration()
                 // SQLCipher (Issue #117). Returns null only when encryption genuinely can't be
                 // used, in which case Room's stock helper opens the file exactly as it did before

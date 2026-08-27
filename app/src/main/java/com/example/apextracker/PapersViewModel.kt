@@ -82,12 +82,16 @@ class PapersViewModel(application: Application) : AndroidViewModel(application) 
 
     private val paperDao = AppDatabase.getDatabase(application).paperDao()
     private val paperTopicDao = AppDatabase.getDatabase(application).paperTopicDao()
+    private val paperLinkDao = AppDatabase.getDatabase(application).paperLinkDao()
     private val client = SemanticScholarClient()
     private val firebaseManager = FirebaseManager(application)
     private val discoveryPrefs = PapersDiscoveryPrefs(application)
     private val dailyFetchMutex = Mutex()
 
     val discoveryTopics: StateFlow<List<PaperTopic>> = paperTopicDao.getAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val paperLinks: StateFlow<List<PaperLink>> = paperLinkDao.getAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val uiState: StateFlow<PapersUiState> = combine(paperDao.getAllPapers(), discoveryTopics) { papers, topics ->
@@ -302,6 +306,35 @@ class PapersViewModel(application: Application) : AndroidViewModel(application) 
 
     fun dismissMuteSuggestion() {
         _muteSuggestion.value = null
+    }
+
+    /**
+     * Links two papers (Issue #223). Silently refuses an invalid pair — see [canLinkPapers] — so
+     * a stale picker row (the other paper deleted, or linked by another device since this list
+     * loaded) can't insert garbage; the DAO's own [PaperLinkDao.findExisting] check backs this up
+     * against a race the in-memory [canLinkPapers] check alone can't see.
+     */
+    fun addLink(paper: Paper, related: Paper) {
+        if (!canLinkPapers(paper.cloudId, related.cloudId, paperLinks.value)) return
+        viewModelScope.launch {
+            if (paperLinkDao.findExisting(paper.cloudId, related.cloudId) != null) return@launch
+            val link = PaperLink(
+                paperCloudId = paper.cloudId,
+                relatedPaperCloudId = related.cloudId,
+                createdDate = LocalDate.now(),
+                cloudId = UUID.randomUUID().toString(),
+                modifiedAt = System.currentTimeMillis()
+            )
+            paperLinkDao.insertLink(link)
+            safeCloudCall(TAG, "pushPaperLink") { firebaseManager.pushPaperLink(link) }
+        }
+    }
+
+    fun removeLink(link: PaperLink) {
+        viewModelScope.launch {
+            paperLinkDao.deleteLink(link)
+            safeCloudCall(TAG, "deletePaperLink") { firebaseManager.deletePaperLink(link.cloudId) }
+        }
     }
 
     private suspend fun fetchDailyPapersIfNeeded(preferences: PapersDiscoveryPreferences) {
