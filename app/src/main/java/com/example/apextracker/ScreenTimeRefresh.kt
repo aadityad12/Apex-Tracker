@@ -82,6 +82,66 @@ suspend fun calculateTodayAppUsage(context: Context): Map<String, Long> = withCo
 }
 
 /**
+ * Given every statically-declared HOME-category activity as (packageName, intent-filter
+ * priority) pairs, returns only the package(s) tied for the *highest* priority (Issue #228).
+ *
+ * A real launcher registers at priority 0 (or higher); AOSP's `Settings.FallbackHome` — a real
+ * activity the Settings app declares for when no launcher is otherwise available/ready — sits at
+ * priority -1000. `UsageEvents` are tracked per-package, not per-activity, so excluding *every*
+ * package capable of presenting a HOME surface (e.g. the full `getHomeActivities()` result) would
+ * zero out all genuine Settings usage forever, not just while a launcher is unavailable. Keeping
+ * only the top-priority package(s) excludes the real launcher(s) without touching Settings.
+ */
+internal fun topPriorityHomePackages(candidates: List<Pair<String, Int>>): Set<String> {
+    val topPriority = candidates.maxOfOrNull { it.second } ?: return emptySet()
+    return candidates.filter { it.second == topPriority }.map { it.first }.toSet()
+}
+
+/**
+ * Resolves the real launcher package(s) that a foreground event should never be attributed to.
+ *
+ * Replaces a single `resolveActivity(ACTION_MAIN + CATEGORY_HOME)` pick (Issue #228): that call
+ * returns the platform's single "current best" match, which was observed on the `Medium_Phone`
+ * emulator to intermittently resolve to `com.android.settings` (via its low-priority
+ * `FallbackHome` activity) instead of the real launcher, silently zeroing out genuine Settings
+ * usage. `queryIntentActivities` is a static manifest query rather than a "current best guess,"
+ * so it isn't subject to whatever transient state caused that drift; [topPriorityHomePackages]
+ * then does the actual real-launcher-vs-fallback disambiguation.
+ */
+fun resolveHomePackages(context: Context): Set<String> {
+    val homeIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+    val candidates = try {
+        context.packageManager.queryIntentActivities(homeIntent, PackageManager.MATCH_DEFAULT_ONLY)
+    } catch (e: Exception) {
+        return emptySet()
+    }
+    return topPriorityHomePackages(
+        candidates.mapNotNull { info -> info.activityInfo?.packageName?.let { it to info.priority } }
+    )
+}
+
+/**
+ * The screen-time-total filter shared by `ScreenTimeViewModel.updateScreenTime()` and
+ * [refreshTodayScreenTime] (Issue #228 unified what had been two near-identical copies of this
+ * predicate). [trackablePackages] narrows the total to a known-launchable set when the caller has
+ * one loaded (`ScreenTimeViewModel.installedApps`); empty means unrestricted, matching the
+ * fallback `ScreenTimeViewModel` itself uses while that list is still loading (Issue #159).
+ */
+internal fun filterTrackableUsage(
+    usageMap: Map<String, Long>,
+    excludedPackages: Set<String>,
+    myPackageName: String,
+    homePackages: Set<String>,
+    trackablePackages: Set<String> = emptySet()
+): Long = usageMap.filter { (pkg, _) ->
+    (trackablePackages.isEmpty() || pkg in trackablePackages) &&
+        pkg !in excludedPackages &&
+        pkg != myPackageName &&
+        pkg !in homePackages &&
+        pkg != "com.android.systemui"
+}.values.sum()
+
+/**
  * Recomputes today's screen time live and writes it to Room — the same total
  * `ScreenTimeViewModel.updateScreenTime()` computes (excluded apps, this app itself, the
  * launcher, systemui), minus the `installedApps`-based restriction, which only narrows the set
@@ -108,19 +168,9 @@ suspend fun refreshTodayScreenTime(db: AppDatabase, context: Context): Unit = wi
     val usageMap = calculateTodayAppUsage(context)
     val excludedPackageNames = db.excludedAppDao().getAllExcludedAppsOneShot().map { it.packageName }.toSet()
     val myPackageName = context.packageName
-    val launcherPackage = try {
-        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
-        context.packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)?.activityInfo?.packageName
-    } catch (e: Exception) {
-        null
-    }
+    val homePackages = resolveHomePackages(context)
 
-    val totalFilteredTime = usageMap.filter { (pkg, _) ->
-        pkg !in excludedPackageNames &&
-            pkg != myPackageName &&
-            pkg != launcherPackage &&
-            pkg != "com.android.systemui"
-    }.values.sum()
+    val totalFilteredTime = filterTrackableUsage(usageMap, excludedPackageNames, myPackageName, homePackages)
 
     db.screenTimeSessionDao().insertSession(ScreenTimeSession(date = LocalDate.now(), durationMillis = totalFilteredTime))
 }
