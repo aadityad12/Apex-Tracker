@@ -1,9 +1,22 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.google.services)
     alias(libs.plugins.compose.screenshot)
+}
+
+// Release signing, for Play Store packaging. Loaded from a local, gitignored properties file
+// (see keystore.properties.example and docs/release-signing.md) so the keystore path and
+// passwords never touch version control. Absent file means "no release keystore set up yet":
+// assembleRelease/bundleRelease keep working exactly as before, just producing an *unsigned*
+// artifact — fine for local verification, not uploadable to Play Console until this exists.
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val hasReleaseSigning = keystorePropertiesFile.exists()
+val keystoreProperties = Properties().apply {
+    if (hasReleaseSigning) keystorePropertiesFile.inputStream().use { load(it) }
 }
 
 android {
@@ -21,8 +34,22 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             // Issue #198. This was false, which also made the proguardFiles line below inert:
             // release builds shipped every unused class from Compose, Firebase, Glance and
             // material-icons-extended, with full class and method names intact.
