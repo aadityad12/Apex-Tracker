@@ -823,3 +823,25 @@ the current state of the backlog rather than trusting a snapshot here.
   Verified on the `Medium_Phone` emulator with real seeded data: "Deep Residual Learning for Image
   Recognition" (a `MANUAL`-source pick, not `RECOMMENDED`) rendered as TODAY'S PAPER and correctly
   did **not** reappear as the first row of QUEUE · 10 below it.
+- **[Issue #211] `ReceiptOcr.kt` no longer silently drops OCR lines missing a bounding box.**
+  `readImageText()`'s own doc comment already said a missing box (nothing in the ML Kit API
+  guarantees one) should fall back to plain text rather than dropping the line, but the
+  implementation only handled the *all* lines missing case — `mapNotNull` on `line.boundingBox`
+  silently discarded any individual boxless line in a mixed result, and a receipt's TOTAL line was
+  as likely as any other to be the one without a box. Now `readImageText()` still reflows the
+  boxed lines into rows via `reflowReceiptLines` (unchanged, still handles the two-column
+  label/amount case), then appends the *text* of any boxless lines below as their own lines —
+  they can't be placed into a specific row without a position, but they're no longer invisible to
+  the amount/date/merchant heuristics in `ReceiptParse.kt` either. Only falls back to the whole
+  unreflowed `result.text` blob when *every* line lacks a box, same as before, since that blob
+  already contains those lines' text and appending them again would duplicate it. Not
+  unit-testable — `readImageText` touches ML Kit's `Text`/`Line`/`Block` types directly and has no
+  existing test infrastructure (`reflowReceiptLines`, which it calls into, is untouched and stays
+  covered by `ReceiptParseTest`). Verified on the `Medium_Phone` emulator with a synthetic receipt
+  photo (all lines boxed, so this exercises the unchanged reflow path end-to-end post-refactor):
+  scanning correctly extracted `8.43` as the top amount candidate ahead of `4.50`/`3.25`/`123.00`
+  (the street-number decoy `ReceiptParse.kt`'s own doc comment calls out by name), confirming the
+  refactor didn't regress the standard path. The specific mixed-box scenario this fixes isn't
+  reproducible on demand — ML Kit's box assignment is an internal recognizer detail, not something
+  a test image can force — so this rests on the code fix matching the doc comment's already-stated
+  intent, reviewed rather than device-reproduced.
