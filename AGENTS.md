@@ -845,3 +845,20 @@ the current state of the backlog rather than trusting a snapshot here.
   reproducible on demand — ML Kit's box assignment is an internal recognizer detail, not something
   a test image can force — so this rests on the code fix matching the doc comment's already-stated
   intent, reviewed rather than device-reproduced.
+- **[Issue #212] Reminder notification text now routes through `strings.xml`, like the rest of the
+  app.** `ReminderWorker.kt` built the notification channel name/description, content title, and
+  body fallback as raw English literals — the one notification path that never got the Issue
+  #36/#53 string-resource treatment; only its Done/Snooze action labels already went through
+  `stringResource`. `ReminderAlarmReceiver.kt` also hardcoded the same `"Reminder"` fallback name,
+  duplicated. New keys — `reminder_channel_name`, `reminder_channel_desc`, `reminder_notif_title`,
+  `reminder_notif_text`, `reminder_default_name` — mirror the exact pattern
+  `ScreenTimeLimitNotifier.kt` already established for its own channel. No live locale exists yet
+  (only base `values/`), so this doesn't change today's behavior — every string is
+  byte-for-byte identical to the literal it replaced — but it stops these five lines from silently
+  shipping untranslated the moment a `values-XX/` locale is added. Not verified with a live
+  on-device notification: the emulator's UI automation grew unreliable partway through this
+  session after a long run of interactions (stray taps, an unrelated `com.android.settings`
+  intent-resolution quirk noted under Issue #209's follow-up), and forcing `ReminderWorker` to run
+  outside the normal alarm/WorkManager path proved more effort than the change's risk profile
+  warrants — it is a mechanical text-literal-to-resource move with no logic change, verified by a
+  clean `assembleDebug`/`testDebugUnitTest`/`lintDebug` and by matching an already-proven pattern.
