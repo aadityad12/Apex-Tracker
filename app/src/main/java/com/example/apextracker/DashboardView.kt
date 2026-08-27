@@ -263,8 +263,15 @@ private fun DailyApexTipSection(
 @Composable
 private fun StreakHero(streak: Int, loaded: Boolean) {
     // Don't assert "no streak" before Room has emitted — same gate TodaySection uses (Issue #118).
+    // A spinner bridges the gap instead of blank space (Issue #215) — same visual language as
+    // DailyApexTipSection's own loading row below.
     if (!loaded) {
-        Spacer(Modifier.height(56.dp))
+        Box(modifier = Modifier.height(56.dp), contentAlignment = Alignment.CenterStart) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(ApexSpacing.xl),
+                strokeWidth = ApexSpacing.hairline
+            )
+        }
         return
     }
     if (streak > 0) {
@@ -332,13 +339,24 @@ private fun TodaySection(
         )
         if (todayGoals.isEmpty()) {
             // Only claim "no goals" once the Room flows have actually emitted — the seeded EMPTY
-            // state would otherwise flash the empty message on launch (Issue #118).
+            // state would otherwise flash the empty message on launch (Issue #118). Before that, a
+            // spinner bridges the gap instead of rendering nothing under the header (Issue #215).
             if (loaded) {
                 ApexEmptyState(
                     message = stringResource(R.string.dashboard_no_goals),
                     actionLabel = stringResource(R.string.dashboard_add_goal),
                     onAction = onManageGoals
                 )
+            } else {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = ApexSpacing.l),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(ApexSpacing.xl),
+                        strokeWidth = ApexSpacing.hairline
+                    )
+                }
             }
         } else {
             todayGoals.forEachIndexed { i, status ->

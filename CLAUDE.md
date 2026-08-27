@@ -937,3 +937,17 @@ the current state of the backlog rather than trusting a snapshot here.
   particular emulator having no signed-in account rather than anything this app's intent got
   wrong; the dispatch and app-resolution half of the flow (the half under this app's control) is
   confirmed working.
+- **[Issue #215] Dashboard and Overview no longer render a blank body while their first Room
+  flow is still loading.** Both screens already had a `loaded`/`null` gate to avoid asserting a
+  *wrong* empty state before Room's `combine()` first emits (Issue #118) — the gap was that the
+  gate rendered nothing at all rather than a loading indicator. `DashboardView.kt`'s
+  `StreakHero`'s `!loaded` branch and `TodaySection`'s `!loaded && todayGoals.isEmpty()` branch,
+  and `OverviewView.kt`'s `overview == null` branch, all now show a `CircularProgressIndicator`
+  sized `ApexSpacing.xl` / stroke `ApexSpacing.hairline` — the exact visual language
+  `DailyApexTipSection` already used for its own loading state on the same screen, not a new
+  pattern. Not verified with a captured screenshot of the loading frame itself: it's a genuinely
+  transient state (well under a second once Room's page cache is warm, which it is for the rest
+  of a session after the first cold launch), and several attempts to race `adb screencap` against
+  it came back already-loaded rather than mid-load. The change is a minimal, direct application
+  of an already-proven pattern already in the same file, compiles clean, and passes
+  `testDebugUnitTest`/`lintDebug`.

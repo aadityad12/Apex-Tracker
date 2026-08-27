@@ -168,6 +168,15 @@ fun OverviewView(
                             item { ApexEmptyState(message = stringResource(R.string.overview_all_clear)) }
                         }
                     }
+                } ?: run {
+                    // dayOverview is null only until the Room combine() first emits (Issue #215)
+                    // — a spinner bridges that gap instead of a blank body under the date row.
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(ApexSpacing.xl),
+                            strokeWidth = ApexSpacing.hairline
+                        )
+                    }
                 }
             }
         }
