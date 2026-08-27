@@ -77,6 +77,13 @@ android {
     buildFeatures {
         compose = true
     }
+    // Issue #221: auto-generates res/xml's locale_config + the AndroidManifest localeConfig
+    // attribute from whichever values-<locale>/ directories exist, so the per-app language
+    // picker (Settings > Apps > ApexTracker > Language, API 33+) stays in sync on its own —
+    // adding a new values-<locale>/strings.xml is the only step a future locale needs.
+    androidResources {
+        generateLocaleConfig = true
+    }
     // Compose Preview Screenshot Testing renders @Preview composables to PNGs and diffs them —
     // the only safety net a 20-screen visual redesign has. It uses Layoutlib, not Robolectric, so
     // it sidesteps the serialization clash that blocks Room's MigrationTestHelper here.

@@ -1,0 +1,572 @@
+<resources>
+    <string name="app_name">ApexTracker</string>
+    <string name="default_web_client_id">1093081201704-d6udjaapaslivieabf8397o81ul1qod4.apps.googleusercontent.com</string>
+
+    <!-- Shared actions -->
+    <string name="action_save">Guardar</string>
+    <string name="action_cancel">Cancelar</string>
+    <string name="action_close">Cerrar</string>
+    <string name="action_delete">Eliminar</string>
+    <string name="action_done">Hecho</string>
+    <string name="action_undo">Deshacer</string>
+    <string name="action_reset">Restablecer</string>
+    <string name="action_create">Crear</string>
+    <string name="action_set">Establecer</string>
+    <string name="action_change">Cambiar</string>
+    <string name="picker_select_time">Seleccionar hora</string>
+    <string name="deleted_quoted">Se eliminó \"%1$s\"</string>
+    <string name="sign_in_failed">Error al iniciar sesión: %1$s</string>
+    <string name="sign_in_failed_unexpected_credential">Error al iniciar sesión: tipo de credencial inesperado (%1$s)</string>
+
+    <!-- Main menu / settings sheet -->
+    <string name="app_title_caps">APEX TRACKER</string>
+    <string name="menu_settings">Ajustes</string>
+    <string name="menu_account">Cuenta</string>
+    <string name="menu_appearance">Apariencia</string>
+    <string name="menu_dark_mode">Modo oscuro</string>
+    <string name="backup_section">Copia de seguridad</string>
+    <string name="backup_export">Hacer copia de seguridad</string>
+    <string name="backup_import">Restaurar</string>
+    <string name="backup_export_done">Copia de seguridad guardada.</string>
+    <string name="backup_restore_done">Datos restaurados.</string>
+    <string name="backup_failed">No se pudo acceder a ese archivo.</string>
+    <string name="backup_invalid">Ese archivo no es una copia de seguridad válida.</string>
+    <!-- Cloud reconciliation failed but the local restore succeeded (Issue #189). -->
+    <string name="backup_restore_cloud_failed">Los datos se restauraron en este dispositivo, pero no se pudo sincronizar el cambio con tus otros dispositivos. Vuelve a conectarte y restaura de nuevo, o tus otros dispositivos podrían recuperar los datos anteriores.</string>
+    <string name="backup_restore_confirm_title">¿Restaurar copia de seguridad?</string>
+    <!-- Says "and your other devices" because the restore now prunes the cloud too (Issue #189);
+         it used to quietly merge instead, which is what the old wording mis-promised. -->
+    <string name="backup_restore_confirm_text">Esto reemplazará todos los datos actuales de este dispositivo — y, si iniciaste sesión, de tus otros dispositivos — con el contenido de la copia de seguridad. Esta acción no se puede deshacer.</string>
+    <string name="backup_restore_action">Reemplazar</string>
+    <string name="menu_currency">Moneda</string>
+    <string name="menu_currency_label">Moneda de visualización</string>
+    <!-- Currency picker row, e.g. "USD ($)". Both placeholders are ISO 4217 data from the platform. -->
+    <string name="menu_currency_option">%1$s (%2$s)</string>
+    <string name="sign_in_google">Iniciar sesión con Google</string>
+    <string name="user_fallback">Usuario</string>
+    <string name="module_overview">Resumen</string>
+    <string name="module_overview_desc">Tu día de un vistazo</string>
+    <string name="module_budget">Presupuesto</string>
+    <string name="module_budget_desc">Gastos</string>
+    <string name="module_study">Estudio</string>
+    <string name="module_study_desc">Cronómetro</string>
+    <string name="module_screen">Pantalla</string>
+    <string name="module_screen_desc">Uso</string>
+    <string name="module_tasks">Tareas</string>
+    <string name="module_tasks_desc">Recordatorios</string>
+    <string name="module_notes">Notas</string>
+    <string name="module_notes_desc">Ideas</string>
+    <string name="module_dashboard">Panel</string>
+    <string name="module_dashboard_desc">Metas diarias</string>
+    <string name="nav_more">Más</string>
+
+    <!-- Overview -->
+    <string name="overview_title">RESUMEN DIARIO</string>
+    <string name="overview_tasks">TAREAS</string>
+    <string name="overview_missed">OMITIDAS</string>
+    <string name="overview_all_clear">Todo al día por hoy</string>
+    <string name="overview_stat_spent">Gastado</string>
+    <string name="overview_stat_study">Estudio</string>
+    <string name="overview_stat_screen">Pantalla</string>
+    <string name="overview_no_time">Sin tiempo</string>
+
+    <!-- Budget -->
+    <string name="budget_title">FLUJO DE PRESUPUESTO</string>
+    <string name="budget_transactions">Transacciones</string>
+    <string name="budget_trends_title">Tendencias de gasto</string>
+    <string name="budget_trends_empty">Aún no hay datos de gasto</string>
+    <string name="budget_trends_bar_cd">%1$s: %2$s</string>
+    <string name="budget_no_data">Nada registrado este mes — agrega un gasto para empezar a llevar el control</string>
+    <string name="budget_add_item_title">Agregar transacción</string>
+    <!-- Income/expense entry toggle (Issue #218). -->
+    <string name="budget_type_expense">Gasto</string>
+    <string name="budget_type_income">Ingreso</string>
+    <string name="budget_total_income">Ingresos</string>
+    <string name="budget_net_balance">Neto</string>
+    <!-- Receipt scanning (Issue #46). -->
+    <string name="cd_scan_receipt">Escanear foto de un recibo</string>
+    <string name="budget_receipt_unreadable">No se pudo leer ese recibo — intenta con una foto más nítida y derecha</string>
+    <string name="budget_edit_item_title">Editar transacción</string>
+    <string name="budget_date_prefix">Fecha: %1$s</string>
+    <string name="budget_no_category">Sin categoría</string>
+    <string name="budget_create_category">Crear nueva categoría</string>
+    <string name="budget_new_category">Nueva categoría</string>
+    <string name="budget_edit_category">Editar categoría</string>
+    <string name="budget_select_color">Selecciona un color:</string>
+    <string name="budget_category_limits_title">Límites de gasto</string>
+    <string name="budget_overall_limit_label_row">Todo el gasto</string>
+    <string name="budget_limit_spent_of">%1$s de %2$s</string>
+    <string name="budget_limit_remaining">%1$s restante</string>
+    <string name="budget_limit_over_by">%1$s de exceso</string>
+    <string name="budget_limit_none">Sin límite</string>
+    <string name="budget_limit_label">Límite mensual (opcional)</string>
+    <string name="budget_limit_hint">Deja en blanco para no fijar un límite</string>
+    <string name="budget_overall_limit_setting">Presupuesto mensual</string>
+    <string name="budget_overall_limit_label">Presupuesto mensual total</string>
+    <string name="budget_limit_summary">%1$s / mes</string>
+    <string name="budget_add_subscription">Agregar nueva suscripción</string>
+    <string name="budget_new_subscription">Nueva suscripción</string>
+    <string name="budget_edit_subscription">Editar suscripción</string>
+    <string name="budget_subscription_paused">Pausada</string>
+    <string name="budget_subscription_pause">Pausar suscripción</string>
+    <string name="budget_subscription_resume">Reanudar suscripción</string>
+    <string name="budget_renews_prefix">Renueva: %1$s</string>
+    <string name="budget_next_renewal">Próxima renovación: %1$s</string>
+    <string name="budget_breakdown_title">Desglose de %1$s</string>
+    <string name="budget_total">Total</string>
+    <string name="budget_export_csv">Exportar CSV</string>
+    <string name="budget_export_scope_title">Exportar CSV del presupuesto</string>
+    <string name="budget_export_current_month">Mes actual</string>
+    <string name="budget_export_all_time">Todo el historial</string>
+    <!-- CSV import (Issue #219) -->
+    <string name="budget_import_csv">Importar CSV</string>
+    <string name="budget_import_preview_title">Vista previa de importación</string>
+    <string name="budget_import_read_failed">No se pudo leer ese archivo</string>
+    <plurals name="budget_import_valid_count">
+        <item quantity="one">%1$d transacción lista para importar</item>
+        <item quantity="other">%1$d transacciones listas para importar</item>
+    </plurals>
+    <plurals name="budget_import_invalid_count">
+        <item quantity="one">%1$d fila no se pudo leer:</item>
+        <item quantity="other">%1$d filas no se pudieron leer:</item>
+    </plurals>
+    <string name="budget_import_row_error">Línea %1$d: %2$s</string>
+    <string name="budget_import_confirm">Importar %1$d</string>
+    <string name="budget_settings_title">Ajustes de presupuesto</string>
+    <string name="budget_manage_categories">Administrar categorías</string>
+    <string name="budget_manage_subscriptions">Administrar suscripciones</string>
+    <!-- Display name of the synthetic id=-1 category that subscription-derived items fall into.
+         Every call site must use this one key — it used to be "Subscription" in one place and
+         "Subscriptions" in three others (Issue #65). Note BudgetCsvExport.kt deliberately keeps
+         its own untranslated literal; see the comment there. -->
+    <string name="budget_category_subscriptions">Suscripciones</string>
+    <string name="budget_pending_category">Pendiente: %1$s</string>
+    <!-- Section eyebrow over the donut. Distinct from budget_breakdown_title, which is the
+         calendar's per-day dialog heading. -->
+    <string name="budget_where_it_went">En qué se fue</string>
+    <string name="budget_other_categories">Otros</string>
+    <plurals name="budget_total_transactions">
+        <item quantity="one">Total gastado · %1$d transacción</item>
+        <item quantity="other">Total gastado · %1$d transacciones</item>
+    </plurals>
+    <string name="budget_uncategorized">Sin categorizar</string>
+    <string name="budget_subscription_item_title">[Suscripción] %1$s</string>
+    <string name="budget_pending_legend">Pendiente</string>
+    <string name="label_title">Título</string>
+    <string name="label_amount">Monto</string>
+    <string name="label_name">Nombre</string>
+    <string name="label_category">Categoría</string>
+    <string name="label_category_name">Nombre de la categoría</string>
+    <string name="label_description_optional">Descripción (opcional)</string>
+    <string name="label_notes_optional">Notas (opcional)</string>
+
+    <!-- Study -->
+    <string name="study_title">SESIÓN DE ESTUDIO</string>
+    <string name="study_reset_confirm_title">¿Reiniciar cronómetro?</string>
+    <string name="study_reset_confirm_text">¿Reiniciar el tiempo de hoy para esta materia a 0:00? Esta acción no se puede deshacer.</string>
+    <string name="study_recent_history">Historial</string>
+    <string name="study_this_week">Esta semana</string>
+    <string name="study_week_empty">No se registró tiempo de estudio esta semana</string>
+    <string name="study_trend_bar_cd">%1$s: %2$s</string>
+    <string name="study_no_history">Aún no hay historial</string>
+    <string name="study_ready">LISTO</string>
+    <string name="study_pause_session">Pausar</string>
+    <string name="study_start_studying">Empezar a estudiar</string>
+    <string name="study_goal_setting">Meta diaria</string>
+    <string name="study_goal_desc">Una meta de minutos de estudio al día. Pon 0 para desactivarla.</string>
+    <string name="study_goal_minutes_label">Minutos por día</string>
+    <string name="study_dim_display">Atenuar pantalla</string>
+    <string name="study_restore_brightness">Restaurar brillo</string>
+    <string name="study_goal_progress">%1$d / %2$d min</string>
+    <string name="study_streak">Racha de %1$d días</string>
+    <string name="study_no_subject">Sin materia</string>
+    <string name="study_subject_label">MATERIA</string>
+    <string name="study_choose_subject">Elegir materia</string>
+    <string name="study_new_subject_hint">Nueva materia</string>
+    <string name="study_add_subject">Agregar</string>
+    <string name="study_log_past_session">Registrar sesión anterior</string>
+    <string name="study_hours_label">Horas</string>
+    <string name="study_minutes_label">Minutos</string>
+    <string name="cd_choose_subject">Elegir materia de estudio</string>
+    <!-- Spoken form of the study stopwatch. Minute resolution deliberately: a seconds-precise
+         description would change sixty times a minute and is unusable to listen to. -->
+    <string name="cd_study_elapsed">%1$s estudiados hoy</string>
+    <string name="cd_export_study_csv">Exportar historial de estudio como CSV</string>
+    <string name="duration_joined">%1$s %2$s</string>
+    <plurals name="duration_hours">
+        <item quantity="one">%1$d hora</item>
+        <item quantity="other">%1$d horas</item>
+    </plurals>
+    <plurals name="duration_minutes">
+        <item quantity="one">%1$d minuto</item>
+        <item quantity="other">%1$d minutos</item>
+    </plurals>
+
+    <!-- Screen time -->
+    <string name="screen_time_title">TIEMPO DE PANTALLA</string>
+    <string name="screen_device_breakdown">Dispositivos</string>
+    <string name="screen_todays_apps">Apps de hoy</string>
+    <string name="screen_daily_history">Historial diario</string>
+    <string name="screen_trends_title">Últimos 7 días</string>
+    <string name="screen_trends_empty">Aún no hay tiempo de pantalla registrado</string>
+    <string name="screen_time_trend_bar_cd">%1$s: %2$s</string>
+    <string name="screen_show_all">Mostrar todo (%1$d)</string>
+    <string name="screen_show_less">Mostrar menos</string>
+    <string name="screen_limit_set">Límite: %1$dm</string>
+    <string name="screen_limit_over">Excede el límite · %1$dm</string>
+    <string name="screen_limit_dialog_title">Límite diario — %1$s</string>
+    <string name="screen_limit_dialog_desc">Recibe una notificación cuando esta app supere el límite hoy.</string>
+    <string name="screen_limit_minutes_label">Minutos por día</string>
+    <string name="screen_limit_clear">Quitar límite</string>
+    <string name="screen_limit_channel_name">Límites de tiempo de pantalla</string>
+    <string name="screen_limit_channel_desc">Alertas cuando una app supera su límite diario</string>
+    <string name="screen_limit_notif_title">Límite diario de %1$s alcanzado</string>
+    <string name="screen_limit_notif_text">Hoy usaste más de %1$d minutos.</string>
+    <string name="screen_no_usage">No se detectó uso de apps</string>
+    <string name="screen_no_history">Aún no hay historial registrado</string>
+    <string name="screen_total_apex_time">Tiempo total de Apex</string>
+    <string name="screen_connected_devices">%1$d dispositivos conectados</string>
+    <string name="screen_tracking_prefs">Preferencias de seguimiento</string>
+    <string name="screen_tracking_prefs_desc">Desactiva las apps que no quieras incluir en tu tiempo de pantalla total.</string>
+    <string name="screen_permission_title">Permiso requerido</string>
+    <string name="screen_permission_text">Apex Tracker necesita el permiso de \'Acceso de uso\' para registrar tu tiempo de pantalla. Esta información se guarda solo en tu dispositivo.</string>
+    <string name="screen_grant_permission">Otorgar permiso</string>
+    <string name="screen_app_excluded">Excluida</string>
+    <string name="screen_app_tracking">Con seguimiento</string>
+    <string name="cd_export_screen_time_csv">Exportar historial de tiempo de pantalla como CSV</string>
+
+    <!-- Reminders -->
+    <string name="reminders_title">LISTA DE TAREAS</string>
+    <!-- Notification channel + content (Issue #212) — reminder_default_name is the "Reminder"
+         fallback used when a task's own name is unavailable (ReminderWorker/ReminderAlarmReceiver). -->
+    <string name="reminder_channel_name">Recordatorios</string>
+    <string name="reminder_channel_desc">Notificaciones de tareas y recordatorios</string>
+    <string name="reminder_notif_title">Recordatorio: %1$s</string>
+    <string name="reminder_notif_text">¡Tu tarea vence ahora!</string>
+    <string name="reminder_default_name">Recordatorio</string>
+    <string name="reminders_notif_done">Hecho</string>
+    <string name="reminders_notif_snooze">Posponer 10 min</string>
+    <string name="reminders_selected_count">%1$d SELECCIONADOS</string>
+    <string name="reminders_active">ACTIVOS</string>
+    <string name="reminders_completed">COMPLETADOS</string>
+    <string name="reminders_all_done">Todas las tareas completadas</string>
+    <string name="reminders_late_banner_title">Los recordatorios podrían llegar tarde</string>
+    <string name="reminders_late_banner_text">Permite alarmas exactas para que las notificaciones lleguen a tiempo.</string>
+    <string name="reminders_allow">PERMITIR</string>
+    <string name="reminders_hide">OCULTAR</string>
+    <string name="reminders_show_count">MOSTRAR (%1$d)</string>
+    <string name="reminders_clear_completed">Borrar completadas</string>
+    <string name="reminders_clear_confirm_title">¿Borrar completadas?</string>
+    <string name="reminders_clear_confirm_text">¿Eliminar permanentemente todas las tareas completadas?</string>
+    <string name="reminders_new_title">Nuevo recordatorio</string>
+    <string name="reminders_edit_title">Editar recordatorio</string>
+    <string name="reminders_set_all_day">Marcar todo el día</string>
+    <string name="reminders_all_day">Todo el día</string>
+    <string name="reminders_priority_label">PRIORIDAD</string>
+    <string name="reminders_priority_low">Baja</string>
+    <string name="reminders_priority_normal">Normal</string>
+    <string name="reminders_priority_high">Alta</string>
+    <string name="reminders_search_hint">Buscar recordatorios</string>
+    <string name="reminders_search_no_results">Ningún recordatorio coincide con \"%1$s\"</string>
+    <string name="budget_search_hint">Buscar transacciones</string>
+    <string name="budget_search_no_results">Ninguna transacción coincide con \"%1$s\"</string>
+    <string name="reminders_recurrence_prefix">Recurrencia: %1$s</string>
+    <string name="reminders_recurrence_none">Ninguna</string>
+    <string name="reminders_remove_recurrence">Quitar recurrencia</string>
+    <string name="reminders_today">Hoy</string>
+    <string name="reminders_overdue">ATRASADAS</string>
+    <string name="reminders_settings_title">Ajustes de recordatorios</string>
+    <string name="reminders_enable_notifications">Activar notificaciones</string>
+    <string name="reminders_all_day_time">Hora para recordatorios de todo el día</string>
+    <string name="reminders_offset_label">Aviso previo para hora específica (minutos)</string>
+    <string name="reminders_minutes_before">%1$d minutos antes</string>
+
+    <!-- Recurrence picker -->
+    <string name="recurrence_dialog_title">Configurar recurrencia</string>
+    <string name="recurrence_frequency">Frecuencia</string>
+    <string name="recurrence_repeat_on">Repetir en:</string>
+    <string name="recurrence_ends">Termina</string>
+    <string name="recurrence_after_occurrences">Después de repeticiones</string>
+    <string name="recurrence_freq_daily">Diaria</string>
+    <string name="recurrence_freq_weekly">Semanal</string>
+    <string name="recurrence_freq_monthly">Mensual</string>
+    <string name="recurrence_freq_yearly">Anual</string>
+    <string name="recurrence_freq_custom">Personalizada</string>
+    <string name="recurrence_end_never">Nunca</string>
+    <string name="recurrence_end_until_date">En una fecha</string>
+    <string name="recurrence_end_after_occurrences">Después de cierto número de veces</string>
+
+    <!-- Notes -->
+    <string name="notes_title">NOTAS</string>
+    <string name="notes_empty">Aún no hay notas</string>
+    <string name="notes_placeholder_title">Título</string>
+    <string name="notes_placeholder_content">Empieza a escribir...</string>
+    <string name="notes_tool_attach">Imagen</string>
+    <string name="cd_note_attachment">Adjunto de la nota</string>
+    <string name="cd_remove_attachment">Quitar adjunto</string>
+    <string name="notes_search_hint">Buscar notas</string>
+    <string name="notes_search_no_results">Ninguna nota coincide con \"%1$s\"</string>
+    <string name="cd_search">Buscar</string>
+    <string name="cd_pin_note">Fijar nota</string>
+    <string name="cd_unpin_note">Dejar de fijar nota</string>
+    <string name="notes_recycle_bin">Papelera</string>
+    <string name="notes_recycle_empty">La papelera está vacía</string>
+    <string name="notes_restore">Restaurar</string>
+    <string name="notes_delete_forever">Eliminar para siempre</string>
+    <string name="notes_settings_title">Ajustes de notas</string>
+    <string name="notes_retention">Retención de la papelera</string>
+    <string name="notes_retention_1h">1 h</string>
+    <string name="notes_retention_72h">72 h (predeterminado)</string>
+    <string name="notes_retention_168h">168 h</string>
+    <string name="notes_deleted_after">Las notas se eliminarán permanentemente después de %1$d horas.</string>
+    <string name="notes_modified_prefix">Modificada: %1$s</string>
+    <string name="notes_untitled">Sin título</string>
+    <string name="notes_new_title">Nueva nota</string>
+    <string name="notes_edit_title">Editar nota</string>
+    <string name="notes_tool_bullet">Viñeta</string>
+    <string name="notes_tool_indent">Aumentar sangría</string>
+    <string name="notes_tool_outdent">Reducir sangría</string>
+
+    <!-- Content descriptions (accessibility / TalkBack) -->
+    <string name="cd_back">Atrás</string>
+    <string name="cd_home">Inicio</string>
+    <string name="cd_edit">Editar</string>
+    <string name="cd_prev">Anterior</string>
+    <string name="cd_next">Siguiente</string>
+    <string name="cd_previous_month">Mes anterior</string>
+    <string name="cd_next_month">Mes siguiente</string>
+    <string name="cd_sync_status">Estado de sincronización</string>
+    <string name="cd_profile_picture">Foto de perfil</string>
+    <string name="cd_sign_out">Cerrar sesión</string>
+    <string name="cd_add_note">Agregar nota</string>
+    <string name="cd_add_reminder">Agregar recordatorio</string>
+    <string name="cd_add_item">Agregar elemento</string>
+    <string name="cd_toggle_calendar_view">Alternar vista de calendario</string>
+    <string name="cd_show_list">Mostrar lista</string>
+    <string name="cd_show_calendar">Mostrar calendario</string>
+    <string name="cd_exit_selection">Salir de la selección</string>
+    <string name="cd_delete_selected">Eliminar seleccionados</string>
+    <string name="cd_recurring">Recurrente</string>
+    <string name="cd_add_to_calendar">Agregar al calendario</string>
+    <string name="cd_exclude_apps">Excluir apps</string>
+    <string name="cd_overview_see_all_tasks">Ver todas las tareas</string>
+    <string name="cd_share_note">Compartir nota</string>
+
+    <!-- Biometric lock (Issue #45) -->
+    <string name="security_lock_budget_title">Requerir desbloqueo para abrir Presupuesto</string>
+    <string name="security_lock_notes_title">Requerir desbloqueo para abrir Notas</string>
+    <string name="security_lock_subtitle">Usa la huella, el rostro o el PIN de tu dispositivo. Es una protección de conveniencia, no un cifrado — cualquiera que pueda desbloquear tu dispositivo puede cambiar esto.</string>
+    <string name="security_lock_unavailable">Configura un bloqueo de pantalla (PIN, patrón o datos biométricos) en los ajustes del sistema para usar esto.</string>
+    <string name="security_confirm_title">Confirma que eres tú</string>
+    <string name="security_prompt_title">Desbloquear %1$s</string>
+    <string name="security_locked_message">Desbloquea para ver esta sección</string>
+    <string name="security_unlock_button">Desbloquear</string>
+    <!-- Backup export/import reads and replaces the locked modules' data (Issue #187). -->
+    <string name="security_backup_prompt_title">Desbloquea para hacer copia de seguridad o restaurar</string>
+
+    <!-- Dashboard (goal-tracking heatmap) -->
+    <string name="dashboard_title">PANEL</string>
+    <string name="dashboard_streak_none">Aún no hay racha — completa todas las metas de hoy</string>
+    <string name="dashboard_streak">Racha perfecta de %1$d días</string>
+    <string name="dashboard_today">HOY</string>
+    <string name="dashboard_no_goals">Aún no hay metas. Toca + para agregar una.</string>
+    <string name="dashboard_manage_goals">Administrar metas</string>
+    <string name="dashboard_day_no_goals">Ninguna meta estaba activa este día.</string>
+    <string name="goals_title">METAS</string>
+    <string name="goals_active">ACTIVAS</string>
+    <string name="goals_archived">ARCHIVADAS</string>
+    <string name="goal_edit">Editar meta</string>
+    <string name="goal_archive">Archivar meta</string>
+    <string name="goal_unarchive">Restaurar meta</string>
+    <string name="goal_edit_title">Editar meta</string>
+    <string name="goal_update">Guardar</string>
+    <string name="dashboard_auto_met">Cumplida</string>
+    <string name="dashboard_auto_unmet">Todavía no</string>
+    <string name="dashboard_window_rolling">12 meses</string>
+    <string name="dashboard_window_recent">8 semanas</string>
+    <string name="dashboard_streak_unit_one">día de racha</string>
+    <string name="dashboard_streak_unit_other">días de racha</string>
+    <string name="dashboard_streak_start">Comienza una racha</string>
+    <string name="dashboard_streak_start_hint">Completa todas las metas de hoy</string>
+    <string name="dashboard_today_progress">%1$d / %2$d</string>
+    <string name="dashboard_consistency">Constancia</string>
+    <string name="dashboard_legend_less">Menos</string>
+    <string name="dashboard_legend_more">Más</string>
+    <string name="dashboard_add_goal">Agregar meta</string>
+    <string name="dashboard_delete_goal">Eliminar meta</string>
+    <string name="dashboard_empty_history">Agrega metas y márcalas como completas — tus días se irán llenando aquí.</string>
+    <string name="apex_tip_title">Consejo diario de Apex</string>
+    <string name="apex_tip_opt_in">Recibe una breve sugerencia cada día basada en tus totales del tracker.</string>
+    <string name="apex_tip_privacy">Al activarlo, el gasto, el estudio, el tiempo de pantalla, el número de metas y la racha de hoy se envían a Google Gemini. Los nombres, notas, detalles de transacciones y nombres de apps permanecen en este dispositivo.</string>
+    <string name="apex_tip_enable">Activar consejo con IA</string>
+    <string name="apex_tip_turn_off">Desactivar</string>
+    <string name="apex_tip_loading">Creando el consejo de hoy…</string>
+    <string name="apex_tip_attribution">Generado por Google Gemini · se actualiza a diario</string>
+    <string name="apex_tip_failed">No se pudo crear el consejo de hoy. Tus datos siguen a salvo en este dispositivo.</string>
+    <string name="action_retry">Reintentar</string>
+
+    <!-- Goal editor -->
+    <string name="goal_new_title">Nueva meta</string>
+    <string name="goal_name_label">Nombre de la meta</string>
+    <string name="goal_type_manual">Marcarla yo mismo</string>
+    <string name="goal_type_auto">Seguimiento automático</string>
+    <string name="goal_type_manual_short">Manual</string>
+    <string name="goal_type_auto_short">Automática</string>
+    <string name="goal_cadence_label">Frecuencia</string>
+    <string name="goal_cadence_daily">Diaria</string>
+    <string name="goal_cadence_weekly">Semanal</string>
+    <string name="goal_manual_weekly">Marcarla una vez por semana</string>
+    <string name="goal_rule_weekly_suffix"> · por semana</string>
+    <string name="goal_metric_screen">Pantalla</string>
+    <string name="goal_metric_study">Estudio</string>
+    <string name="goal_metric_spend">Gasto</string>
+    <string name="goal_dir_under">Menos de</string>
+    <string name="goal_dir_over">Más de</string>
+    <string name="goal_threshold_hours">Horas</string>
+    <string name="goal_threshold_amount">Monto</string>
+    <string name="goal_subject_label">Materia (opcional — vacío = todas)</string>
+    <string name="goal_save">Agregar</string>
+    <string name="goal_cancel">Cancelar</string>
+    <string name="goal_rule_screen_under">Tiempo de pantalla menor a %1$sh</string>
+    <string name="goal_rule_screen_over">Tiempo de pantalla mayor a %1$sh</string>
+    <string name="goal_rule_study_under">Estudio menor a %1$sh%2$s</string>
+    <string name="goal_rule_study_over">Estudio mayor a %1$sh%2$s</string>
+    <string name="goal_rule_spend_under">Gasto menor a %1$s</string>
+    <string name="goal_rule_spend_over">Gasto mayor a %1$s</string>
+    <string name="goal_rule_subject_suffix"> · %1$s</string>
+    <plurals name="widget_streak_days">
+        <item quantity="one">día de racha perfecta</item>
+        <item quantity="other">días de racha perfecta</item>
+    </plurals>
+    <string name="widget_streak_desc">Racha de días perfectos en metas</string>
+    <string name="widget_goals_title">METAS DE HOY</string>
+    <string name="widget_goals_empty">Aún no hay metas</string>
+    <string name="widget_goals_desc">Lista de metas de hoy</string>
+    <string name="widget_budget_title">PRESUPUESTO DE %1$s</string>
+    <string name="widget_budget_spent_this_month">gastado este mes</string>
+    <string name="widget_budget_no_limit">Configura un límite en Presupuesto</string>
+    <string name="widget_budget_of_limit">de %1$s</string>
+    <string name="widget_budget_remaining">%1$s restante</string>
+    <string name="widget_budget_over">%1$s de exceso</string>
+    <string name="widget_budget_desc">Gasto mensual frente al presupuesto</string>
+    <!-- Shown instead of any figure while the Budget module lock is on (Issue #187). -->
+    <string name="widget_budget_locked">Bloqueado</string>
+    <string name="widget_budget_locked_hint">Toca para desbloquear en la app</string>
+    <string name="widget_budget_add_expense">+ Agregar gasto</string>
+    <string name="widget_today_title">HOY</string>
+    <string name="widget_today_study">Estudio</string>
+    <string name="widget_today_study_running">Estudio · en curso</string>
+    <string name="widget_today_screen">Pantalla</string>
+    <string name="widget_today_next">PRÓXIMO</string>
+    <string name="widget_today_overdue">ATRASADO</string>
+    <string name="widget_today_no_reminders">Nada programado</string>
+    <string name="widget_today_all_day">Todo el día</string>
+    <string name="widget_today_date_at_time">%1$s a las %2$s</string>
+    <string name="widget_study_today">ESTUDIO DE HOY</string>
+    <string name="widget_study_running">ESTUDIANDO</string>
+    <string name="widget_study_start">Iniciar</string>
+    <string name="widget_study_pause">Pausar</string>
+    <string name="widget_study_desc">Tiempo de estudio de hoy con un control de inicio/pausa</string>
+    <string name="widget_today_desc">Tiempo de estudio, tiempo de pantalla y próximo recordatorio de hoy</string>
+    <string name="cd_dashboard_day">%1$s: %2$s</string>
+    <string name="cd_dashboard_day_today">Hoy, %1$s</string>
+    <string name="cd_dashboard_day_untracked">sin metas registradas</string>
+    <string name="cd_dashboard_day_percent">%1$d por ciento de metas completadas</string>
+    <string name="cd_dashboard_day_action">Ver las metas de este día</string>
+    <string name="cd_color_swatch">%1$s</string>
+    <string name="color_name_red">Rojo</string>
+    <string name="color_name_orange">Naranja</string>
+    <string name="color_name_yellow">Amarillo</string>
+    <string name="color_name_green">Verde</string>
+    <string name="color_name_teal">Verde azulado</string>
+    <string name="color_name_blue">Azul</string>
+    <string name="color_name_purple">Morado</string>
+    <string name="color_name_pink">Rosa</string>
+    <string name="color_name_grey">Gris</string>
+    <string name="color_name_other">Color</string>
+    <string name="color_name_gold">Dorado</string>
+    <string name="color_name_brown">Marrón</string>
+    <string name="color_name_indigo">Índigo</string>
+    <string name="color_name_olive">Oliva</string>
+
+    <!-- Papers (reading log) -->
+    <string name="module_papers">Artículos</string>
+    <string name="papers_title">Lectura</string>
+    <string name="papers_today_pick">Artículo de hoy</string>
+    <string name="papers_queue">Cola</string>
+    <!-- Recommendation shelf (#150). The heading names the paper the request was built from. -->
+    <string name="papers_recommended">Recomendado para ti</string>
+    <string name="papers_recommended_because">Porque leíste %1$s</string>
+    <string name="papers_recommended_because_more">Porque leíste %1$s y %2$d más</string>
+    <string name="papers_recommended_loading">Buscando artículos parecidos a los que calificaste…</string>
+    <string name="papers_history">Historial</string>
+    <string name="papers_empty">Aún no hay artículos — agrega uno con un enlace, o empieza con los clásicos</string>
+    <string name="papers_add">Agregar artículo</string>
+    <string name="papers_import_seeds">Importar lista inicial</string>
+    <string name="papers_add_title">Agregar un artículo</string>
+    <string name="papers_add_hint">arXiv / DOI / enlace del artículo</string>
+    <string name="papers_add_fetch">Buscar</string>
+    <string name="papers_add_confirm">Agregar a la cola</string>
+    <string name="papers_add_duplicate">Ya está en tu registro: %1$s</string>
+    <string name="papers_add_not_found">No se pudo identificar un artículo con eso — intenta con un enlace de arXiv, un DOI o una URL de Semantic Scholar</string>
+    <string name="papers_add_network_error">No se pudo conectar con Semantic Scholar — revisa tu conexión e intenta de nuevo</string>
+    <string name="papers_open">Abrir artículo</string>
+    <string name="papers_mark_read">Marcar como leído</string>
+    <string name="papers_abandon">Abandonar</string>
+    <string name="papers_requeue">Volver a la cola</string>
+    <string name="papers_delete">Eliminar</string>
+    <string name="papers_memo_label">Lo que aprendí</string>
+    <string name="papers_memo_hint">Una nota para tu yo futuro — ¿de qué trataba este artículo?, ¿valió la pena?</string>
+    <string name="papers_signal_label">¿Valió la pena?</string>
+    <string name="papers_status_read">Leído</string>
+    <string name="papers_status_abandoned">Abandonado</string>
+    <string name="papers_read_on">Leído el %1$s</string>
+    <string name="papers_tldr_label">TL;DR</string>
+    <string name="papers_abstract_label">Resumen</string>
+    <string name="papers_no_abstract">No hay resumen guardado — abre el artículo para ver los detalles</string>
+    <string name="papers_save">Guardar</string>
+    <string name="papers_cancel">Cancelar</string>
+    <string name="cd_papers_add">Agregar un artículo</string>
+    <string name="cd_papers_export">Exportar citas de artículos</string>
+    <string name="cd_papers_discovery">Temas de descubrimiento de artículos</string>
+    <string name="papers_export_title">Exportar citas</string>
+    <string name="papers_export_bibtex">BibTeX (.bib)</string>
+    <string name="papers_export_csv">CSV (.csv)</string>
+    <string name="papers_daily_loading">Revisando tus temas…</string>
+    <string name="papers_daily_added">Se agregaron %1$d artículos nuevos</string>
+    <string name="papers_daily_no_results">No hay artículos nuevos hoy</string>
+    <string name="papers_daily_unavailable">El descubrimiento diario no está disponible hoy. Tus artículos guardados no se ven afectados.</string>
+    <string name="papers_daily_rate_limited">Semantic Scholar está ocupado. El descubrimiento diario esperará antes de volver a intentarlo.</string>
+    <string name="papers_field_computer_science">Ciencias de la Computación</string>
+    <string name="papers_field_mathematics">Matemáticas</string>
+    <string name="papers_field_physics">Física</string>
+    <string name="papers_field_engineering">Ingeniería</string>
+    <string name="papers_field_biology">Biología</string>
+    <string name="papers_field_medicine">Medicina</string>
+    <string name="papers_field_economics">Economía</string>
+    <string name="papers_field_psychology">Psicología</string>
+    <string name="cd_papers_signal">Calificar %1$d de 5</string>
+    <string name="papers_topics_title">Temas de lectura</string>
+    <string name="papers_topics_description">Un tema es un campo delimitado por una palabra clave — cuanto más específica sea la palabra clave, más relevantes serán tus artículos diarios. Cada tema se revisa al menos una vez por semana; los temas que sueles terminar se revisan con más frecuencia.</string>
+    <string name="papers_topics_empty">Aún no hay temas — agrega uno abajo para empezar el descubrimiento diario</string>
+    <string name="papers_topics_add">Agregar un tema</string>
+    <string name="papers_topics_field_label">Campo</string>
+    <string name="papers_topics_keyword_label">Palabra clave</string>
+    <string name="papers_topics_keyword_hint">p. ej. modelos de difusión</string>
+    <string name="papers_topics_add_action">Agregar tema</string>
+    <string name="papers_topics_cap_reached">Alcanzaste el límite de %1$d temas — elimina uno para agregar otro</string>
+    <string name="papers_topics_paused">Silenciado</string>
+    <string name="papers_topics_pause">Silenciar</string>
+    <string name="papers_topics_resume">Reactivar</string>
+    <string name="papers_onboarding_title">¿Sobre qué quieres leer?</string>
+    <string name="papers_onboarding_description">Agrega algunos temas — un campo delimitado por una palabra clave, como Ciencias de la Computación + \"modelos de difusión\" — y Lectura los revisará a diario y agregará artículos relevantes a la cola.</string>
+    <string name="papers_onboarding_set_topics">Configurar temas</string>
+    <string name="papers_onboarding_skip">Ahora no</string>
+    <string name="papers_mute_prompt">Abandonaste los últimos artículos de “%1$s” seguidos. ¿Silenciar este tema?</string>
+    <string name="papers_mute_action">Silenciar tema</string>
+    <string name="papers_mute_dismiss">Mantenerlo</string>
+    <string name="goal_metric_papers">Artículos</string>
+    <string name="goal_threshold_papers">Artículos</string>
+    <string name="goal_rule_papers_over">Leer %1$s+ artículos</string>
+    <string name="goal_rule_papers_under">Máximo %1$s artículos</string>
+</resources>

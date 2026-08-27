@@ -996,3 +996,33 @@ the current state of the backlog rather than trusting a snapshot here.
   drag-and-drop proved too unreliable to automate over adb on this emulator — but the button is
   structurally identical to `StudyWidget`'s already-working one, just a different destination
   `Intent`.
+- **[Issue #221] ApexTracker now ships a second locale (Spanish, `values-es/`)** — the payoff for
+  every prior UI-string-extraction pass (#36/#53/#65/#112/#114/#119/#120), and the reason those
+  passes existed at all. Two pieces:
+  - **Infrastructure**: `app/build.gradle.kts` sets `androidResources { generateLocaleConfig =
+    true }` (AGP auto-generates `res/xml/_generated_res_locale_config.xml` from whichever
+    `values-<locale>/` directories exist, and auto-injects `android:localeConfig` into the merged
+    manifest — no hand-authored XML to keep in sync as locales are added or removed). This
+    requires a `res/resources.properties` file declaring the base directory's own locale
+    (`unqualifiedResLocale=en-US` — the *module's* `res/`, not `res/values/`; AGP's own error
+    message if this is missing or misplaced points at the wrong location, costing a debug cycle
+    here). Wires up the API 33+ per-app language picker (Settings → Apps → ApexTracker →
+    Language) for free — no in-app language switcher UI needed, adding one is a separate,
+    optional future issue if wanted.
+  - **Translation**: `values-es/strings.xml`, a complete Latin American Spanish translation of
+    all 498 strings + 6 `<plurals>` blocks (same keys, same order, same section comments,
+    untranslated proper nouns), using "tú" throughout since this is a personal single-user app,
+    not enterprise software. Every format specifier (`%1$s`, `%2$d`, …) verified to match the
+    English source in count and type, reordered only where natural Spanish word order calls for
+    it. `lintDebug` flags `MissingQuantity: es also wants "many"` on the 6 plurals — a real but
+    obscure CLDR rule (large multiples of a million) with no realistic trigger in this app's data
+    (transaction counts, streak days, etc. never reach that range); left unaddressed as the
+    same accepted tradeoff most apps make, not a defect. The issue's own listed blocker —
+    Reminder notification text bypassing string resources — was already fixed earlier in this
+    same pass (#212).
+  - **Verified on-device**: `adb shell cmd locale set-app-locales com.example.apextracker
+    --locales es` (the exact mechanism the system language picker uses) on the `Medium_Phone`
+    emulator — Dashboard, Overview, and the bottom nav all rendered correctly in Spanish,
+    including locale-aware date formatting ("JUEVES agosto 27") and number formatting ("0,00
+    US$"), with user-entered content (goal names, reminder titles) correctly left untranslated
+    since those aren't resource strings.
