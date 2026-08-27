@@ -174,12 +174,11 @@ class ScreenTimeViewModel(application: Application) : AndroidViewModel(applicati
         val usageMap = calculateAppSpecificUsage()
         val excludedPackageNames = _excludedApps.value.map { it.packageName }.toSet()
         val myPackageName = getApplication<Application>().packageName
-        
-        val launcherPackage = try {
-            val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
-            val resolveInfo = getApplication<Application>().packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
-            resolveInfo?.activityInfo?.packageName
-        } catch (e: Exception) { null }
+
+        // Delegates to the shared resolution in ScreenTimeRefresh.kt (Issue #228) so this screen
+        // and Overview's refresh path can't drift into two different, differently-buggy notions
+        // of "the launcher."
+        val homePackages = resolveHomePackages(getApplication())
 
         // Restrict to the same package set the itemized "Today's Apps" list is built from
         // (installedApps, filtered in loadInstalledApps() to !isSystemApp || hasLauncher) so the
@@ -190,13 +189,9 @@ class ScreenTimeViewModel(application: Application) : AndroidViewModel(applicati
         // rather than reporting a false zero for that one tick.
         val trackablePackages = _installedApps.value.map { it.packageName }.toSet()
 
-        val totalFilteredTime = usageMap.filter { (pkg, _) ->
-            (trackablePackages.isEmpty() || pkg in trackablePackages) &&
-            pkg !in excludedPackageNames &&
-            pkg != myPackageName &&
-            pkg != launcherPackage &&
-            pkg != "com.android.systemui"
-        }.values.sum()
+        val totalFilteredTime = filterTrackableUsage(
+            usageMap, excludedPackageNames, myPackageName, homePackages, trackablePackages
+        )
 
         _todayScreenTimeMillis.value = totalFilteredTime
         saveTodayScreenTime(totalFilteredTime)
