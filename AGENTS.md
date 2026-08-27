@@ -917,3 +917,23 @@ the current state of the backlog rather than trusting a snapshot here.
   confirmed on the rebuilt app that Settings still shows non-zero minutes in the Screen Time
   screen's "Today's Apps" list rather than being silently zeroed. `testDebugUnitTest` /
   `lintDebug` / `assembleDebug` all pass, and no crash appeared in logcat across the run.
+- **[Issue #220] Reminders can hand off to the user's calendar app.** New
+  `ReminderCalendarExport.kt`: `calendarEventBeginMillis`/`calendarEventEndMillis` (pure,
+  unit-tested in `ReminderCalendarExportTest`) compute a 30-minute event block for a timed
+  reminder or a `CalendarContract`-conventional UTC-midnight-to-next-UTC-midnight span for an
+  all-day one — a reminder models a due *moment*, not a duration, so 30 minutes is just long
+  enough to be visible on a day view. `calendarInsertIntent()` builds an `ACTION_INSERT` intent
+  against `CalendarContract.Events.CONTENT_URI` rather than writing to the provider directly — no
+  new permission needed, and the calendar app shows its own confirm/edit UI before anything
+  actually saves, so a repeat tap can't silently create a duplicate event the way a direct insert
+  could. Wired into `ReminderEditDialog`'s title row as a calendar icon button (enabled only once
+  a name is entered), reading from the dialog's *current* field state rather than a saved
+  `Reminder` — works identically mid-add and mid-edit. `calendarInsertIntent()` itself isn't
+  unit-tested (constructs a real `android.content.Intent` against `CalendarContract` — framework
+  types unavailable in this project's plain JVM unit tests, no Robolectric); the millis math it
+  depends on is the only non-trivial logic and is covered. Verified on the `Medium_Phone`
+  emulator: tapping the icon launched Google Calendar with no crash — it resolved the intent and
+  showed its own "no calendars have been synchronized with this device yet" state, which is this
+  particular emulator having no signed-in account rather than anything this app's intent got
+  wrong; the dispatch and app-resolution half of the flow (the half under this app's control) is
+  confirmed working.

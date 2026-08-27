@@ -447,10 +447,31 @@ fun ReminderEditDialog(
     var showRecurrencePicker by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(title)
+                // Hands off to the user's own calendar app rather than writing to
+                // CalendarContract directly (Issue #220) — reflects whatever is currently in
+                // the form, so it works for an in-progress add just as well as an edit.
+                IconButton(
+                    onClick = {
+                        val intent = calendarInsertIntent(name, description.ifBlank { null }, date, time)
+                        runCatching { context.startActivity(intent) }
+                    },
+                    enabled = name.isNotBlank()
+                ) {
+                    Icon(Icons.Default.CalendarMonth, contentDescription = stringResource(R.string.cd_add_to_calendar))
+                }
+            }
+        },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
