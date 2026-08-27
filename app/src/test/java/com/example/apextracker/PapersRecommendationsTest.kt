@@ -135,6 +135,36 @@ class PapersRecommendationsTest {
         assertEquals(listOf(2L, 3L), queueExcludingRecommendations(queue).map { it.id })
     }
 
+    @Test
+    fun `queueRestExcludingTodayPick also drops a non-recommended pick`() {
+        // Issue #210: dailyPick can choose a SEED/DAILY/manually-added paper, not just a
+        // RECOMMENDED one — queueExcludingRecommendations alone left it rendering twice.
+        val queue = listOf(
+            paper(1, "a", status = PaperStatus.WANT, source = PaperSource.RECOMMENDED),
+            paper(2, "b", status = PaperStatus.WANT, source = PaperSource.DAILY),
+            paper(3, "c", status = PaperStatus.WANT, source = PaperSource.MANUAL)
+        )
+        assertEquals(listOf(3L), queueRestExcludingTodayPick(queue, todayPickId = 2L).map { it.id })
+    }
+
+    @Test
+    fun `queueRestExcludingTodayPick still drops recommended rows when the pick is one of them`() {
+        val queue = listOf(
+            paper(1, "a", status = PaperStatus.WANT, source = PaperSource.RECOMMENDED),
+            paper(2, "b", status = PaperStatus.WANT, source = PaperSource.DAILY)
+        )
+        assertEquals(listOf(2L), queueRestExcludingTodayPick(queue, todayPickId = 1L).map { it.id })
+    }
+
+    @Test
+    fun `queueRestExcludingTodayPick with no pick behaves like queueExcludingRecommendations`() {
+        val queue = listOf(
+            paper(1, "a", status = PaperStatus.WANT, source = PaperSource.RECOMMENDED),
+            paper(2, "b", status = PaperStatus.WANT, source = PaperSource.DAILY)
+        )
+        assertEquals(listOf(2L), queueRestExcludingTodayPick(queue, todayPickId = null).map { it.id })
+    }
+
     // --- heading basis -----------------------------------------------------
 
     @Test

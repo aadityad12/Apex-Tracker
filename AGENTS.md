@@ -809,3 +809,17 @@ the current state of the backlog rather than trusting a snapshot here.
     `ScreenTimeViewModel`'s own "TOTAL APEX TIME" headline showed the same wrong 0m at the same
     time its own itemized "Today's Apps" list correctly showed nonzero usage for the misidentified
     app. Root cause not yet investigated.
+- **[Issue #210] Papers: today's featured pick no longer renders a second time as the first row
+  of the queue below it.** `PapersUiState.queueRest`'s own doc comment already said its purpose
+  was "no paper renders twice on the screen," but `queueExcludingRecommendations()` only strips
+  `PaperSource.RECOMMENDED` rows — it has no awareness of which paper `dailyPick()` chose, and
+  `dailyPick()` can select *any* WANT-status paper (SEED, DAILY, manually-added, not just
+  RECOMMENDED). New `queueRestExcludingTodayPick(queue, todayPickId)` in
+  `PapersRecommendations.kt` (unit-tested in `PapersRecommendationsTest`) filters out both; the
+  shelf-only helper (`queueExcludingRecommendations`) is unchanged and still used by the new one
+  internally, so its own existing tests/callers are unaffected. `PapersViewModel.uiState`'s
+  `combine` now computes `dailyPick()` once into a local and feeds its id to the new helper for
+  `queueRest`, rather than deriving `todayPick`/`queueRest` independently from the same `queue`.
+  Verified on the `Medium_Phone` emulator with real seeded data: "Deep Residual Learning for Image
+  Recognition" (a `MANUAL`-source pick, not `RECOMMENDED`) rendered as TODAY'S PAPER and correctly
+  did **not** reappear as the first row of QUEUE · 10 below it.

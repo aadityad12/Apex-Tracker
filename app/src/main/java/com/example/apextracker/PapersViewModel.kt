@@ -19,7 +19,12 @@ data class PapersUiState(
     val todayPick: Paper?,
     /** Everything queued, recommendations included — what [dailyPick] weighs. */
     val queue: List<Paper>,
-    /** The queue minus the recommendation shelf, so no paper renders twice on the screen. */
+    /**
+     * The queue minus the recommendation shelf *and* minus [todayPick], so no paper renders
+     * twice on the screen (Issue #210). [dailyPick] can select any WANT-status paper — SEED,
+     * DAILY, or manually-added, not just RECOMMENDED — so excluding the shelf alone isn't enough:
+     * a non-recommended pick used to still show up again as the queue's first row.
+     */
     val queueRest: List<Paper>,
     val recommendations: RecommendationShelf?,
     val history: List<Paper>,
@@ -88,10 +93,11 @@ class PapersViewModel(application: Application) : AndroidViewModel(application) 
     val uiState: StateFlow<PapersUiState> = combine(paperDao.getAllPapers(), discoveryTopics) { papers, topics ->
         val queue = paperQueue(papers)
         val recommended = recommendedFromQueue(queue)
+        val pick = dailyPick(queue, topics)
         PapersUiState(
-            todayPick = dailyPick(queue, topics),
+            todayPick = pick,
             queue = queue,
-            queueRest = queueExcludingRecommendations(queue),
+            queueRest = queueRestExcludingTodayPick(queue, pick?.id),
             recommendations = if (recommended.isEmpty()) null else {
                 RecommendationShelf(basis = recommendationBasis(papers), papers = recommended)
             },

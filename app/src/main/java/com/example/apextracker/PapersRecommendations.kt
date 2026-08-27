@@ -92,6 +92,15 @@ fun queueExcludingRecommendations(queue: List<Paper>): List<Paper> =
     queue.filterNot { it.source == PaperSource.RECOMMENDED }
 
 /**
+ * The queue section under the shelf, minus the shelf *and* minus whichever paper is today's pick
+ * (Issue #210). [dailyPick] can select any WANT-status paper — SEED, DAILY, or manually-added,
+ * not just RECOMMENDED — so [queueExcludingRecommendations] alone isn't enough to keep a
+ * non-recommended pick from rendering a second time as the queue's first row.
+ */
+fun queueRestExcludingTodayPick(queue: List<Paper>, todayPickId: Long?): List<Paper> =
+    queueExcludingRecommendations(queue).filterNot { it.id == todayPickId }
+
+/**
  * The papers the shelf names — the most recent liked ones, in the same order
  * [recommendationExamples] picked them, so the heading and the request agree about what "because
  * you read" refers to.
