@@ -169,6 +169,10 @@ internal fun parseBudgetItemDoc(data: Map<String, Any?>): ParsedBudgetItem = Par
         description = data.optString("description"),
         date = LocalDate.parse(data.requireString("date")),
         categoryId = null,
+        // Absent on every pre-#218 doc, which are all expenses by definition.
+        type = data.optString("type")
+            ?.takeIf { it == TransactionType.EXPENSE || it == TransactionType.INCOME }
+            ?: TransactionType.EXPENSE,
         cloudId = data.requireCloudId(),
         modifiedAt = data.optLong("modifiedAt")
     ),
@@ -394,6 +398,7 @@ class FirebaseManager(private val context: Context) {
                     "description" to item.description,
                     "date" to item.date.toString(),
                     "categoryCloudId" to categoryCloudId,
+                    "type" to item.type,
                     "modifiedAt" to item.modifiedAt
                 ),
                 SetOptions.merge()

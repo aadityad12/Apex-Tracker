@@ -138,7 +138,14 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun addItem(title: String, amount: Double, description: String?, date: LocalDate, categoryId: Long?) {
+    fun addItem(
+        title: String,
+        amount: Double,
+        description: String?,
+        date: LocalDate,
+        categoryId: Long?,
+        type: String = TransactionType.EXPENSE
+    ) {
         viewModelScope.launch {
             val item = BudgetItem(
                 title = title,
@@ -146,6 +153,7 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
                 description = description,
                 date = date,
                 categoryId = categoryId,
+                type = type,
                 cloudId = UUID.randomUUID().toString(),
                 modifiedAt = System.currentTimeMillis()
             )

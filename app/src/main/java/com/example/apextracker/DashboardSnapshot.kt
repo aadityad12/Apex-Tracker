@@ -24,7 +24,8 @@ private fun metricsProvider(
     val studyByDate = study.groupBy { it.date }
         .mapValues { (_, rows) -> rows.associate { it.subject to it.durationSeconds } }
     val screenByDate = screen.associate { it.date to it.durationMillis }
-    val spendByDate = budget.groupBy { it.date }.mapValues { (_, rows) -> rows.sumOf { it.amount } }
+    // Income isn't spend (Issue #218) — a SPEND goal shouldn't read a paycheck as an expense.
+    val spendByDate = budget.expensesOnly().groupBy { it.date }.mapValues { (_, rows) -> rows.sumOf { it.amount } }
     val papersByDate = papersReadByDate(papers)
     return { d ->
         DayMetrics(

@@ -48,6 +48,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.apextracker.ui.design.ApexNumerals
 import com.example.apextracker.ui.design.ApexSpacing
+import com.example.apextracker.ui.design.LocalApexSemantics
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
@@ -151,7 +152,9 @@ fun CalendarGrid(days: List<Int>, paddingDays: List<Int>, currentMonth: YearMont
         items(days) { day ->
             val date = currentMonth.atDay(day)
             val itemsForDay = items.filter { it.date == date }
-            val totalSpent = itemsForDay.sumOf { it.amount }
+            // Income isn't spend, so it doesn't count toward the figure shown on the day cell
+            // (Issue #218) — it still appears in the day's own breakdown dialog below.
+            val totalSpent = itemsForDay.expensesOnly().sumOf { it.amount }
             CalendarDayCard(day, date, totalSpent, onClick = { onDayClick(date, itemsForDay) })
         }
     }
@@ -188,7 +191,9 @@ fun DayBreakdownDialog(date: LocalDate, items: List<BudgetItem>, categories: Lis
                     DayBreakdownItem(item, category)
                     HorizontalDivider()
                 }
-                TotalRow(items.sumOf { it.amount })
+                // Matches the figure on the day cell that opened this dialog: income doesn't
+                // count toward it (Issue #218), even though it's still listed above.
+                TotalRow(items.expensesOnly().sumOf { it.amount })
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } }
@@ -215,7 +220,9 @@ fun DayBreakdownItem(item: BudgetItem, category: Category?) {
             }
             if (!item.description.isNullOrBlank()) Text(text = item.description, style = MaterialTheme.typography.bodySmall)
         }
-        Text(text = formatCurrency(item.amount, LocalCurrencyCode.current), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+        val amountText = if (!item.isExpense) "+" + formatCurrency(item.amount, LocalCurrencyCode.current) else formatCurrency(item.amount, LocalCurrencyCode.current)
+        val amountColor = if (!item.isExpense) LocalApexSemantics.current.positive else MaterialTheme.colorScheme.onSurface
+        Text(text = amountText, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = amountColor)
     }
 }
 

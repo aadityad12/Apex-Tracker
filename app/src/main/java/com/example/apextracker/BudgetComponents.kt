@@ -31,6 +31,7 @@ import com.example.apextracker.ui.design.ApexDivider
 import com.example.apextracker.ui.design.ApexMotion
 import com.example.apextracker.ui.design.ApexNumerals
 import com.example.apextracker.ui.design.ApexSpacing
+import com.example.apextracker.ui.design.LocalApexSemantics
 import com.example.apextracker.ui.design.apexMenuBorder
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -89,8 +90,14 @@ fun BudgetListItem(
     val catColor = category?.let { categoryColorOf(it.colorHex) } ?: MaterialTheme.colorScheme.outline
     // Pending renewals haven't happened yet, so they read as provisional rather than as spend.
     val dotColor = if (isPending) catColor.copy(alpha = 0.4f) else catColor
-    val amountColor =
-        if (isPending) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
+    // Income reads in the same Sage used for "goal met" elsewhere (Issue #218) — money in, not
+    // money out — with a leading "+" since the stored amount is always a positive magnitude.
+    val amountColor = when {
+        !item.isExpense -> LocalApexSemantics.current.positive
+        isPending -> MaterialTheme.colorScheme.onSurfaceVariant
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+    val amountPrefix = if (!item.isExpense) "+" else ""
 
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -153,7 +160,7 @@ fun BudgetListItem(
             }
             Spacer(modifier = Modifier.width(ApexSpacing.m))
             Text(
-                text = formatCurrency(item.amount, LocalCurrencyCode.current),
+                text = amountPrefix + formatCurrency(item.amount, LocalCurrencyCode.current),
                 style = ApexNumerals.medium,
                 color = amountColor
             )
@@ -173,9 +180,10 @@ fun BudgetItemDialog(
     initialDescription: String = "",
     initialDate: LocalDate = LocalDate.now(),
     initialCategoryId: Long? = null,
+    initialType: String = TransactionType.EXPENSE,
     categories: List<Category>,
     onDismiss: () -> Unit,
-    onConfirm: (String, Double, String?, LocalDate, Long?) -> Unit,
+    onConfirm: (String, Double, String?, LocalDate, Long?, String) -> Unit,
     onDelete: (() -> Unit)? = null
 ) {
     var itemTitle by remember { mutableStateOf(initialTitle) }
@@ -183,6 +191,7 @@ fun BudgetItemDialog(
     var description by remember { mutableStateOf(initialDescription) }
     var date by remember { mutableStateOf(initialDate) }
     var selectedCategory by remember { mutableStateOf(categories.find { it.id == initialCategoryId }) }
+    var transactionType by remember { mutableStateOf(initialType) }
     var expanded by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
 
@@ -231,6 +240,23 @@ fun BudgetItemDialog(
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // Income has no category of its own — a paycheck isn't a spending category — so
+                // switching to it clears whatever the user had picked while on Expense (Issue #218).
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    SegmentedButton(
+                        selected = transactionType == TransactionType.EXPENSE,
+                        onClick = { transactionType = TransactionType.EXPENSE },
+                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
+                    ) { Text(stringResource(R.string.budget_type_expense)) }
+                    SegmentedButton(
+                        selected = transactionType == TransactionType.INCOME,
+                        onClick = {
+                            transactionType = TransactionType.INCOME
+                            selectedCategory = null
+                        },
+                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
+                    ) { Text(stringResource(R.string.budget_type_income)) }
+                }
                 OutlinedTextField(value = itemTitle, onValueChange = { itemTitle = it }, label = { Text(stringResource(R.string.label_title)) }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium)
                 OutlinedTextField(
                     value = amount,
@@ -279,7 +305,9 @@ fun BudgetItemDialog(
                         }
                     }
                 }
-                CategoryDropdown(categories, selectedCategory, expanded, onExpandedChange = { expanded = it }, onCategorySelected = { selectedCategory = it; expanded = false })
+                if (transactionType == TransactionType.EXPENSE) {
+                    CategoryDropdown(categories, selectedCategory, expanded, onExpandedChange = { expanded = it }, onCategorySelected = { selectedCategory = it; expanded = false })
+                }
                 OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text(stringResource(R.string.label_description_optional)) }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium)
                 Button(
                     onClick = { showDatePicker = true },
@@ -291,11 +319,15 @@ fun BudgetItemDialog(
                 }
             }
         },
-        confirmButton = { 
+        confirmButton = {
             Button(
-                onClick = { if (itemTitle.isNotBlank()) onConfirm(itemTitle, amount.toDoubleOrNull() ?: 0.0, description.ifBlank { null }, date, selectedCategory?.id) },
+                onClick = {
+                    if (itemTitle.isNotBlank()) {
+                        onConfirm(itemTitle, amount.toDoubleOrNull() ?: 0.0, description.ifBlank { null }, date, selectedCategory?.id, transactionType)
+                    }
+                },
                 shape = MaterialTheme.shapes.medium
-            ) { 
+            ) {
                 Text(stringResource(R.string.action_save)) 
             } 
         },

@@ -78,6 +78,11 @@
     <string name="budget_trends_bar_cd">%1$s: %2$s</string>
     <string name="budget_no_data">Nothing recorded this month — add an expense to start tracking</string>
     <string name="budget_add_item_title">Add Budget Item</string>
+    <!-- Income/expense entry toggle (Issue #218). -->
+    <string name="budget_type_expense">Expense</string>
+    <string name="budget_type_income">Income</string>
+    <string name="budget_total_income">Income</string>
+    <string name="budget_net_balance">Net</string>
     <!-- Receipt scanning (Issue #46). -->
     <string name="cd_scan_receipt">Scan a receipt photo</string>
     <string name="budget_receipt_unreadable">Couldn\'t read that receipt — try a sharper, straighter photo</string>

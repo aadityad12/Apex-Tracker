@@ -94,4 +94,18 @@ class BudgetWidgetSnapshotTest {
     fun `unlocked is the default so existing callers are unchanged`() {
         assertFalse(budgetWidgetSnapshot(listOf(item(10.0)), august, null, "USD").locked)
     }
+
+    @Test
+    fun `income does not count toward spend`() {
+        // Issue #218: a paycheck logged as income must not inflate the widget's spend figure.
+        val income = BudgetItem(title = "Paycheck", amount = 500.0, date = LocalDate.of(2026, 8, 5), type = TransactionType.INCOME)
+        val snapshot = budgetWidgetSnapshot(
+            items = listOf(item(20.0), income),
+            month = august,
+            limit = null,
+            currencyCode = "USD"
+        )
+
+        assertEquals(20.0, snapshot.spent, 0.0001)
+    }
 }

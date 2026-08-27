@@ -47,6 +47,7 @@ import com.example.apextracker.ui.design.ApexNumerals
 import com.example.apextracker.ui.design.ApexSectionHeader
 import com.example.apextracker.ui.design.ApexShapes
 import com.example.apextracker.ui.design.ApexSpacing
+import com.example.apextracker.ui.design.ApexStatRow
 import com.example.apextracker.ui.design.LocalApexSemantics
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -175,8 +176,8 @@ fun BudgetTrackerApp(onBackToMenu: () -> Unit, viewModel: BudgetViewModel = view
                 title = stringResource(R.string.budget_add_item_title),
                 categories = categories,
                 onDismiss = { showAddDialog = false },
-                onConfirm = { title, amount, description, date, categoryId ->
-                    viewModel.addItem(title, amount, description, date, categoryId)
+                onConfirm = { title, amount, description, date, categoryId, type ->
+                    viewModel.addItem(title, amount, description, date, categoryId, type)
                     showAddDialog = false
                 }
             )
@@ -190,15 +191,17 @@ fun BudgetTrackerApp(onBackToMenu: () -> Unit, viewModel: BudgetViewModel = view
                 initialDescription = itemToEdit!!.description ?: "",
                 initialDate = itemToEdit!!.date,
                 initialCategoryId = itemToEdit!!.categoryId,
+                initialType = itemToEdit!!.type,
                 categories = categories,
                 onDismiss = { itemToEdit = null },
-                onConfirm = { title, amount, description, date, categoryId ->
+                onConfirm = { title, amount, description, date, categoryId, type ->
                     viewModel.updateItem(itemToEdit!!.copy(
                         title = title,
                         amount = amount,
                         description = description,
                         date = date,
-                        categoryId = categoryId
+                        categoryId = categoryId,
+                        type = type
                     ))
                     itemToEdit = null
                 },
@@ -260,7 +263,7 @@ fun BudgetOverview(
     // keep describing the whole month, which is what those summaries are for (Issue #123).
     val categoryNames = categories.associate { it.id to it.name }
     val visibleItems = filterBudgetItems(monthItems, categoryNames, searchQuery)
-    
+
     val pendingSubs = if (monthToDisplay == YearMonth.now()) {
         subscriptions.filter { sub ->
             !sub.isPaused &&
@@ -269,7 +272,14 @@ fun BudgetOverview(
         }
     } else emptyList()
 
-    val totalExpenditure = monthItems.sumOf { it.amount }
+    // Every "spending" figure below — the hero total, the pie, the trend chart, the limits card —
+    // excludes income (Issue #218): a paycheck isn't spend, and it has no category to slice by.
+    // Net balance is the one place income and expense combine.
+    val monthExpenseItems = monthItems.expensesOnly()
+    val totalExpenditure = monthExpenseItems.sumOf { it.amount }
+    val totalIncome = monthItems.filterNot { it.isExpense }.sumOf { it.amount }
+    val netBalance = totalIncome - totalExpenditure
+    val expenseItems = items.expensesOnly()
 
     Column(modifier = Modifier.fillMaxSize()) {
         MonthSelectorCompact(
@@ -291,12 +301,12 @@ fun BudgetOverview(
             verticalArrangement = Arrangement.spacedBy(ApexSpacing.xl)
         ) {
             item {
-                MonthTotal(totalExpenditure, monthItems.size)
+                MonthTotal(totalExpenditure, totalIncome, netBalance, monthExpenseItems.size)
             }
 
-            if (monthItems.isNotEmpty() || pendingSubs.isNotEmpty()) {
+            if (monthExpenseItems.isNotEmpty() || pendingSubs.isNotEmpty()) {
                 item {
-                    ExpenseBreakdown(monthItems, categories, pendingSubs)
+                    ExpenseBreakdown(monthExpenseItems, categories, pendingSubs)
                 }
             }
 
@@ -306,7 +316,7 @@ fun BudgetOverview(
             if (categories.any { it.effectiveMonthlyLimit() != null } || overallLimit != null) {
                 item {
                     BudgetLimitsCard(
-                        items = items,
+                        items = expenseItems,
                         categories = categories,
                         month = monthToDisplay,
                         overallLimit = overallLimit
@@ -315,7 +325,7 @@ fun BudgetOverview(
             }
 
             item {
-                BudgetTrendsCard(items = items, selectedMonth = monthToDisplay, onMonthSelected = onMonthChange)
+                BudgetTrendsCard(items = expenseItems, selectedMonth = monthToDisplay, onMonthSelected = onMonthChange)
             }
 
             if (visibleItems.isNotEmpty() || pendingSubs.isNotEmpty()) {
@@ -368,9 +378,13 @@ fun BudgetOverview(
  *
  * The number carries the screen on its own now: [ApexNumerals.hero] is Geist Mono, so the figure is
  * tabular and does not reflow as the month changes.
+ *
+ * Income/net (Issue #218) only render once the user has ever logged income — a pure
+ * expense-tracking user sees byte-for-byte the same card as before. `total` and `itemCount` stay
+ * expense-only so "Total spent · N transactions" keeps meaning exactly what it says.
  */
 @Composable
-private fun MonthTotal(total: Double, itemCount: Int) {
+private fun MonthTotal(total: Double, income: Double, net: Double, itemCount: Int) {
     Column {
         Text(
             text = formatCurrency(total, LocalCurrencyCode.current),
@@ -382,6 +396,19 @@ private fun MonthTotal(total: Double, itemCount: Int) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        if (income > 0.0) {
+            Spacer(Modifier.height(ApexSpacing.s))
+            ApexStatRow(
+                label = stringResource(R.string.budget_total_income),
+                value = formatCurrency(income, LocalCurrencyCode.current),
+                valueColor = LocalApexSemantics.current.positive
+            )
+            ApexStatRow(
+                label = stringResource(R.string.budget_net_balance),
+                value = formatCurrency(net, LocalCurrencyCode.current),
+                valueColor = if (net >= 0.0) LocalApexSemantics.current.positive else MaterialTheme.colorScheme.error
+            )
+        }
     }
 }
 

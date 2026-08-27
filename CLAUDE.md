@@ -73,8 +73,8 @@ Screen Time supports per-app daily limits (Issue #124): `AppUsageLimit` stores e
 `BudgetCalendar.kt`'s `BudgetCalendarView` is reachable as of 2026-07-11 (Issue #32): a list/calendar `IconButton` toggle in the Budget top bar, with the selected month hoisted into `BudgetTrackerApp` and shared between both views.
 
 ### Database
-- `AppDatabase.kt` — Room singleton (`budget_database`), `exportSchema = true`. **Don't trust a version number written here** — this line has gone stale twice (it said v15 while the code was at v19); read the `@Database` annotation in `AppDatabase.kt` for the current version and DAO roster. As of 2026-08-07 it's **v23** (v22→v23 added indices on the sync join keys, Issue #197).
-- **Migration policy**: **do not maintain a migration roster here** — read the `.addMigrations(...)` call in `AppDatabase.kt`, which is the source of truth and must register every hand-written `Migration(n, n+1)` through the current `@Database` version. As of DB v23, it registers the complete `MIGRATION_11_12` through `MIGRATION_22_23` chain before `.fallbackToDestructiveMigration()`. `MIGRATION_14_15` (Dashboard feature) is a **purely additive** migration — two `CREATE TABLE IF NOT EXISTS` for `goals` + `goal_completions`, no data copy — and the simplest pattern to copy for a new table (its DDL was diffed against the exported `app/schemas/…/15.json` and verified on a real populated v14→v15 upgrade on-device). `MIGRATION_11_12` (Issue #40's `isPinned` column on `notes`), `MIGRATION_12_13` (Issue #75's `monthlyLimit` column on `categories`), and `MIGRATION_13_14` (Issue #78's per-subject study sessions) are real hand-written `Migration`s and the pattern to follow — **add** a new `Migration(n, n+1)` to the `addMigrations(...)` chain for every schema change. `MIGRATION_13_14` is the one to copy for a **primary-key** change: `study_sessions` moved from PK `(date)` to PK `(date, subject)`, which SQLite can't do in place, so it does the create-new / copy / drop / rename dance and copies every old daily total into the `subject = ''` ("No subject") bucket for its date — no study data lost. Note no SQL `DEFAULT` on `subject` (the entity declares only a Kotlin default, which Room does not emit as a column default; adding one would make TableInfo mismatch at runtime). The `fallbackToDestructiveMigration()` behind the chain is the backstop for versions with no migration path, and it **drops every table** — see the MIGRATION POLICY comment at the top of `AppDatabase.kt` (Issue #17).
+- `AppDatabase.kt` — Room singleton (`budget_database`), `exportSchema = true`. **Don't trust a version number written here** — this line has gone stale twice (it said v15 while the code was at v19); read the `@Database` annotation in `AppDatabase.kt` for the current version and DAO roster. As of 2026-08-27 it's **v24** (v23→v24 added `BudgetItem.type` for income tracking, Issue #218).
+- **Migration policy**: **do not maintain a migration roster here** — read the `.addMigrations(...)` call in `AppDatabase.kt`, which is the source of truth and must register every hand-written `Migration(n, n+1)` through the current `@Database` version. As of DB v24, it registers the complete `MIGRATION_11_12` through `MIGRATION_23_24` chain before `.fallbackToDestructiveMigration()`. `MIGRATION_14_15` (Dashboard feature) is a **purely additive** migration — two `CREATE TABLE IF NOT EXISTS` for `goals` + `goal_completions`, no data copy — and the simplest pattern to copy for a new table (its DDL was diffed against the exported `app/schemas/…/15.json` and verified on a real populated v14→v15 upgrade on-device). `MIGRATION_11_12` (Issue #40's `isPinned` column on `notes`), `MIGRATION_12_13` (Issue #75's `monthlyLimit` column on `categories`), and `MIGRATION_13_14` (Issue #78's per-subject study sessions) are real hand-written `Migration`s and the pattern to follow — **add** a new `Migration(n, n+1)` to the `addMigrations(...)` chain for every schema change. `MIGRATION_13_14` is the one to copy for a **primary-key** change: `study_sessions` moved from PK `(date)` to PK `(date, subject)`, which SQLite can't do in place, so it does the create-new / copy / drop / rename dance and copies every old daily total into the `subject = ''` ("No subject") bucket for its date — no study data lost. Note no SQL `DEFAULT` on `subject` (the entity declares only a Kotlin default, which Room does not emit as a column default; adding one would make TableInfo mismatch at runtime). The `fallbackToDestructiveMigration()` behind the chain is the backstop for versions with no migration path, and it **drops every table** — see the MIGRATION POLICY comment at the top of `AppDatabase.kt` (Issue #17).
 - `Converters.kt` — Type converters for `LocalDate`/`LocalDateTime`/`Recurrence` and other non-primitive types. This is the **only** `@TypeConverters` class registered on `AppDatabase`.
 - `Recurrence.kt` — Data model for recurring reminders (frequency, end condition, custom days). Persisted via `Converters.kt` (Gson round-trip).
 - There used to be a separate `RecurrenceConverter.kt` with a duplicate, never-registered implementation of the same conversion logic — it was **deleted** during the 2026-07-07 cleanup pass since it was entirely dead code (not wired into `AppDatabase`, not referenced anywhere).
@@ -746,3 +746,34 @@ the current state of the backlog rather than trusting a snapshot here.
   7 bars on both screens now report a `content-desc` (e.g. `"Friday: 0m"`); the visual rendering
   is byte-for-byte unchanged (screenshot-compared) since the restructure only adds a semantics
   layer, it doesn't change what's drawn.
+- **[Issue #218] Budget module can now track income, not just expenses** — `BudgetItem` gained a
+  `type: String` field (`TransactionType.EXPENSE`/`INCOME`, DB v23→**v24**, `MIGRATION_23_24`,
+  additive `ALTER TABLE ... DEFAULT 'EXPENSE'` so every pre-#218 row keeps its exact historical
+  meaning). `BudgetItem.isExpense`/`List<BudgetItem>.expensesOnly()` (`BudgetItem.kt`) are the
+  **one** filter every "spending" figure in the app now goes through — audited and updated at
+  every call site that sums `BudgetItem.amount`: the pie chart and trend chart
+  (`BudgetTrackerView.kt`), category/overall limits (`BudgetLimitsCard`), the calendar's day-cell
+  and day-breakdown totals (`BudgetCalendar.kt`), the Budget home-screen widget
+  (`BudgetWidgetSnapshot.kt`), the Dashboard's SPEND goal metric (`DashboardViewModel.kt` +
+  `DashboardSnapshot.kt` — these are two independent copies of the same per-day aggregation, both
+  needed the fix), and the Overview spending stat (`OverviewViewModel.kt`). Missing even one of
+  these would have let a logged paycheck silently inflate a "spending" figure elsewhere in the
+  app, which is why this shipped as a full call-site audit rather than touching just the Budget
+  screen. Net balance (income − expense) is the one place the two combine, computed in
+  `BudgetOverview` and shown only once a user has ever logged income — a pure expense-tracking
+  user sees byte-for-byte the same Budget screen as before. `BudgetItemDialog` gained an
+  Expense/Income `SingleChoiceSegmentedButtonRow`; switching to Income hides the category picker
+  (a paycheck has no spending category) and clears any category already chosen while on Expense.
+  Income rows render in `LocalApexSemantics.current.positive` (Sage) with a leading "+" in the
+  transaction list and the calendar's day-breakdown dialog — the same green used for "goal met"
+  elsewhere. CSV export gained a `type` column (`date,title,amount,type,category,description`).
+  Firestore sync (`pushBudgetItem`/`parseBudgetItemDoc`) and the full-dataset backup
+  (`BackupData.kt`, `parseBackupJson`'s per-element normalization, same pattern as the
+  `Goal.cadence` one it sits beside) both default an absent/invalid `type` to `EXPENSE`, so every
+  pre-#218 cloud doc and backup file restores exactly as it always has. Verified on the
+  `Medium_Phone` emulator with a **real v23→v24 migration over populated data** (installed the
+  new build directly over an existing app with real budget/goal/streak history, no uninstall): no
+  crash, no destructive-fallback log line, existing data intact, and the income entry point end to
+  end — segmented toggle, category picker hiding, the pie/trend/limits/widget/calendar all
+  correctly excluding the $2,000 test income from spend while the transaction list and day
+  breakdown both show it in Sage with the net balance updating live.

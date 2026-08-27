@@ -132,6 +132,31 @@ class FirebaseDocParsingTest {
     }
 
     @Test
+    fun `budget item with no type field defaults to EXPENSE`() {
+        // Every pre-Issue #218 doc, which are all expenses by definition.
+        val (item, _) = parseBudgetItemDoc(
+            mapOf("cloudId" to "b-1", "title" to "Rent", "amount" to 1200.0, "date" to "2026-07-01")
+        )
+        assertEquals(TransactionType.EXPENSE, item.type)
+    }
+
+    @Test
+    fun `budget item type INCOME round-trips`() {
+        val (item, _) = parseBudgetItemDoc(
+            mapOf("cloudId" to "b-1", "title" to "Paycheck", "amount" to 2000.0, "date" to "2026-07-01", "type" to "INCOME")
+        )
+        assertEquals(TransactionType.INCOME, item.type)
+    }
+
+    @Test
+    fun `budget item with invalid type falls back to EXPENSE`() {
+        val (item, _) = parseBudgetItemDoc(
+            mapOf("cloudId" to "b-1", "title" to "Rent", "amount" to 1200.0, "date" to "2026-07-01", "type" to "garbage")
+        )
+        assertEquals(TransactionType.EXPENSE, item.type)
+    }
+
+    @Test
     fun `budget item with unparseable date throws`() {
         assertThrows(Exception::class.java) {
             parseBudgetItemDoc(

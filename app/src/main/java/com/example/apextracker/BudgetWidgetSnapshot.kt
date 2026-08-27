@@ -40,9 +40,11 @@ fun budgetWidgetSnapshot(
     if (locked) {
         return BudgetWidgetSnapshot(month, spent = 0.0, limitStatus = null, currencyCode = resolvedCurrency, locked = true)
     }
-    val status = overallLimitStatus(items, month, limit)
+    // Income isn't spend (Issue #218) — excluded before either the capped or uncapped path sums it.
+    val expenseItems = items.expensesOnly()
+    val status = overallLimitStatus(expenseItems, month, limit)
     val spent = status?.spent
-        ?: items.filter { YearMonth.from(it.date) == month }.sumOf { it.amount }
+        ?: expenseItems.filter { YearMonth.from(it.date) == month }.sumOf { it.amount }
     return BudgetWidgetSnapshot(
         month = month,
         spent = spent,

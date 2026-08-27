@@ -107,8 +107,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         val studyByDate: Map<LocalDate, Map<String, Long>> =
             study.groupBy { it.date }.mapValues { (_, rows) -> rows.associate { it.subject to it.durationSeconds } }
         val screenByDate: Map<LocalDate, Long> = screen.associate { it.date to it.durationMillis }
+        // Income isn't spend (Issue #218) — a SPEND goal shouldn't read a paycheck as an expense.
         val spendByDate: Map<LocalDate, Double> =
-            budget.groupBy { it.date }.mapValues { (_, rows) -> rows.sumOf { it.amount } }
+            budget.expensesOnly().groupBy { it.date }.mapValues { (_, rows) -> rows.sumOf { it.amount } }
         val papersByDate: Map<LocalDate, Int> = papersReadByDate(papers)
 
         val metricsFor: (LocalDate) -> DayMetrics = { d ->

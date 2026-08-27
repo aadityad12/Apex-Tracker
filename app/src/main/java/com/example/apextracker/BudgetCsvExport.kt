@@ -47,15 +47,16 @@ internal fun resolveCategoryName(categoryId: Long?, categories: List<Category>):
     else -> categories.find { it.id == categoryId }?.name ?: ""
 }
 
-/** Pure CSV builder: `date,title,amount,category,description`, one row per item, RFC 4180 quoted. */
+/** Pure CSV builder: `date,title,amount,type,category,description`, one row per item, RFC 4180 quoted. */
 fun buildBudgetCsv(items: List<BudgetItem>, categories: List<Category>): String {
     val dateFormat = DateTimeFormatter.ISO_LOCAL_DATE
-    val header = "date,title,amount,category,description"
+    val header = "date,title,amount,type,category,description"
     val rows = items.map { item ->
         listOf(
             item.date.format(dateFormat),
             csvEscape(item.title),
             item.amount.toString(),
+            item.type,
             csvEscape(resolveCategoryName(item.categoryId, categories)),
             csvEscape(item.description ?: "")
         ).joinToString(",")

@@ -56,7 +56,7 @@ class BudgetCsvExportTest {
     @Test
     fun `buildBudgetCsv has the expected header`() {
         val csv = buildBudgetCsv(emptyList(), emptyList())
-        assertEquals("date,title,amount,category,description", csv)
+        assertEquals("date,title,amount,type,category,description", csv)
     }
 
     @Test
@@ -67,7 +67,7 @@ class BudgetCsvExportTest {
         )
         val csv = buildBudgetCsv(items, categories)
         assertEquals(
-            "date,title,amount,category,description\n2026-07-13,Lunch,12.5,Food,with friends",
+            "date,title,amount,type,category,description\n2026-07-13,Lunch,12.5,EXPENSE,Food,with friends",
             csv
         )
     }
@@ -79,7 +79,7 @@ class BudgetCsvExportTest {
         )
         val csv = buildBudgetCsv(items, emptyList())
         assertEquals(
-            "date,title,amount,category,description\n2026-01-01,\"Bob\"\"s, lunch\",5.0,,",
+            "date,title,amount,type,category,description\n2026-01-01,\"Bob\"\"s, lunch\",5.0,EXPENSE,,",
             csv
         )
     }
@@ -91,7 +91,19 @@ class BudgetCsvExportTest {
         )
         val csv = buildBudgetCsv(items, emptyList())
         assertEquals(
-            "date,title,amount,category,description\n2026-01-01,Item,1.0,,",
+            "date,title,amount,type,category,description\n2026-01-01,Item,1.0,EXPENSE,,",
+            csv
+        )
+    }
+
+    @Test
+    fun `buildBudgetCsv writes INCOME for an income row`() {
+        val items = listOf(
+            BudgetItem(title = "Paycheck", amount = 2000.0, date = LocalDate.of(2026, 1, 1), categoryId = null, type = TransactionType.INCOME)
+        )
+        val csv = buildBudgetCsv(items, emptyList())
+        assertEquals(
+            "date,title,amount,type,category,description\n2026-01-01,Paycheck,2000.0,INCOME,,",
             csv
         )
     }
