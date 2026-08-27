@@ -13,6 +13,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.apextracker.ui.design.ApexNumerals
@@ -107,7 +109,19 @@ fun ScreenTimeTrendsChart(sessions: List<ScreenTimeSession>) {
                 totals.forEach { (day, millis) ->
                     val heightFraction = (millis.toDouble() / axisMaxMillis).toFloat().coerceIn(0f, 1f)
                     val isToday = day == today
-                    Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.BottomCenter) {
+                    val dayName = day.dayOfWeek.getDisplayName(TextStyle.FULL, locale)
+                    val barLabel = stringResource(
+                        R.string.screen_time_trend_bar_cd,
+                        dayName,
+                        formatDurationCompact(millis)
+                    )
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .semantics { contentDescription = barLabel },
+                        contentAlignment = Alignment.BottomCenter
+                    ) {
                         Canvas(
                             modifier = Modifier.fillMaxWidth(0.56f).fillMaxHeight(heightFraction)
                         ) {

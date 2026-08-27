@@ -148,6 +148,7 @@
     <string name="study_recent_history">History</string>
     <string name="study_this_week">This week</string>
     <string name="study_week_empty">No study time logged this week</string>
+    <string name="study_trend_bar_cd">%1$s: %2$s</string>
     <string name="study_no_history">No history yet</string>
     <string name="study_ready">READY</string>
     <string name="study_pause_session">Pause</string>
@@ -189,6 +190,7 @@
     <string name="screen_daily_history">Daily history</string>
     <string name="screen_trends_title">Last 7 days</string>
     <string name="screen_trends_empty">No screen time recorded yet</string>
+    <string name="screen_time_trend_bar_cd">%1$s: %2$s</string>
     <string name="screen_show_all">Show all (%1$d)</string>
     <string name="screen_show_less">Show less</string>
     <string name="screen_limit_set">Limit: %1$dm</string>

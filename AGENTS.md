@@ -729,3 +729,20 @@ the current state of the backlog rather than trusting a snapshot here.
   passing `assembleRelease` before and after) and merged into `main` ahead of the issue backlog,
   since these are hard requirements for any Play Store submission and were sitting unmerged
   outside the numbered issues.
+- **[Issue #207] Study/Screen Time trend charts now carry per-bar accessibility semantics** — both
+  drew their 7-bar weekly charts with a bare `Canvas` and no `.semantics{}` anywhere, so a
+  TalkBack user got only the axis min/max, never any single day's value (unlike the sibling
+  `BudgetTrendsCard`, which already had this). `ScreenTimeTrendsChart` (`ScreenTimeTrends.kt`)
+  already drew one `Box` per bar, so it only needed a `.semantics { contentDescription }` added
+  to that existing Box. `StudyWeeklyChart` (`StudyTrackerView.kt`) drew all 7 bars *and* the dashed
+  goal-target line in one shared `Canvas`, so it had to be restructured: the goal line stays a
+  single full-width background `Canvas` (it isn't tied to any one day), and the bars became a
+  `Row` of per-bar `Box`es layered on top, each with its own `.semantics{}` and its own small
+  `Canvas` — mirroring `BudgetTrendsCard`'s existing pattern exactly. New string resources
+  `study_trend_bar_cd`/`screen_time_trend_bar_cd` (`"%1$s: %2$s"`, weekday + formatted duration,
+  same shape as `budget_trends_bar_cd`). No `.clickable` was added (unlike Budget's bars) since
+  neither chart has a day-selection callback to attach — clickable was the *ideal*, not
+  compulsory, per the issue. Verified on the `Medium_Phone` emulator via `uiautomator dump`: all
+  7 bars on both screens now report a `content-desc` (e.g. `"Friday: 0m"`); the visual rendering
+  is byte-for-byte unchanged (screenshot-compared) since the restructure only adds a semantics
+  layer, it doesn't change what's drawn.

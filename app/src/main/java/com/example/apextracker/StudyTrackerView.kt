@@ -854,22 +854,12 @@ fun StudyWeeklyChart(sessions: List<StudySession>, goalMinutes: Int) {
                         color = cs.onSurfaceVariant
                     )
                 }
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val slot = size.width / bars.size
-                    val barWidth = slot * 0.56f
-                    bars.forEachIndexed { i, (day, minutes) ->
-                        val h = size.height * (minutes.toFloat() / maxMinutes)
-                        val left = i * slot + (slot - barWidth) / 2
-                        drawRoundRect(
-                            color = if (day == today) accent else muted,
-                            topLeft = androidx.compose.ui.geometry.Offset(left, size.height - h),
-                            size = androidx.compose.ui.geometry.Size(barWidth, h),
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx())
-                        )
-                    }
-                    // The daily target. Dashed because it is a reference line rather than data —
-                    // that distinction is the reason it stays dashed while everything else is solid.
-                    if (goalMinutes > 0) {
+                // The daily target, drawn behind the bars. Dashed because it is a reference line
+                // rather than data — that distinction is the reason it stays dashed while
+                // everything else is solid. Kept as one full-width Canvas rather than folded into
+                // the per-bar bars below since it isn't associated with any single day.
+                if (goalMinutes > 0) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
                         val y = size.height * (1f - goalMinutes.toFloat() / maxMinutes)
                         drawLine(
                             color = goalColor,
@@ -878,6 +868,35 @@ fun StudyWeeklyChart(sessions: List<StudySession>, goalMinutes: Int) {
                             strokeWidth = 1.dp.toPx(),
                             pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 8f))
                         )
+                    }
+                }
+                // One Box per bar (rather than the single Canvas this used to be drawn with) so
+                // each day can carry its own contentDescription — a TalkBack user swiping through
+                // otherwise gets no per-day value at all, only the axis min/max (Issue #207).
+                // Mirrors BudgetTrendsCard's per-bar Box pattern.
+                Row(modifier = Modifier.fillMaxSize()) {
+                    bars.forEach { (day, minutes) ->
+                        val heightFraction = (minutes.toFloat() / maxMinutes).coerceIn(0f, 1f)
+                        val dayName = day.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, locale)
+                        val barLabel = stringResource(
+                            R.string.study_trend_bar_cd,
+                            dayName,
+                            formatDurationCompact(minutes * 60_000L)
+                        )
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .semantics { contentDescription = barLabel },
+                            contentAlignment = Alignment.BottomCenter
+                        ) {
+                            Canvas(modifier = Modifier.fillMaxWidth(0.56f).fillMaxHeight(heightFraction)) {
+                                drawRoundRect(
+                                    color = if (day == today) accent else muted,
+                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx())
+                                )
+                            }
+                        }
                     }
                 }
             }
