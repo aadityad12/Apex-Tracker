@@ -1374,3 +1374,20 @@ above. This section is a running log; read `gh issue list` for current backlog s
   match the established `?: return@callbackFlow awaitClose { }` pattern before any future call
   site trips it. Mechanical one-line fix. Verified: clean `assembleDebug`/`testDebugUnitTest`/
   `lintDebug`, plus a cold-start smoke test on the `Medium_Phone` emulator with no crash.
+- **[Issue #247] A blank or lone "." amount can no longer be saved as a silent $0 transaction.**
+  `BudgetItemDialog`'s and `SubscriptionDialog`'s confirm handlers both did
+  `amount.toDoubleOrNull() ?: 0.0` — the amount field's own input regex (`^\d*\.?\d{0,2}$`)
+  happily lets a lone "." through, which `toDoubleOrNull()` can't parse, so it silently became a
+  real $0 row with no error. Both dialogs' Save buttons are now `enabled =` gated on
+  `parsedAmount != null && parsedAmount != 0.0` (alongside the title/name non-blank check
+  `BudgetItemDialog` already had), matching the same "disable rather than silently default"
+  treatment the title field gets. `SubscriptionDialog`'s confirm `onClick` had a pre-existing,
+  unrelated bug found while touching this line — `if (name.isNotBlank()) onConfirm(...);
+  onDismiss()` called `onDismiss()` *unconditionally* regardless of the `if`, a plain Kotlin
+  semicolon-statement reading, not a bug this issue was scoped to fix — but the new `enabled`
+  gate means the button can no longer be clicked while that condition would be false, so it's a
+  side effect of this fix rather than a separate change. Verified: clean `assembleDebug`/
+  `testDebugUnitTest`/`lintDebug`, plus a full on-device round trip on the `Medium_Phone`
+  emulator confirming Save starts disabled on an empty dialog, stays disabled once a non-blank
+  title is entered with the amount field still blank, and backing out cleanly leaves "$0.00 · 0
+  transactions" — no phantom row created anywhere in the flow.

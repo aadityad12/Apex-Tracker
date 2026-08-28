@@ -320,16 +320,22 @@ fun BudgetItemDialog(
             }
         },
         confirmButton = {
+            // A blank field or a lone "." (the input regex above lets it through) parses to
+            // null and used to silently fall back to 0.0 — a mistyped amount became a real,
+            // saved $0 transaction with no signal. Disabling Save is the same treatment the
+            // title field already gets (Issue #247).
+            val parsedAmount = amount.toDoubleOrNull()
             Button(
                 onClick = {
-                    if (itemTitle.isNotBlank()) {
-                        onConfirm(itemTitle, amount.toDoubleOrNull() ?: 0.0, description.ifBlank { null }, date, selectedCategory?.id, transactionType)
+                    if (itemTitle.isNotBlank() && parsedAmount != null && parsedAmount != 0.0) {
+                        onConfirm(itemTitle, parsedAmount, description.ifBlank { null }, date, selectedCategory?.id, transactionType)
                     }
                 },
+                enabled = itemTitle.isNotBlank() && parsedAmount != null && parsedAmount != 0.0,
                 shape = MaterialTheme.shapes.medium
             ) {
-                Text(stringResource(R.string.action_save)) 
-            } 
+                Text(stringResource(R.string.action_save))
+            }
         },
         dismissButton = { 
             TextButton(onClick = onDismiss) { 

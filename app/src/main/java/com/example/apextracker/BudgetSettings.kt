@@ -653,7 +653,18 @@ fun SubscriptionDialog(
             }
         },
         confirmButton = {
-            Button(onClick = { if (name.isNotBlank()) onConfirm(name, amount.toDoubleOrNull() ?: 0.0, date, notes.ifBlank { null }); onDismiss() }) {
+            // Same treatment as BudgetItemDialog (Issue #247): a blank field or a lone "." parses
+            // to null and used to silently fall back to $0.0, saving a mistyped subscription.
+            val parsedAmount = amount.toDoubleOrNull()
+            Button(
+                onClick = {
+                    if (name.isNotBlank() && parsedAmount != null && parsedAmount != 0.0) {
+                        onConfirm(name, parsedAmount, date, notes.ifBlank { null })
+                    }
+                    onDismiss()
+                },
+                enabled = name.isNotBlank() && parsedAmount != null && parsedAmount != 0.0
+            ) {
                 Text(stringResource(R.string.action_save))
             }
         },
