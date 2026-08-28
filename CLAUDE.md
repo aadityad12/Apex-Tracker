@@ -1435,3 +1435,29 @@ above. This section is a running log; read `gh issue list` for current backlog s
   gap but wasn't part of this issue's filed scope, so left untouched. One-line SQL change.
   Verified: clean `assembleDebug`/`testDebugUnitTest`/`lintDebug`, plus a smoke-launch of Notes
   on-device with no crash.
+- **[Issue #252] Papers' "Link a paper" picker no longer fails silently on a stale-pick race.**
+  `PapersViewModel.addLink(paper, target)` used to return `Unit` — a caller had no way to know
+  whether the link was actually created. The dialog closed unconditionally on tap, so the one
+  real failure mode (`canLinkPapers` rejecting the pick because the two papers were already
+  linked, or the same paper twice, by the time the tap landed — a real race the picker's own
+  candidate list is a snapshot against) looked indistinguishable from success: the sheet closed,
+  nothing appeared under RELATED PAPERS, no explanation. `addLink` now returns `Boolean` —
+  `false` on the synchronous `canLinkPapers` check failing (an optimistic return otherwise; it
+  doesn't await the async `findExisting` DB check before returning `true`, consistent with every
+  other fire-and-forget mutation path in this app). `PaperDetailSheet`'s `onLink` and
+  `PaperLinkPickerDialog`'s `onPick` both threaded to `Boolean`; the picker now stays open and
+  shows an inline error (`papers_link_picker_stale`, added to both `values/strings.xml` and
+  `values-es/strings.xml`) on a rejected pick instead of silently closing. Verified end-to-end on
+  the `Medium_Phone` emulator with real seeded data (imported the starter list after clearing the
+  prior single test paper, since the empty-state seed-import action is only reachable with an
+  empty queue+history): linked "Deep Residual Learning for Image Recognition" to "Adam: A Method
+  for Stochastic Optimization" via the picker — the link appeared correctly under RELATED PAPERS
+  from **both** papers' own detail sheets (confirming the undirected read survives the refactor),
+  with no crash and a clean `assembleDebug`/`testDebugUnitTest`/`lintDebug`. The stale-pick error
+  path itself (the actual race this issue is about) is not independently forceable on a single
+  device/session the way the happy path is — same category as this session's other unforceable-
+  race issues (#235's `SyncCoordinator` race, #236's `goAsync` race, #239's Keystore retry) — and
+  rests on code review: `canLinkPapers`'s synchronous rejection path is unchanged logic, now
+  simply surfaced instead of swallowed, and the `pickFailed` state/error `Text` composable follow
+  the exact same shape as every other inline-error pattern already proven elsewhere in this app
+  (e.g. `BudgetImportPreviewDialog`'s per-row error text, Issue #219).

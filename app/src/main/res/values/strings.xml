@@ -574,5 +574,6 @@
     <string name="papers_related_add">Link a paper</string>
     <string name="papers_link_picker_title">Link to paper</string>
     <string name="papers_link_picker_empty">No other papers to link</string>
+    <string name="papers_link_picker_stale">That paper can no longer be linked — try another</string>
     <string name="cd_papers_unlink">Remove link to %1$s</string>
 </resources>

@@ -309,13 +309,17 @@ class PapersViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /**
-     * Links two papers (Issue #223). Silently refuses an invalid pair — see [canLinkPapers] — so
-     * a stale picker row (the other paper deleted, or linked by another device since this list
-     * loaded) can't insert garbage; the DAO's own [PaperLinkDao.findExisting] check backs this up
-     * against a race the in-memory [canLinkPapers] check alone can't see.
+     * Links two papers (Issue #223). Refuses an invalid pair — see [canLinkPapers] — so a stale
+     * picker row (the other paper deleted, or linked by another device since this list loaded)
+     * can't insert garbage; the DAO's own [PaperLinkDao.findExisting] check backs this up against
+     * a race the in-memory [canLinkPapers] check alone can't see. Returns whether the link was
+     * actually attempted, so the picker dialog can tell a stale pick from a successful one
+     * instead of just closing silently either way (Issue #252) — a race lost inside the
+     * coroutine's own `findExisting` check still resolves to a silent no-op, since by then the
+     * dialog has already closed on the caller's optimistic `true`.
      */
-    fun addLink(paper: Paper, related: Paper) {
-        if (!canLinkPapers(paper.cloudId, related.cloudId, paperLinks.value)) return
+    fun addLink(paper: Paper, related: Paper): Boolean {
+        if (!canLinkPapers(paper.cloudId, related.cloudId, paperLinks.value)) return false
         viewModelScope.launch {
             if (paperLinkDao.findExisting(paper.cloudId, related.cloudId) != null) return@launch
             val link = PaperLink(
@@ -328,6 +332,7 @@ class PapersViewModel(application: Application) : AndroidViewModel(application) 
             paperLinkDao.insertLink(link)
             safeCloudCall(TAG, "pushPaperLink") { firebaseManager.pushPaperLink(link) }
         }
+        return true
     }
 
     fun removeLink(link: PaperLink) {

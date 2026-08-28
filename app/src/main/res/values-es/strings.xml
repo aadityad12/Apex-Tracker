@@ -574,5 +574,6 @@
     <string name="papers_related_add">Vincular un artículo</string>
     <string name="papers_link_picker_title">Vincular a artículo</string>
     <string name="papers_link_picker_empty">No hay otros artículos para vincular</string>
+    <string name="papers_link_picker_stale">Ese artículo ya no se puede vincular — prueba con otro</string>
     <string name="cd_papers_unlink">Quitar el vínculo con %1$s</string>
 </resources>

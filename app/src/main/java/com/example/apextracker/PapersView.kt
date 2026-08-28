@@ -666,7 +666,7 @@ private fun PaperDetailSheet(
     onDelete: () -> Unit,
     onOpenRelated: (Paper) -> Unit,
     onUnlink: (Paper) -> Unit,
-    onLink: (Paper) -> Unit
+    onLink: (Paper) -> Boolean
 ) {
     val context = LocalContext.current
     var showLinkPicker by remember { mutableStateOf(false) }
@@ -763,21 +763,27 @@ private fun PaperDetailSheet(
             candidates = linkCandidates,
             onDismiss = { showLinkPicker = false },
             onPick = { candidate ->
-                onLink(candidate)
-                showLinkPicker = false
+                val linked = onLink(candidate)
+                if (linked) showLinkPicker = false
+                linked
             }
         )
     }
 }
 
 /** Picker for [PaperDetailSheet]'s "Link a paper" action (Issue #223) — [candidates] is already
- * [linkablePapersFor]'s result, so every row here is a valid pick. */
+ * [linkablePapersFor]'s result, so every row here is a valid pick *unless* it went stale between
+ * this list loading and the tap (linked/deleted by another device). [onPick] returns whether the
+ * pick succeeded; a stale pick keeps the sheet open with an inline message instead of just
+ * closing silently either way, so the user isn't left wondering whether the tap registered
+ * (Issue #252). */
 @Composable
 private fun PaperLinkPickerDialog(
     candidates: List<Paper>,
     onDismiss: () -> Unit,
-    onPick: (Paper) -> Unit
+    onPick: (Paper) -> Boolean
 ) {
+    var pickFailed by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.papers_link_picker_title)) },
@@ -790,6 +796,14 @@ private fun PaperLinkPickerDialog(
                 )
             } else {
                 Column(Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState())) {
+                    if (pickFailed) {
+                        Text(
+                            stringResource(R.string.papers_link_picker_stale),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(bottom = ApexSpacing.s)
+                        )
+                    }
                     candidates.forEachIndexed { i, candidate ->
                         if (i > 0) ApexDivider()
                         Text(
@@ -798,7 +812,7 @@ private fun PaperLinkPickerDialog(
                             color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onPick(candidate) }
+                                .clickable { if (!onPick(candidate)) pickFailed = true }
                                 .padding(vertical = ApexSpacing.s)
                         )
                     }
