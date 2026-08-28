@@ -1,5 +1,6 @@
 package com.example.apextracker
 
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -465,6 +466,7 @@ fun ReminderEditDialog(
                     onClick = {
                         val intent = calendarInsertIntent(name, description.ifBlank { null }, date, time)
                         runCatching { context.startActivity(intent) }
+                            .onFailure { Log.w("ReminderEditDialog", "Could not open a calendar app", it) }
                     },
                     enabled = name.isNotBlank()
                 ) {

@@ -1310,3 +1310,14 @@ above. This section is a running log; read `gh issue list` for current backlog s
   Aug 28 stays under "V" (Viernes) — and the screen title/month name localize too ("RESUMEN
   DIARIO" / "AGOSTO 2026"), confirming this wasn't already covered by some other locale path.
   Clean `assembleDebug`/`testDebugUnitTest`/`lintDebug`.
+- **[Issue #243] Reminder's calendar hand-off now logs a failure instead of swallowing it
+  silently.** The `runCatching { context.startActivity(intent) }` around Issue #220's
+  calendar-icon button discarded its `Result` entirely — no `Log.w`, no diagnostic trail at all —
+  unlike every other fallback-intent pattern in the app (e.g. `PapersView.openPaper`). Added
+  `.onFailure { Log.w(...) }`. The button lives in `ReminderEditDialog`, a separate composable
+  from `ReminderView` (which owns the screen's `snackbarHostState`) — surfacing a snackbar would
+  mean threading a new callback through `ReminderEditDialog`'s signature and every call site,
+  which is a larger change than this issue's own suggested scope ("at minimum, log the failure")
+  calls for; left as a follow-up if a user-visible message is wanted later. Verified: clean
+  `assembleDebug`/`testDebugUnitTest`/`lintDebug`, plus a smoke-launch of Reminders on-device
+  with no crash.
