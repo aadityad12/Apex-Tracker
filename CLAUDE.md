@@ -1277,3 +1277,19 @@ above. This section is a running log; read `gh issue list` for current backlog s
   clipping or overlap from the higher target API (edge-to-edge enforcement itself was already
   active at the prior targetSdk 35, so 37 doesn't newly trigger it). This is a build-config-only
   change with no code behind it to unit-test.
+- **[Issue #241] Budget CSV import now rejects non-positive amounts**, matching what
+  `BudgetItemDialog`'s entry field can produce (its input regex has no room for a minus sign, so
+  CSV import was the only path that could create a negative-amount `BudgetItem`). A negative
+  import used to corrupt the pie chart (a backward-drawn arc), the trend chart (a negative
+  `heightFraction` clamps to 0dp, silently hiding that month's bar), and the spending-limit "spent"
+  figures. `parseBudgetCsvRow` now reports `"Amount must be positive"` for any `amount <= 0.0`.
+  Also replaced an existing test that asserted the *old* (buggy) behavior —
+  `` `a negative amount is valid — refunds are legitimate` `` — with one confirming it's now
+  correctly rejected, plus a new zero-amount case. `BudgetCsvExport.kt`'s `csvEscape()` doc
+  comment about `-12.50` being "a legitimate negative amount" is about why formula-escaping
+  shouldn't touch numeric columns on *export* — unrelated to this *import*-side validation, so it
+  was left as-is. All 27 `BudgetCsvImportTest` cases pass. Verified: clean `assembleDebug`/
+  `testDebugUnitTest`/`lintDebug`, plus a smoke-launch of Budget on-device with no crash. This is
+  a pure-function validation change fully exercised by the unit test suite; not separately
+  reproduced through the real CSV-picker UI flow given the fix is already deterministically
+  covered end-to-end at the function level.

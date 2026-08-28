@@ -123,9 +123,20 @@ class BudgetCsvImportTest {
     }
 
     @Test
-    fun `a negative amount is valid — refunds are legitimate`() {
+    fun `a negative amount is rejected — the entry dialog can never produce one`() {
+        // Regression test for Issue #241: a negative CSV amount used to import cleanly even
+        // though BudgetItemDialog's own input regex can't produce one, silently corrupting the
+        // pie chart (backward arcs), trend chart (clamped to 0, hiding the month), and limits.
         val result = parseBudgetCsv("$header\n2026-08-01,Refund,-12.5,EXPENSE,,")
-        assertTrue(result.rows.single().isValid)
+        val row = result.rows.single()
+        assertTrue(!row.isValid)
+        assertTrue(row.error!!.contains("positive"))
+    }
+
+    @Test
+    fun `a zero amount is rejected`() {
+        val result = parseBudgetCsv("$header\n2026-08-01,Item,0,EXPENSE,,")
+        assertTrue(!result.rows.single().isValid)
     }
 
     @Test

@@ -122,6 +122,10 @@ private fun parseBudgetCsvRow(lineNumber: Int, fields: List<String>): BudgetCsvI
         date == null -> "Unreadable date \"$dateText\""
         title.isBlank() -> "Missing title"
         amount == null || !amount.isFinite() -> "Unreadable amount \"$amountText\""
+        // The in-app entry dialog's amount field can't produce a negative number (its input
+        // regex has no room for a minus sign) — CSV import is the only path that could, and
+        // downstream chart/limit code isn't written to expect one (Issue #241).
+        amount <= 0.0 -> "Amount must be positive"
         else -> null
     }
 
