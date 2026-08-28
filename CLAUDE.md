@@ -1104,3 +1104,21 @@ above. This section is a running log; read `gh issue list` for current backlog s
   emulator with no crash. Not separately reproducible on-device (would require forcing a real
   Firestore write failure at the exact moment the poll fires) — the fix is a mechanical
   apply-the-established-pattern change with no logic change to what gets uploaded.
+- **[Issue #232] Restoring a backup exported before Papers' `topicCloudId` field shipped no longer
+  crashes the app.** `topicCloudId` was added to `Paper` on 2026-08-07, eight days after Papers
+  backup support shipped 2026-07-30 — any backup from that window is missing the field, and
+  `backupGson()` has no Kotlin-constructor support (see its own class doc), so a missing field
+  deserializes to a raw Java `null` rather than the entity's Kotlin default, which then crashes
+  Room's `insertPaper` on restore (`NullPointerException: ... bindText`, confirmed by reproducing
+  it on-device before the fix). `parseBackupJson` now normalizes `topicCloudId` to `""` when
+  absent, the same pattern already used for `Goal.cadence`/`BudgetItem.type` — with a comment
+  flagging that any future field added to an already-backed-up entity needs the same treatment.
+  Also hardened the restore call site (`AppSettingsSheet.kt`): `restoreBackupAndReconcile(...)`
+  is now wrapped in try/catch, so **any** future schema-drift gap of this shape degrades to the
+  existing "backup can't be restored" status message instead of crashing — this is the safety net
+  that would have caught the issue even before the specific `topicCloudId` fix landed. New
+  regression test in `BackupDataTest.kt`. **Verified on-device end-to-end**: reproduced the exact
+  crash pre-fix with a synthetic backup JSON missing `topicCloudId` (confirmed via logcat: the
+  predicted `NullPointerException` at `PaperDao_Impl.insertPaper`), then confirmed post-fix that
+  the same file restores cleanly — no crash, "Data restored," and the paper appears correctly in
+  the Papers screen with all its fields intact.

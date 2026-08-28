@@ -1,5 +1,6 @@
 package com.example.apextracker
 
+import android.util.Log
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -297,11 +298,20 @@ private fun BackupRestoreControls() {
                         if (data == null) {
                             status = invalidMsg
                         } else {
-                            val fullySynced = restoreBackupAndReconcile(context, db, data, firebaseManager)
-                            refreshBudgetWidget(context)
-                            // The local restore succeeded either way; say so honestly when the
-                            // cloud half didn't land, since the next sync will partly undo it.
-                            status = if (fullySynced) restoreDoneMsg else restoreCloudFailedMsg
+                            // A successfully-parsed BackupData can still fail here — e.g. a field
+                            // added to an entity after its table joined the backup format, missing
+                            // from an older file, deserializing to a null Room can't insert. That's
+                            // a "this backup can't be restored" outcome, not a crash (Issue #232).
+                            status = try {
+                                val fullySynced = restoreBackupAndReconcile(context, db, data, firebaseManager)
+                                refreshBudgetWidget(context)
+                                // The local restore succeeded either way; say so honestly when the
+                                // cloud half didn't land, since the next sync will partly undo it.
+                                if (fullySynced) restoreDoneMsg else restoreCloudFailedMsg
+                            } catch (e: Exception) {
+                                Log.w("AppSettingsSheet", "Restore failed", e)
+                                invalidMsg
+                            }
                         }
                     }
                 }) { Text(stringResource(R.string.backup_restore_action)) }

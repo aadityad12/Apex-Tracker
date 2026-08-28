@@ -102,6 +102,20 @@ fun parseBackupJson(json: String): BackupData? {
             budgetItem.addProperty("type", TransactionType.EXPENSE)
         }
     }
+    // Issue #232: backupGson() has no Kotlin-constructor support (see the class doc above), so a
+    // field absent from an older backup deserializes to a raw null rather than the entity's
+    // Kotlin default — crashing Room's insert for a non-null-typed field. topicCloudId was added
+    // to Paper on 2026-08-07, eight days after Papers backup support shipped (2026-07-30), so any
+    // backup exported in that window is missing it. Every entity field added after its table
+    // joined BackupData needs the same treatment as cadence/type above — this is the one other
+    // gap found by audit; a new one added the same way this one was (a later commit adding a
+    // non-null field to an already-backed-up entity) needs a matching normalization step here.
+    objectRoot.getAsJsonArray("papers").forEach { element ->
+        val paper = element.asJsonObject
+        if (paper.get("topicCloudId")?.takeUnless { it.isJsonNull } == null) {
+            paper.addProperty("topicCloudId", "")
+        }
+    }
 
     // Attachment names are resolved as paths under the note-attachments directory, so a
     // hand-edited backup could point them at anything in the sandbox — including the Room DB,

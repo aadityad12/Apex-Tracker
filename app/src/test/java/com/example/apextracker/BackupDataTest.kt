@@ -68,4 +68,17 @@ class BackupDataTest {
 
         assertEquals(GoalCadence.DAILY, restored.goals.single().cadence)
     }
+
+    @Test
+    fun `paper topicCloudId missing from a pre-discovery-redesign backup normalizes to empty, not null`() {
+        // Regression test for Issue #232: a backup exported between Papers shipping (2026-07-30)
+        // and topicCloudId being added to Paper (2026-08-07) has no topicCloudId key at all.
+        // backupGson() bypasses Kotlin constructors, so an un-normalized field deserializes to a
+        // raw null in a non-null-typed String field, which crashes Room's insert on restore.
+        val restored = parseBackupJson(
+            """{"formatVersion":1,"papers":[{"title":"Old paper","addedDate":"2026-08-01","cloudId":"p1","modifiedAt":0}]}"""
+        )!!
+
+        assertEquals("", restored.papers.single().topicCloudId)
+    }
 }
