@@ -12,6 +12,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.apextracker.widget.refreshTodayWidget
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -29,6 +30,7 @@ data class AppUsageInfo(
         get() = limitMinutes != null && isOverLimit(usageTimeMillis, limitMinutes)
 }
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class ScreenTimeViewModel(application: Application) : AndroidViewModel(application) {
     private val database = AppDatabase.getDatabase(application)
     private val screenTimeDao = database.screenTimeSessionDao()
@@ -97,11 +99,18 @@ class ScreenTimeViewModel(application: Application) : AndroidViewModel(applicati
         loadInstalledApps()
         startScreenTimeUpdates()
         viewModelScope.launch {
-            if (firebaseManager.userId != null) {
-                firebaseManager.getOtherDevicesScreenTimeFlow().collect { others ->
-                    latestOtherDevices = others
-                    refreshAggregatedUsage(_todayScreenTimeMillis.value)
-                }
+            // flatMapLatest, not a one-shot uid check: an account switch must cancel the old
+            // account's listener and start a fresh one for the new uid, or the old account's
+            // cross-device data keeps streaming into this ViewModel's state (Issue #230).
+            firebaseManager.userIdFlow().flatMapLatest { uid ->
+                // Clear immediately on any uid change so the old account's data can't linger
+                // on screen even for the brief window before the new listener's first snapshot.
+                latestOtherDevices = emptyList()
+                refreshAggregatedUsage(_todayScreenTimeMillis.value)
+                if (uid != null) firebaseManager.getOtherDevicesScreenTimeFlow() else flowOf(emptyList())
+            }.collect { others ->
+                latestOtherDevices = others
+                refreshAggregatedUsage(_todayScreenTimeMillis.value)
             }
         }
     }

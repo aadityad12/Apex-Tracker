@@ -341,6 +341,21 @@ class FirebaseManager(private val context: Context) {
     val currentUser: FirebaseUser? get() = auth.currentUser
     val userId: String? get() = auth.currentUser?.uid
 
+    /**
+     * Emits the signed-in uid (or null) on every FirebaseAuth state change, including account
+     * switches — unlike reading [userId] once, this lets a caller `flatMapLatest` a per-account
+     * listener so it's torn down and restarted on sign-out/sign-in-as-a-different-user instead of
+     * staying bound to whichever uid was current when the caller happened to start collecting
+     * (Issue #230's cross-device screen-time leak was exactly this: a listener built from a uid
+     * captured once at ViewModel-construction time kept streaming the old account's data after a
+     * switch).
+     */
+    fun userIdFlow(): Flow<String?> = callbackFlow {
+        val listener = FirebaseAuth.AuthStateListener { trySend(it.currentUser?.uid) }
+        auth.addAuthStateListener(listener)
+        awaitClose { auth.removeAuthStateListener(listener) }
+    }
+
     val deviceId: String by lazy {
         // ANDROID_ID can (rarely) be null/blank; a shared literal fallback would make all such
         // devices on one account write to the same devices/{id} doc, overwriting each other's
