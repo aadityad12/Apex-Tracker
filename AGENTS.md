@@ -1148,3 +1148,24 @@ above. This section is a running log; read `gh issue list` for current backlog s
   `DisposableEffect` exit path (including recomposition when `lockEnabled` changes), and
   `WindowManager.LayoutParams.FLAG_SECURE` is the standard, well-established Android mechanism
   for this exact problem.
+- **[Issue #234] Pressing Enter right after a bullet marker in Notes no longer deletes the bullet
+  and corrupts the line's formatting.** `handleNoteContentChange`'s empty-bullet-line detection
+  (deciding whether Enter should outdent/clear a bullet vs. continue it onto a new line) compared
+  `lastLine.trim() == prefix.trim()`, where `lastLine` was only the text *before* the cursor on
+  the newly-split line — not the whole original line. Placing the cursor right after "• " in
+  "• Hello" and pressing Enter made `lastLine` exactly "• ", which trimmed equal to the prefix,
+  so the code took the "clear an empty bullet" branch even though the line had real content —
+  silently dropping the bullet and leaving "Hello" on the next line with no formatting at all.
+  Fixed by computing the comparison from the whole original line (read from `oldValue`, before
+  the Enter split it) instead of the post-split fragment. Two new regression tests in
+  `NoteBulletEditingTest.kt`, hand-traced against the actual implementation to confirm expected
+  output (`"• Hello"` at cursor index 2 → `"• \n• Hello"`; a genuinely empty `"• "` bulleted line
+  still correctly clears to `"\n"`). **On-device**: confirmed `bulletRegex` (`^(\s*[•◦▪])\s`)
+  requires a trailing space to match at all, consistent with the fix's reasoning, and exercised
+  the note editor's real bullet toolbar + text input; a clean, unambiguous repro of the exact
+  reported cursor position (index 2, immediately after "• ") proved hard to land reliably via
+  blind tap coordinates on a small glyph boundary in the time available, so the authoritative
+  verification here is the pure-function unit tests, which exercise `handleNoteContentChange`
+  with the exact same `TextFieldValue` inputs the real UI produces for this keystroke — not an
+  approximation of the bug, the same code path with a controlled, exact cursor index. Clean
+  `assembleDebug`/`testDebugUnitTest`/`lintDebug`.

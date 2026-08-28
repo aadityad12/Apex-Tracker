@@ -14,6 +14,13 @@ class NoteBulletEditingTest {
         return handleNoteContentChange(newValue, value)
     }
 
+    private fun pressEnter(value: TextFieldValue): TextFieldValue {
+        val cursor = value.selection.start
+        val newText = value.text.substring(0, cursor) + "\n" + value.text.substring(cursor)
+        val newValue = TextFieldValue(newText, TextRange(cursor + 1))
+        return handleNoteContentChange(newValue, value)
+    }
+
     @Test
     fun `backspacing an empty bullet line clears it in a single keystroke`() {
         val bulleted = TextFieldValue("• ", TextRange(2))
@@ -21,6 +28,27 @@ class NoteBulletEditingTest {
         val afterOneBackspace = backspaceOnce(bulleted)
 
         assertEquals("", afterOneBackspace.text)
+    }
+
+    @Test
+    fun `pressing Enter right after the bullet marker continues the bullet, not clears it`() {
+        // Regression test for Issue #234: cursor sits right after "• " in "• Hello" (i.e. at the
+        // very start of the line's actual content) — this line is NOT empty, so Enter must split
+        // it into a new bulleted line rather than taking the "clear an empty bullet" branch.
+        val bulleted = TextFieldValue("• Hello", TextRange(2))
+
+        val result = pressEnter(bulleted)
+
+        assertEquals("• \n• Hello", result.text)
+    }
+
+    @Test
+    fun `pressing Enter on a genuinely empty bulleted line still clears it`() {
+        val bulleted = TextFieldValue("• ", TextRange(2))
+
+        val result = pressEnter(bulleted)
+
+        assertEquals("\n", result.text)
     }
 
     private fun indentLine(line: String): String {

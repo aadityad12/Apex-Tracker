@@ -444,11 +444,22 @@ internal fun handleNoteContentChange(
         if (cursor > 0 && newValue.text[cursor - 1] == '\n') {
             val textBeforeNewLine = newValue.text.substring(0, cursor - 1)
             val lastLine = textBeforeNewLine.substringAfterLast('\n')
-            
+
+            // Whether to outdent/clear (Enter on a truly empty bulleted line) vs. continue the
+            // bullet onto a new line must be decided from the WHOLE original line, not just the
+            // part before the cursor — `lastLine` above is only that prefix, so a cursor placed
+            // right after the bullet marker in "• Hello" (nothing empty about that line) used to
+            // match `lastLine.trim() == prefix.trim()` anyway and incorrectly take the "clear the
+            // bullet" branch, silently dropping the bullet and any trailing content's formatting.
+            val oldCursor = oldValue.selection.start
+            val oldLineStart = oldValue.text.lastIndexOf('\n', oldCursor - 1).let { if (it == -1) 0 else it + 1 }
+            val oldLineEnd = oldValue.text.indexOf('\n', oldCursor).let { if (it == -1) oldValue.text.length else it }
+            val oldLine = oldValue.text.substring(oldLineStart, oldLineEnd)
+
             val match = bulletRegex.find(lastLine)
             if (match != null) {
                 val prefix = match.value
-                if (lastLine.trim() == prefix.trim()) {
+                if (oldLine.trim() == prefix.trim()) {
                     // Empty bullet line - Outdent or Clear
                     val currentIndex = bulletSequence.indexOf(prefix)
                     val lineStart = cursor - 1 - lastLine.length
