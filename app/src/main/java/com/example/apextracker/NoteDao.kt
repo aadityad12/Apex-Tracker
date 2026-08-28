@@ -6,7 +6,9 @@ import java.time.LocalDateTime
 
 @Dao
 interface NoteDao {
-    @Query("SELECT * FROM notes WHERE isDeleted = 0 ORDER BY isPinned DESC, modifiedAt DESC")
+    // ", id DESC" is a tiebreaker (Issue #251): two notes with identical modifiedAt (a fast bulk
+    // pin, or a clock-resolution collision) would otherwise have unstable order between queries.
+    @Query("SELECT * FROM notes WHERE isDeleted = 0 ORDER BY isPinned DESC, modifiedAt DESC, id DESC")
     fun getAllActiveNotes(): Flow<List<Note>>
 
     @Query("SELECT * FROM notes WHERE isDeleted = 1 ORDER BY deletedAt DESC")

@@ -1427,3 +1427,11 @@ above. This section is a running log; read `gh issue list` for current backlog s
   the convention its siblings already enforce. Mechanical wrapper-only change, no logic touched.
   Verified: clean `assembleDebug`/`testDebugUnitTest`/`lintDebug`, plus a smoke-launch of Budget
   on-device with no crash.
+- **[Issue #251] Notes' pinned-list ordering now has a stable tiebreaker.** `NoteDao`'s active-
+  notes query, `ORDER BY isPinned DESC, modifiedAt DESC`, had no further tiebreaker — two notes
+  pinned within the same millisecond (a fast bulk pin, or a clock-resolution collision) could
+  visually swap order between recompositions or queries with nothing having actually changed.
+  Added `, id DESC`. The recycle-bin query (`ORDER BY deletedAt DESC`) has the same theoretical
+  gap but wasn't part of this issue's filed scope, so left untouched. One-line SQL change.
+  Verified: clean `assembleDebug`/`testDebugUnitTest`/`lintDebug`, plus a smoke-launch of Notes
+  on-device with no crash.
