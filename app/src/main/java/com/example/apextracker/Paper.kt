@@ -38,10 +38,14 @@ object PaperSource {
  * scoring engagement (PapersDiscoveryScoring.kt); an unresolved id just falls back to neutral
  * weight, no cleanup required.
  */
-// Sync join keys — see the MIGRATION_22_23 note in AppDatabase.kt (Issue #197).
+// cloudId/s2Id/url: sync join keys, see the MIGRATION_22_23 note in AppDatabase.kt (Issue #197).
+// addedDate: getAllPapers's read-path sort in PaperDao.kt (Issue #253).
 @Entity(
     tableName = "papers",
-    indices = [Index(value = ["cloudId"]), Index(value = ["s2Id"]), Index(value = ["url"])]
+    indices = [
+        Index(value = ["cloudId"]), Index(value = ["s2Id"]), Index(value = ["url"]),
+        Index(value = ["addedDate"])
+    ]
 )
 data class Paper(
     @PrimaryKey(autoGenerate = true)

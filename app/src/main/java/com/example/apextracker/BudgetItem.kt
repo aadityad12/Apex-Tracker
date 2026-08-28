@@ -14,10 +14,11 @@ object TransactionType {
     const val INCOME = "INCOME"
 }
 
-// Sync join keys — see the MIGRATION_22_23 note in AppDatabase.kt (Issue #197).
+// cloudId: sync join key, see the MIGRATION_22_23 note in AppDatabase.kt (Issue #197).
+// categoryId/date: the read-path queries in BudgetDao.kt (Issue #253).
 @Entity(
     tableName = "budget_items",
-    indices = [Index(value = ["cloudId"])]
+    indices = [Index(value = ["cloudId"]), Index(value = ["categoryId"]), Index(value = ["date"])]
 )
 data class BudgetItem(
     @PrimaryKey(autoGenerate = true)

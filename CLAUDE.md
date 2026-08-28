@@ -1461,3 +1461,20 @@ above. This section is a running log; read `gh issue list` for current backlog s
   simply surfaced instead of swallowed, and the `pickFailed` state/error `Text` composable follow
   the exact same shape as every other inline-error pattern already proven elsewhere in this app
   (e.g. `BudgetImportPreviewDialog`'s per-row error text, Issue #219).
+- **[Issue #253] Added covering indices for three full-table-scan read-path queries.** Perf-only,
+  filed as a low-urgency tracking issue rather than a real bug — `budget_items(categoryId)`
+  (`BudgetDao.getItemsByCategory`, the category-deletion detach step), `budget_items(date)` (the
+  `ORDER BY date DESC` transaction list), and `papers(addedDate)` (`getAllPapers`'s
+  `ORDER BY addedDate ASC`) had none. DB v25 → **v26**, `MIGRATION_25_26`, purely additive
+  (`CREATE INDEX IF NOT EXISTS`) mirroring `MIGRATION_22_23`'s cloudId-index pass (Issue #197) —
+  same non-unique reasoning applies here too, `date`/`categoryId`/`addedDate` are all legitimately
+  repeated across rows. `BudgetItem`/`Paper`'s `@Entity(indices = […])` were updated to match, so
+  Room's schema validation doesn't flag the new indices as unexpected; DDL diffed against the
+  exported `app/schemas/…/26.json`, which lists the three new index names exactly as generated.
+  `BackupData.appDbVersion`'s default bumped 25 → 26 alongside it, same as every prior DB-version
+  bump (Issue #197's own note is the "this rots quietly" reminder for why it's checked every time).
+  Verified on-device with a **real v25→v26 migration over populated data** (installed directly
+  over an existing app with real Papers queue/history and the paper-to-paper link created while
+  testing #252, no uninstall): no crash, no destructive-fallback log line, Dashboard loaded
+  normally and the Papers queue — all 12 seeded papers, correct order — was intact afterward.
+  `assembleDebug`/`testDebugUnitTest`/`lintDebug` all pass clean.

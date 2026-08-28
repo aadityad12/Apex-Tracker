@@ -25,7 +25,7 @@ data class BackupData(
     // the @Database version in AppDatabase.kt; an on-device export caught it still reading 22
     // after the v23 index migration (Issue #197). Not load-bearing, which is exactly why it
     // rots quietly.
-    val appDbVersion: Int = 25,
+    val appDbVersion: Int = 26,
     val exportedAt: String = "",
     val budgetItems: List<BudgetItem> = emptyList(),
     val categories: List<Category> = emptyList(),
