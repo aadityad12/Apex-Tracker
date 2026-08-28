@@ -1244,3 +1244,23 @@ above. This section is a running log; read `gh issue list` for current backlog s
   recurrence editor and confirmed it correctly shows "Ends: On a date" / "Ends on: Aug 28, 2026"
   — the exact date picked, round-tripped through Room via `initialRecurrence?.endDate`. No crash
   anywhere in the flow.
+- **[Issue #239] `DatabaseEncryption.kt` no longer treats a one-shot transient Keystore hiccup the
+  same as a permanently-gone key.** `databaseOpenHelperFactory` decides whether to quarantine an
+  existing encrypted database (renaming it aside and starting fresh, per Issue #206's
+  self-healing design) purely from whether `loadOrCreatePassphrase`'s decrypt succeeded — and a
+  documented, real-world class of one-off `keystore2`/binder IPC errors on some OEM builds throws
+  from `Cipher.init`/`doFinal` exactly like a truly-gone key does, so a single bad launch could
+  quarantine a perfectly healthy database. New `decryptWrappedPassphraseWithRetry` retries the
+  decrypt once, immediately, before giving up — deliberately with **no delay**, since this runs
+  at Room-builder construction time on whatever thread first calls `AppDatabase.getDatabase()`,
+  commonly the main thread, where a blocking sleep would be a real cost. An immediate retry still
+  catches a one-shot IPC failure; it does not change behavior for a genuinely-gone key, which
+  fails identically on both attempts. Not independently unit-testable — the retry wraps real
+  `Cipher`/`KeyStore` calls, and this file's only pure function (`looksLikePlaintextSqlite`) is
+  already covered by `DatabaseEncryptionTest`, per this file's own prior note that the rest needs
+  a real device and a real backup/restore cycle to exercise end-to-end. Verified: clean
+  `assembleDebug`/`testDebugUnitTest`/`lintDebug`, plus installing directly over the existing app
+  on the `Medium_Phone` emulator (preserving the real wrapped passphrase and Keystore key) —
+  cold-started cleanly with zero `DatabaseEncryption` log output at all (the happy-path decrypt
+  succeeded silently on the first attempt, confirming the retry wrapper adds no overhead or
+  regression to normal operation) and the Dashboard loaded its data normally.
