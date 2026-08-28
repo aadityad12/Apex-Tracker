@@ -1228,3 +1228,19 @@ above. This section is a running log; read `gh issue list` for current backlog s
   on this emulator without changing system time mid-session (which would also perturb every other
   running verification in this pass), so it's verified by the fix matching the exact
   already-proven pattern from the sibling function, not by reproducing the clock jump.
+- **[Issue #238] Reminder recurrence's "Ends: On a date" now actually has a date picker.**
+  `RecurrencePickerDialog` built the confirmed `Recurrence` with `endType = UNTIL_DATE` but never
+  populated `endDate` — there was no date field for it anywhere in the dialog, so it silently
+  behaved exactly like "Never" (`ReminderCompletion.kt`'s check is `recurrence.endDate == null ||
+  !nextDate.isAfter(recurrence.endDate)`, which is always true when `endDate` stays null). Added
+  an `endDate` state (defaulting to today, like the rest of the app's date pickers default when
+  there's nothing more specific to seed from), a field showing it when `endType ==
+  RecurrenceEndType.UNTIL_DATE` that opens the existing themed `ApexDatePickerDialog` (the same
+  component the reminder's own due-date field already uses), and threads the chosen date into the
+  confirmed `Recurrence`. New string `recurrence_until_date` in both `values/` and `values-es/`.
+  Verified: clean `assembleDebug`/`testDebugUnitTest`/`lintDebug`, plus a full on-device
+  round-trip on the `Medium_Phone` emulator — created a Daily reminder, set "Ends: On a date,"
+  confirmed the date picker opens and defaults sensibly, saved, then reopened the reminder's
+  recurrence editor and confirmed it correctly shows "Ends: On a date" / "Ends on: Aug 28, 2026"
+  — the exact date picked, round-tripped through Room via `initialRecurrence?.endDate`. No crash
+  anywhere in the flow.

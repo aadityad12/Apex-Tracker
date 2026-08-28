@@ -12,9 +12,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.example.apextracker.ui.design.ApexDatePickerDialog
 import com.example.apextracker.ui.design.ApexSpacing
 import com.example.apextracker.ui.design.apexMenuBorder
 import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -28,8 +31,13 @@ fun RecurrencePickerDialog(
     var customDays by remember { mutableStateOf(initialRecurrence?.customDays ?: emptySet<DayOfWeek>()) }
     var endType by remember { mutableStateOf(initialRecurrence?.endType ?: RecurrenceEndType.NEVER) }
     var occurrences by remember { mutableStateOf(initialRecurrence?.endOccurrences ?: 1) }
+    // Issue #238: UNTIL_DATE had no UI to set this, so it silently behaved like NEVER. Defaults
+    // to today when nothing was picked yet — the same "start from now" default the rest of the
+    // app's date pickers use when there's no more specific value to seed from.
+    var endDate by remember { mutableStateOf(initialRecurrence?.endDate ?: LocalDate.now()) }
     var frequencyExpanded by remember { mutableStateOf(false) }
     var endTypeExpanded by remember { mutableStateOf(false) }
+    var showEndDatePicker by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -119,6 +127,15 @@ fun RecurrencePickerDialog(
                         label = { Text(stringResource(R.string.recurrence_after_occurrences)) }
                     )
                 }
+
+                if (endType == RecurrenceEndType.UNTIL_DATE) {
+                    Column {
+                        Text(stringResource(R.string.recurrence_until_date))
+                        OutlinedButton(onClick = { showEndDatePicker = true }) {
+                            Text(endDate.format(DateTimeFormatter.ofPattern("MMM dd, yyyy")))
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
@@ -127,17 +144,26 @@ fun RecurrencePickerDialog(
                     frequency = frequency,
                     customDays = if (frequency == RecurrenceFrequency.CUSTOM) customDays else null,
                     endType = endType,
-                    endOccurrences = if (endType == RecurrenceEndType.AFTER_OCCURRENCES) occurrences else null
+                    endOccurrences = if (endType == RecurrenceEndType.AFTER_OCCURRENCES) occurrences else null,
+                    endDate = if (endType == RecurrenceEndType.UNTIL_DATE) endDate else null
                 )
                 onConfirm(recurrence)
             }) {
                 Text(stringResource(R.string.action_done))
             }
         },
-        dismissButton = { 
+        dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text(stringResource(R.string.action_cancel))
             }
         }
     )
+
+    if (showEndDatePicker) {
+        ApexDatePickerDialog(
+            initialDate = endDate,
+            onDismiss = { showEndDatePicker = false },
+            onConfirm = { endDate = it }
+        )
+    }
 }

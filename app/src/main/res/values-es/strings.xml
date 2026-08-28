@@ -287,6 +287,7 @@
     <string name="recurrence_repeat_on">Repetir en:</string>
     <string name="recurrence_ends">Termina</string>
     <string name="recurrence_after_occurrences">Después de repeticiones</string>
+    <string name="recurrence_until_date">Termina el</string>
     <string name="recurrence_freq_daily">Diaria</string>
     <string name="recurrence_freq_weekly">Semanal</string>
     <string name="recurrence_freq_monthly">Mensual</string>
