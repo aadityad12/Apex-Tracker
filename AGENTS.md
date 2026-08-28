@@ -1169,3 +1169,22 @@ above. This section is a running log; read `gh issue list` for current backlog s
   with the exact same `TextFieldValue` inputs the real UI produces for this keystroke — not an
   approximation of the bug, the same code path with a controlled, exact cursor index. Clean
   `assembleDebug`/`testDebugUnitTest`/`lintDebug`.
+- **[Issue #235] `SyncCoordinator.stop()` now actually waits for every listener to detach before
+  returning**, closing a race that could reopen Issue #186's cross-account leak. Cancellation of a
+  coroutine suspended in a `callbackFlow`'s `collect()` is cooperative — if a Firestore snapshot
+  for the outgoing account was already in flight (`trySend` already called) at the moment
+  `job?.cancel()` fired, it could still be applied to Room afterward. `MainActivity.kt`'s
+  account-switch `LaunchedEffect` calls `SyncCoordinator.stop()` immediately before
+  `clearLocalUserData(...)` wipes Room, so a listener that hadn't actually finished detaching yet
+  could re-insert the old account's row into what's supposed to be a clean slate. `stop()` and
+  `start()` (which calls `stop()` first) are both now `suspend`, and `stop()` uses
+  `job?.cancelAndJoin()` instead of a plain `cancel()`, so every listener's `awaitClose {
+  listener.remove() }` has genuinely run before the caller proceeds. Every existing call site
+  (`MainActivity.kt`'s `LaunchedEffect`, `BackupManager.kt`'s `restoreBackupAndReconcile`) was
+  already inside a suspend context, so this compiled with no call-site changes needed — confirmed
+  by a clean `assembleDebug`. Verified: clean `testDebugUnitTest`/`lintDebug`, plus a cold-start
+  smoke test on the `Medium_Phone` emulator showing no crash. Not separately reproducible
+  on-device (the race window is a handful of milliseconds during an interactive account switch,
+  which — per this file's existing "signed-in round-trip not automatable" note — can't be driven
+  end-to-end here); verified instead by the `cancelAndJoin` semantics being the documented,
+  correct fix for exactly this class of coroutine-cancellation race.

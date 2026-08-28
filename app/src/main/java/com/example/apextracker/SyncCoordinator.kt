@@ -5,6 +5,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 
 /**
@@ -17,7 +18,7 @@ object SyncCoordinator {
     private const val TAG = "SyncCoordinator"
     private var job: Job? = null
 
-    fun start(firebaseManager: FirebaseManager, db: AppDatabase) {
+    suspend fun start(firebaseManager: FirebaseManager, db: AppDatabase) {
         stop()
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         job = scope.coroutineContext[Job]
@@ -36,8 +37,12 @@ object SyncCoordinator {
         Log.d(TAG, "Listeners started")
     }
 
-    fun stop() {
-        job?.cancel()
+    // suspend + cancelAndJoin, not a plain cancel(): a snapshot already in flight when cancel()
+    // fires can still land and get applied to Room before the listener's awaitClose{} actually
+    // runs, so callers that wipe/replace Room right after stop() (the account-switch flow) need
+    // every listener's teardown to have genuinely finished first (Issue #235).
+    suspend fun stop() {
+        job?.cancelAndJoin()
         job = null
         Log.d(TAG, "Listeners removed")
     }
