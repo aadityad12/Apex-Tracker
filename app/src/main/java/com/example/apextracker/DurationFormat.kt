@@ -4,7 +4,13 @@ import java.util.Locale
 
 /** Formats a duration as "Xh Ym" (or just "Ym" under an hour). Shared by Study, Screen Time, and Overview. */
 fun formatDurationCompact(millis: Long): String {
-    val totalMinutes = millis / 60000
+    // Kotlin's % on a negative dividend yields a negative remainder, so an unclamped negative
+    // input renders garbage like "-2h -5m" instead of failing loudly or reading as zero (Issue
+    // #248) — this is the widest-used duration formatter in the app, so any future bug upstream
+    // that produces a negative duration (a clock-backward jump, a bad subtraction) surfaces here
+    // as a coherent "0m" rather than a confusing negative string. Mirrors durationAxisLabels'
+    // existing safeMax guard.
+    val totalMinutes = millis.coerceAtLeast(0L) / 60000
     val hours = totalMinutes / 60
     val minutes = totalMinutes % 60
     return if (hours > 0) {

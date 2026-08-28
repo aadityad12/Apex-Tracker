@@ -1391,3 +1391,12 @@ above. This section is a running log; read `gh issue list` for current backlog s
   emulator confirming Save starts disabled on an empty dialog, stays disabled once a non-blank
   title is entered with the amount field still blank, and backing out cleanly leaves "$0.00 · 0
   transactions" — no phantom row created anywhere in the flow.
+- **[Issue #248] `formatDurationCompact` now clamps a negative input to zero, like its sibling
+  `durationAxisLabels` already does.** Kotlin's `%` on a negative dividend yields a negative
+  remainder, so an unclamped negative `millis` used to render as garbage like `"-2h -5m"` instead
+  of a coherent `"0m"` — this is the most widely-used duration formatter in the app (Study,
+  Screen Time, Overview), so any future upstream bug producing a negative duration (a clock jump,
+  a bad subtraction) now surfaces here safely rather than confusingly. Added `DurationFormatTest.kt`
+  (new file — none existed for this pure function before), covering the under-an-hour/over-an-hour/
+  zero cases plus the negative-clamp regression; all 4 pass. Verified: clean `assembleDebug`/
+  `testDebugUnitTest`/`lintDebug`, plus a smoke-launch of Study Tracker on-device with no crash.
