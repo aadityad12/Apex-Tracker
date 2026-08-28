@@ -393,7 +393,14 @@ class FirebaseManager(private val context: Context) {
     }
 
     fun getSettingsFlow(): Flow<Map<String, Any>?> = callbackFlow {
-        val uid = userId ?: return@callbackFlow
+        // Every other callbackFlow in this file guards the signed-out case with
+        // `?: return@callbackFlow awaitClose { }` — this one was the one outlier. Returning from
+        // a callbackFlow without calling awaitClose first throws IllegalStateException; currently
+        // unreachable because the sole call site (MainActivity's LaunchedEffect(user)) is only
+        // ever collected while user != null, but that's a property of the caller, not this
+        // function, and a latent crash for the next call site that doesn't happen to match it
+        // (Issue #246).
+        val uid = userId ?: return@callbackFlow awaitClose { }
         val listener = firestore.collection("users").document(uid)
             .addSnapshotListener { snapshot, _ ->
                 // Firestore fires listeners for this device's own writes too (echo). Skipping

@@ -1365,3 +1365,12 @@ above. This section is a running log; read `gh issue list` for current backlog s
   `Medium_Phone` emulator with no crash. No on-device visual check beyond that: the audit itself
   confirmed nothing in this app currently reaches the Fixed roles, so there's no rendering to
   compare before/after.
+- **[Issue #246] `FirebaseManager.getSettingsFlow()` now guards the signed-out case the same way
+  its 12 sibling `callbackFlow`s already do.** It was the one outlier that returned early with
+  `val uid = userId ?: return@callbackFlow` — no `awaitClose` first — which throws
+  `IllegalStateException` if a `callbackFlow` block returns without ever calling it. Currently
+  unreachable (the sole call site, `MainActivity`'s `LaunchedEffect(user)`, only ever collects
+  this while `user != null`), so this was a latent landmine rather than an active bug — fixed to
+  match the established `?: return@callbackFlow awaitClose { }` pattern before any future call
+  site trips it. Mechanical one-line fix. Verified: clean `assembleDebug`/`testDebugUnitTest`/
+  `lintDebug`, plus a cold-start smoke test on the `Medium_Phone` emulator with no crash.
