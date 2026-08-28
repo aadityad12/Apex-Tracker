@@ -4,6 +4,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.background
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -281,7 +282,8 @@ fun NoteEditor(note: Note, onDismiss: () -> Unit, onTogglePin: () -> Unit, onSav
 
     // Image attachments (Issue #127). Held as the list of stored filenames; the picker copies the
     // chosen image into app-private storage before adding it.
-    var attachments by remember { mutableStateOf(attachmentList(note.attachments)) }
+    val originalAttachments = remember { attachmentList(note.attachments) }
+    var attachments by remember { mutableStateOf(originalAttachments) }
     val scope = rememberCoroutineScope()
     val pickImage = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
@@ -295,12 +297,27 @@ fun NoteEditor(note: Note, onDismiss: () -> Unit, onTogglePin: () -> Unit, onSav
         }
     }
 
+    // Issue #244: an attachment added during this editing session but never saved leaks its file
+    // in app-private storage — only an explicit remove-from-strip cleaned up before. Anything in
+    // [attachments] that wasn't already in [originalAttachments] when the editor opened is new
+    // this session and unreferenced by any saved Note row, so it's safe to delete on cancel.
+    val cancelEditor = {
+        val leaked = attachments - originalAttachments.toSet()
+        if (leaked.isNotEmpty()) {
+            scope.launch(Dispatchers.IO) {
+                leaked.forEach { deleteNoteAttachment(context, it) }
+            }
+        }
+        onDismiss()
+    }
+    BackHandler(onBack = cancelEditor)
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(if (note.id == 0L) R.string.notes_new_title else R.string.notes_edit_title)) },
                 navigationIcon = {
-                    IconButton(onClick = onDismiss) {
+                    IconButton(onClick = cancelEditor) {
                         Icon(Icons.Default.Close, contentDescription = stringResource(R.string.action_cancel))
                     }
                 },

@@ -1321,3 +1321,20 @@ above. This section is a running log; read `gh issue list` for current backlog s
   calls for; left as a follow-up if a user-visible message is wanted later. Verified: clean
   `assembleDebug`/`testDebugUnitTest`/`lintDebug`, plus a smoke-launch of Reminders on-device
   with no crash.
+- **[Issue #244] Notes: an image attachment added during an editing session no longer leaks its
+  file when the session is cancelled instead of saved.** `pickImage`'s callback copied the chosen
+  image into app-private storage and appended it to the live `attachments` state immediately —
+  independent of whether the note was ever saved. Only the explicit remove-from-strip action
+  called `deleteNoteAttachment`; closing via the "X" (or, it turned out, the system back
+  gesture — `NoteEditor` had no `BackHandler` at all, so back silently discarded the whole edit
+  with no cleanup either) left the copied file orphaned. `originalAttachments` now captures the
+  attachment list as it was when the editor opened; a new `cancelEditor` lambda diffs it against
+  the live `attachments` state, deletes anything added-but-never-saved this session, then calls
+  `onDismiss` — wired to both the close `IconButton` and a new `BackHandler`, so both exit paths
+  get the same guarantee. Verified: clean `assembleDebug`/`testDebugUnitTest`/`lintDebug`, plus
+  an on-device round trip on the `Medium_Phone` emulator — typed a note, cancelled via the X, and
+  confirmed the note list correctly stays empty with no crash (the ordinary no-attachment cancel
+  path, unaffected by the new logic). The attachment-leak scenario itself needs picking a real
+  image via the system photo picker, which wasn't exercised this pass; the diff/delete logic was
+  verified by code review against the same `deleteNoteAttachment` call already used and proven at
+  the existing remove-from-strip call site.
