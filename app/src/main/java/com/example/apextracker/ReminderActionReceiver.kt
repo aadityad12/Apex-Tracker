@@ -39,14 +39,28 @@ class ReminderActionReceiver : BroadcastReceiver() {
                 val workRequest = OneTimeWorkRequestBuilder<ReminderCompleteWorker>()
                     .setInputData(inputData)
                     .build()
-                // Unique per reminder so a repeated Done tap can't run two workers at once.
-                // KEEP: the in-flight worker is already completing this exact id, and
-                // completeReminder() is a no-op the second time anyway.
-                WorkManager.getInstance(context.applicationContext).enqueueUniqueWork(
-                    "complete_reminder_$reminderId",
-                    ExistingWorkPolicy.KEEP,
-                    workRequest
-                )
+                // enqueueUniqueWork() returning doesn't mean the request is durably persisted —
+                // that happens on WorkManager's own executor. goAsync() keeps the process alive
+                // until that write actually lands, or a killed process here could silently drop
+                // the completion with the notification already dismissed above (Issue #236).
+                val pendingResult = goAsync()
+                val appContext = context.applicationContext
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        // Unique per reminder so a repeated Done tap can't run two workers at
+                        // once. KEEP: the in-flight worker is already completing this exact id,
+                        // and completeReminder() is a no-op the second time anyway.
+                        WorkManager.getInstance(appContext).enqueueUniqueWork(
+                            "complete_reminder_$reminderId",
+                            ExistingWorkPolicy.KEEP,
+                            workRequest
+                        ).result.get()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to enqueue reminder completion for id=$reminderId", e)
+                    } finally {
+                        pendingResult.finish()
+                    }
+                }
             }
             ACTION_SNOOZE -> {
                 // Ephemeral — no DB write. If the device reboots mid-snooze, ReminderBootReceiver

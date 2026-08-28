@@ -1188,3 +1188,23 @@ above. This section is a running log; read `gh issue list` for current backlog s
   which — per this file's existing "signed-in round-trip not automatable" note — can't be driven
   end-to-end here); verified instead by the `cancelAndJoin` semantics being the documented,
   correct fix for exactly this class of coroutine-cancellation race.
+- **[Issue #236] `ReminderAlarmReceiver` and `ReminderActionReceiver`'s Done handler now use
+  `goAsync()` around their WorkManager enqueue calls**, so a process kill in the narrow window
+  before that enqueue is durably persisted can no longer silently drop a reminder notification or
+  its completion with zero retry. `WorkManager.enqueue()`/`enqueueUniqueWork()` returning does not
+  mean the request has landed in WorkManager's own database yet — that write happens
+  asynchronously on WorkManager's own executor. Both receivers now call `goAsync()`, launch a
+  coroutine on `Dispatchers.IO`, and block on the returned `Operation.result.get()` before calling
+  `pendingResult.finish()` in a `finally` — the exact same `goAsync()` + coroutine + `finally`
+  shape `ReminderActionReceiver.snooze()` already used (and CLAUDE.md's Issue #41/#64 history
+  already verified on a real device), just extended to the two enqueue call sites that were
+  missing it. `ReminderActionReceiver`'s notification-cancel-before-enqueue ordering is
+  unchanged — this only closes the window where the enqueue itself could silently vanish.
+  Verified: clean `assembleDebug`/`testDebugUnitTest`/`lintDebug`; on the `Medium_Phone` emulator,
+  created a real reminder through the UI end-to-end (name, priority, save) with no crash,
+  confirming the receiver and WorkManager wiring still function correctly with the new
+  `goAsync()` path in place. The specific race this closes — a process kill in a
+  sub-second window between `enqueue()` returning and its async persistence completing — isn't
+  something an emulator can be made to trigger on demand; verified instead by the fix being a
+  direct, minimal application of this codebase's own already-proven pattern to two call sites
+  that were the only ones missing it.
