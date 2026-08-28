@@ -1122,3 +1122,29 @@ above. This section is a running log; read `gh issue list` for current backlog s
   predicted `NullPointerException` at `PaperDao_Impl.insertPaper`), then confirmed post-fix that
   the same file restores cleanly — no crash, "Data restored," and the paper appears correctly in
   the Papers screen with all its fields intact.
+- **[Issue #233] Locked Budget/Notes content can no longer be captured in the OS recents/
+  task-switcher thumbnail.** `LockGate` only re-locked on `MainActivity.onStop()`, but the OS
+  takes its recents thumbnail at the same backgrounding instant — before that re-lock has a
+  chance to hide anything — so an unlocked Budget/Notes screen sat in Recents (and any
+  screen-recording tool) in the clear, defeating the point of the lock against exactly the
+  "someone else picks up the unlocked phone" threat model it's meant to cover. New
+  `SecureWindowGuard` (`SecuritySettings.kt`) is a reference-counted holder for
+  `WindowManager.LayoutParams.FLAG_SECURE`, acquired/released via a `DisposableEffect` inside
+  `LockGate` itself whenever `lockEnabled == true` — reference-counted rather than a plain
+  set/clear pair because the NavHost's custom crossfade transitions keep the outgoing and
+  incoming destination composed simultaneously during navigation, and a naive pair from each
+  `LockGate` instance would let one's `onDispose` clear a flag the other still needs. Applies to
+  all three `LockGate` call sites (`overview`, `budget_tracker`, `notes`) automatically since
+  they all route through the same composable. **Verified**: clean `assembleDebug`/
+  `testDebugUnitTest`/`lintDebug`, plus an on-device smoke test confirming the *default*
+  (lock-disabled) path has zero regression — screenshots still capture normally when no module
+  lock is enabled, which is the state every existing on-device verification in this file already
+  depends on. **Not verified end-to-end** (lock enabled → FLAG_SECURE actually applied → recents
+  thumbnail confirmed blank): enabling the biometric lock toggle requires one real
+  biometric/PIN auth first, and the `Medium_Phone` emulator has no screen lock configured
+  (`locksettings get-disabled` → `true`) — the same "not adb-automatable" limitation the original
+  Issue #45 section of this file already documents for this exact feature. Verified instead by
+  code review: `SecureWindowGuard`'s acquire/release pairing is symmetric on every
+  `DisposableEffect` exit path (including recomposition when `lockEnabled` changes), and
+  `WindowManager.LayoutParams.FLAG_SECURE` is the standard, well-established Android mechanism
+  for this exact problem.

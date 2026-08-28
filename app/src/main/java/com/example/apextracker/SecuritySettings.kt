@@ -1,6 +1,7 @@
 package com.example.apextracker
 
 import android.content.Context
+import android.view.WindowManager
 import androidx.activity.compose.LocalActivity
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
@@ -22,6 +23,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -130,6 +132,34 @@ object UnlockSession {
 }
 
 /**
+ * Reference-counted [android.view.WindowManager.LayoutParams.FLAG_SECURE] holder (Issue #233):
+ * content behind an active module lock must never appear in the OS recents/task-switcher
+ * thumbnail, which the OS captures at the moment the app backgrounds — before [UnlockSession]'s
+ * own `onStop`-driven re-lock has a chance to hide anything. Reference-counted, not a plain
+ * set/clear pair, because [LockGate]'s custom NavHost transitions keep the outgoing and incoming
+ * destination composed simultaneously during the crossfade — a naive pair from each [LockGate]
+ * would let one instance's `onDispose` clear a flag the other instance still needs.
+ */
+private object SecureWindowGuard {
+    private var refCount = 0
+
+    fun acquire(activity: FragmentActivity) {
+        refCount++
+        if (refCount == 1) {
+            activity.window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
+
+    fun release(activity: FragmentActivity?) {
+        if (refCount == 0) return
+        refCount--
+        if (refCount == 0) {
+            activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
+}
+
+/**
  * Launches the system biometric/credential prompt. [onSuccess]/[onFailure] are posted on the main
  * executor. A single wrong attempt is not terminal (the system keeps the prompt up and does not
  * call back here); only a real error/cancel resolves to [onFailure], so callers fail closed.
@@ -175,6 +205,12 @@ fun LockGate(
     onCancelled: () -> Unit,
     content: @Composable () -> Unit
 ) {
+    val activity = LocalActivity.current as? FragmentActivity
+    DisposableEffect(activity, lockEnabled) {
+        if (activity != null && lockEnabled == true) SecureWindowGuard.acquire(activity)
+        onDispose { if (activity != null && lockEnabled == true) SecureWindowGuard.release(activity) }
+    }
+
     // null = the DataStore flag hasn't loaded yet. Render nothing rather than the content, so a
     // locked module can't flash its data for a frame before the flag resolves (fail closed).
     if (lockEnabled == null) return
@@ -183,7 +219,6 @@ fun LockGate(
         return
     }
 
-    val activity = LocalActivity.current as? FragmentActivity
     var attempt by remember { mutableStateOf(0) }
 
     LockOverlay(onUnlockClick = { attempt++ })
