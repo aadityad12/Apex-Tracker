@@ -1338,3 +1338,30 @@ above. This section is a running log; read `gh issue list` for current backlog s
   image via the system photo picker, which wasn't exercised this pass; the diff/delete logic was
   verified by code review against the same `deleteNoteAttachment` call already used and proven at
   the existing remove-from-strip call site.
+- **[Issue #245] `ApexPalette.kt` now defines M3 1.4.0's 12 "Fixed" `ColorScheme` roles**
+  (`primaryFixed`/`primaryFixedDim`/`onPrimaryFixed`/`onPrimaryFixedVariant` × primary/secondary/
+  tertiary) — confirmed the exact parameter names by decompiling the real
+  `material3-android:1.4.0` `ColorScheme`/`ColorSchemeKt` classes (`javap`) rather than guessing.
+  Since M3 defines Fixed roles to stay visually identical whether the active theme is light or
+  dark, they're authored once and reused as the *same literal colours* in both `ApexDarkColors`
+  and `ApexLightColors` — `PaperElevated`/`PaperRaised`/`Char`/`CharDim`, collapsed across
+  primary/secondary/tertiary the way this monochrome design already treats them as one ink
+  identity rather than three hues. **Also fixed the regression test's blind spot that let this
+  ship unnoticed**: `ApexPaletteSlotsTest`'s existing `reachedByComponentDefaults` is a
+  hand-maintained map — exactly the pattern this file's own doc comment already names as the
+  failure mode, now proven a third time. Added a new reflective test,
+  `` `every ColorScheme property differs from Material's untouched baseline` `` (new
+  `kotlin-reflect` test dependency), that walks every `Color`-typed `ColorScheme` property via
+  `KProperty1` and compares it against Material's own untouched `darkColorScheme()`/
+  `lightColorScheme()` — a purple/lavender palette nothing in Graphite resembles, so an identical
+  value is strong evidence a slot was never actually authored, and this catches it automatically
+  for any *future* M3-added role without needing this file updated in lockstep. Running the new
+  test surfaced 4 genuine coincidences (not gaps): `onPrimary`/`onSecondary`/`onTertiary`/
+  `onError` are all explicitly white in `ApexLightColors`, and Material's own light baseline
+  independently reaches the same white for those same "on-X" roles (dark saturated fills need
+  white text in both designs) — documented and allow-listed rather than silently working around.
+  Verified: clean `assembleDebug`/`testDebugUnitTest`/`lintDebug` — all 7 `ApexPaletteSlotsTest`
+  cases pass, including the new reflective one — plus a cold-start smoke test on the
+  `Medium_Phone` emulator with no crash. No on-device visual check beyond that: the audit itself
+  confirmed nothing in this app currently reaches the Fixed roles, so there's no rendering to
+  compare before/after.

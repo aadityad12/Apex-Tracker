@@ -104,7 +104,27 @@ val ApexDarkColors: ColorScheme = darkColorScheme(
     error = AlarmDark,
     onError = Color(0xFF1A0E0D),
     errorContainer = Color(0xFF3D1F1C),
-    onErrorContainer = Color(0xFFF0A49E)
+    onErrorContainer = Color(0xFFF0A49E),
+    // ── Fixed roles (Issue #245, M3 1.4.0) ─────────────────────────────────────────────
+    // M3 defines Fixed colors to stay visually identical whether the active theme is light or
+    // dark (e.g. a chip that shouldn't flip tone when the user switches themes) — so unlike
+    // every other slot in this file, these values are the same literal colours in both
+    // ApexDarkColors and ApexLightColors below, not a per-theme pair. No accent hue exists in
+    // this design, so Fixed borrows the light theme's own paper/ink container relationship,
+    // collapsed across primary/secondary/tertiary the same way this design already treats them
+    // as one ink identity rather than three distinct hues.
+    primaryFixed = PaperElevated,
+    primaryFixedDim = PaperRaised,
+    onPrimaryFixed = Char,
+    onPrimaryFixedVariant = CharDim,
+    secondaryFixed = PaperElevated,
+    secondaryFixedDim = PaperRaised,
+    onSecondaryFixed = Char,
+    onSecondaryFixedVariant = CharDim,
+    tertiaryFixed = PaperElevated,
+    tertiaryFixedDim = PaperRaised,
+    onTertiaryFixed = Char,
+    onTertiaryFixedVariant = CharDim
 )
 
 /**
@@ -170,7 +190,20 @@ val ApexLightColors: ColorScheme = lightColorScheme(
     error = AlarmLight,
     onError = Color(0xFFFFFFFF),
     errorContainer = Color(0xFFF7DAD7),
-    onErrorContainer = Color(0xFF5C1913)
+    onErrorContainer = Color(0xFF5C1913),
+    // Fixed roles — identical values to ApexDarkColors' block above; see the comment there.
+    primaryFixed = PaperElevated,
+    primaryFixedDim = PaperRaised,
+    onPrimaryFixed = Char,
+    onPrimaryFixedVariant = CharDim,
+    secondaryFixed = PaperElevated,
+    secondaryFixedDim = PaperRaised,
+    onSecondaryFixed = Char,
+    onSecondaryFixedVariant = CharDim,
+    tertiaryFixed = PaperElevated,
+    tertiaryFixedDim = PaperRaised,
+    onTertiaryFixed = Char,
+    onTertiaryFixedVariant = CharDim
 )
 
 /**

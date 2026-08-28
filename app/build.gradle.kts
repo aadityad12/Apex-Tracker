@@ -154,6 +154,10 @@ dependencies {
     // android.jar's org.json is a stub in JVM unit tests; the real artifact lets the pure
     // Semantic Scholar parsing functions be tested without Robolectric.
     testImplementation("org.json:json:20240303")
+    // ApexPaletteSlotsTest reflects over every ColorScheme property (Issue #245) so a slot the
+    // app never explicitly authors is caught automatically, rather than needing a hand-maintained
+    // list of "slots reached by component defaults" updated every time M3 adds a role.
+    testImplementation(kotlin("reflect"))
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

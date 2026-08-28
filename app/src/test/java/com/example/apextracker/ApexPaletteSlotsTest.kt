@@ -1,6 +1,8 @@
 package com.example.apextracker
 
 import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 import com.example.apextracker.ui.design.ApexDarkColors
 import com.example.apextracker.ui.design.ApexLightColors
@@ -24,6 +26,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.reflect.KProperty1
+import kotlin.reflect.full.memberProperties
 
 /**
  * Guards the rule in Design.md §8: **every `ColorScheme` slot the app can reach must be defined in
@@ -39,6 +43,16 @@ import org.junit.Test
  *
  * The reachable set comes from resolving each M3 component's default `*Tokens.ContainerColor` back
  * to its `ColorSchemeKeyTokens`. If a new component type is adopted, add its slots here.
+ *
+ * It happened a *third* time (Issue #245): M3 1.4.0 added 12 "Fixed" roles
+ * (`primaryFixed`/`primaryFixedDim`/`onPrimaryFixed`/`onPrimaryFixedVariant` × primary/secondary/
+ * tertiary), and this file's own hand-maintained [reachedByComponentDefaults] map — the thing
+ * this class doc already names as the failure mode — didn't know to check them. The map above
+ * stays (it documents *why* each slot matters, which a reflective walk can't), but
+ * [`every ColorScheme property differs from Material's untouched baseline`] below is the actual
+ * safety net going forward: it walks every `Color`-typed property `ColorScheme` exposes via
+ * reflection, so a role added in some *future* M3 bump is caught automatically instead of needing
+ * this file updated in lockstep with the library.
  */
 class ApexPaletteSlotsTest {
 
@@ -56,6 +70,20 @@ class ApexPaletteSlotsTest {
         // The light scheme's snackbar is an inverted (dark) surface.
         GraphiteRaised, GraphiteBase, Frost
     )
+
+    /**
+     * Properties explicitly authored in `ApexPalette.kt` whose value happens to legitimately
+     * coincide with Material's own untouched baseline — real collisions found by running the
+     * reflective test below, not gaps. All four are light-scheme "on-X" text roles
+     * (`onPrimary`/`onSecondary`/`onTertiary`/`onError`, each explicitly `Color(0xFFFFFFFF)` in
+     * `ApexLightColors`): "white text on a saturated fill" is a convention this design and
+     * Material's own baseline both reach independently, since Material's baseline
+     * primary/secondary/tertiary/error are all medium-to-dark saturated colors needing white
+     * text too. No dark-scheme property collided.
+     */
+    private val coincidentallyMatchesMaterialBaselineDark = emptySet<String>()
+    private val coincidentallyMatchesMaterialBaselineLight =
+        setOf("onError", "onPrimary", "onSecondary", "onTertiary")
 
     /**
      * Slots reached only through a component's *defaults* — no call site mentions them, which is
@@ -115,6 +143,39 @@ class ApexPaletteSlotsTest {
                 darkColor,
                 light.getValue(name)
             )
+        }
+    }
+
+    @Test
+    fun `every ColorScheme property differs from Material's untouched baseline`() {
+        // Reflectively walks every Color-typed ColorScheme property and compares it against
+        // Material's own default darkColorScheme()/lightColorScheme() — a purple/lavender
+        // palette nothing in Graphite resembles. A property identical to that untouched baseline
+        // is overwhelming evidence it was never actually authored in ApexPalette.kt, which is
+        // exactly the bug class every other test in this file was written to catch, generalized
+        // so a role M3 adds in the future doesn't need this file updated to notice it (Issue #245).
+        val baselineDark = darkColorScheme()
+        val baselineLight = lightColorScheme()
+        @Suppress("UNCHECKED_CAST")
+        val colorProperties = ColorScheme::class.memberProperties
+            .filter { it.returnType.classifier == Color::class } as List<KProperty1<ColorScheme, Color>>
+        assertTrue("expected to find ColorScheme's Color properties via reflection", colorProperties.isNotEmpty())
+
+        colorProperties.forEach { property ->
+            if (property.name !in coincidentallyMatchesMaterialBaselineDark) {
+                assertNotEquals(
+                    "dark ${property.name} matches Material's untouched baseline — it was probably never authored in ApexDarkColors",
+                    property.get(baselineDark),
+                    property.get(ApexDarkColors)
+                )
+            }
+            if (property.name !in coincidentallyMatchesMaterialBaselineLight) {
+                assertNotEquals(
+                    "light ${property.name} matches Material's untouched baseline — it was probably never authored in ApexLightColors",
+                    property.get(baselineLight),
+                    property.get(ApexLightColors)
+                )
+            }
         }
     }
 
