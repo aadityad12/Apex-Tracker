@@ -1264,3 +1264,16 @@ above. This section is a running log; read `gh issue list` for current backlog s
   cold-started cleanly with zero `DatabaseEncryption` log output at all (the happy-path decrypt
   succeeded silently on the first attempt, confirming the retry wrapper adds no overhead or
   regression to normal operation) and the Dashboard loaded its data normally.
+- **[Issue #240] `targetSdk` raised from 35 to 37, matching `compileSdk` exactly.** The gap was a
+  real risk of failing Play Console's target-API-level floor at submission or shortly after —
+  the 35 value was a deliberate "no runtime behavior opt-ins" choice from the 2026-07-09
+  dependency-bump pass, made before this app was actually submission-bound. `android-37.0` is
+  already installed in this environment's SDK (matching `compileSdk`), so no toolchain change was
+  needed. Verified: clean `assembleDebug`/`testDebugUnitTest`/`lintDebug` with no new warnings or
+  errors from the bump. On the `Medium_Phone` emulator: cold-started the app and navigated through
+  every primary and secondary route (`dashboard`, `study_tracker`, `screen_time`,
+  `budget_tracker`, `reminders`, `notes`, `papers`, `overview`) with no crash anywhere in logcat,
+  and confirmed the Dashboard's layout still renders correctly with proper system-bar insets — no
+  clipping or overlap from the higher target API (edge-to-edge enforcement itself was already
+  active at the prior targetSdk 35, so 37 doesn't newly trigger it). This is a build-config-only
+  change with no code behind it to unit-test.

@@ -27,7 +27,10 @@ android {
         applicationId = "com.example.apextracker"
         minSdk = 26
 
-        targetSdk = 35
+        // Was 35, two levels behind compileSdk (37) -- a real risk of failing Play Console's
+        // target-API-level floor at submission or shortly after (Issue #240). Matches compileSdk
+        // exactly rather than picking an arbitrary intermediate value.
+        targetSdk = 37
         versionCode = 1
         versionName = "1.0"
 
