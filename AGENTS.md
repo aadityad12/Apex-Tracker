@@ -1503,3 +1503,17 @@ above. This section is a running log; read `gh issue list` for current backlog s
   actually render the page, but the dispatch and the enabled Pages site are both confirmed
   independently: `curl`ing the URL after publish returned the finished page). Clean
   `assembleDebug`/`testDebugUnitTest`/`lintDebug`.
+- **[Issue #256] Play Console permission justification text, drafted in advance.** Not a code
+  issue — `PACKAGE_USAGE_STATS` and `SCHEDULE_EXACT_ALARM` are both restricted permissions that
+  need a Permissions Declaration Form filled in at Play Console submission time, and this is
+  filed so it's tracked in the backlog rather than surfacing as a submission-time surprise.
+  **`docs/play-console-permissions-declaration.md`** (new) holds ready-to-paste justification
+  text for both — what each permission enables (Screen Time's usage tracking/limits; Reminders'
+  exact-time notifications), why the app's use case genuinely needs it rather than an inexact
+  alternative, and what happens if the user declines (Screen Time simply can't function without
+  it; Reminders falls back to `setAndAllowWhileIdle`). Also documents, for completeness, why
+  `QUERY_ALL_PACKAGES` needs no declaration at all — it was never adopted; Issue #72's narrower
+  `<queries>` block covers the same need. This doesn't close out the actual submission-time
+  step (filling in Play Console's own form fields, which only exists once an app listing is
+  created there) — it prepares the text so that step is copy-paste rather than a cold draft
+  under review-deadline pressure. No code changed; no build/test/lint to run.
