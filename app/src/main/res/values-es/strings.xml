@@ -27,6 +27,8 @@
     <string name="backup_section">Copia de seguridad</string>
     <string name="backup_export">Hacer copia de seguridad</string>
     <string name="backup_import">Restaurar</string>
+    <string name="menu_about">Acerca de</string>
+    <string name="menu_privacy_policy">Política de privacidad</string>
     <string name="backup_export_done">Copia de seguridad guardada.</string>
     <string name="backup_restore_done">Datos restaurados.</string>
     <string name="backup_failed">No se pudo acceder a ese archivo.</string>

@@ -1480,3 +1480,26 @@ above. This section is a running log; read `gh issue list` for current backlog s
   testing #252, no uninstall): no crash, no destructive-fallback log line, Dashboard loaded
   normally and the Papers queue — all 12 seeded papers, correct order — was intact afterward.
   `assembleDebug`/`testDebugUnitTest`/`lintDebug` all pass clean.
+- **[Issue #255] The app now has an in-app privacy-policy link, and the policy is actually hosted
+  at a public URL.** `docs/privacy-policy.md`'s `[DATE]`/`[CONTACT EMAIL]`/`[DEVELOPER NAME]`
+  placeholders (per the user: aaditya.d.desai@gmail.com, Aaditya Desai) are filled in, and a
+  self-contained `docs/privacy-policy.html` was added alongside it — the `.md` stays the editable
+  source, the `.html` is what's actually served, since GitHub Pages serving raw Markdown depends
+  on Jekyll processing that isn't guaranteed without front matter, and a static page removes that
+  uncertainty entirely. **GitHub Pages was enabled on the repo** (`main` branch, `/docs` folder,
+  via `gh api -X POST repos/.../pages`) with the user's explicit go-ahead, since it's both a
+  repo-settings change and publishing public content — confirmed live at
+  `https://aadityad12.github.io/Apex-Tracker/privacy-policy.html`. `AppSettingsSheet.kt` gained an
+  About section (new `menu_about`/`menu_privacy_policy` strings, both locales) with a Privacy
+  Policy row that opens that URL via `ACTION_VIEW`; unlike `PapersView`'s `openPaper`, this one
+  skips `sanitizeWebUrl` — the URL is a hardcoded constant this app controls, not data that
+  arrived over sync/backup/network, so the untrusted-input reasoning that function exists for
+  doesn't apply here. **applicationId is still `com.example.apextracker`** (Issue #254, not yet
+  resolved — see below), so this policy and its host stay tied to the current package name; if
+  that ever changes, the policy's own description of the app doesn't need touching but the
+  Play Console listing does. Verified on-device: tapping the row in Settings launched Chrome with
+  `capturedLink=https://aadityad12.github.io/Apex-Tracker/privacy-policy.html` (confirmed via
+  logcat's `WindowManager` transition log — the emulator has no default browser session to
+  actually render the page, but the dispatch and the enabled Pages site are both confirmed
+  independently: `curl`ing the URL after publish returned the finished page). Clean
+  `assembleDebug`/`testDebugUnitTest`/`lintDebug`.

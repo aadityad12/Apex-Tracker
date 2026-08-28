@@ -1,15 +1,10 @@
 # ApexTracker Privacy Policy
 
-**Last updated: [DATE]**
+**Last updated: August 28, 2026**
 
 ApexTracker is a personal productivity app for tracking budgets, study time, screen time,
 reminders, notes, and reading — built for one person to use daily, not to build a user base or
 monetize attention. This policy explains what data the app touches, why, and where it goes.
-
-> **Before publishing this policy:** replace the bracketed placeholders (`[DATE]`,
-> `[CONTACT EMAIL]`, `[DEVELOPER NAME]`) with real values, then host the finished page somewhere
-> with a stable public URL — GitHub Pages or Firebase Hosting both work, since this repo already
-> has a Firebase project. Play Console requires that URL in the app's store listing.
 
 ## The short version
 
@@ -50,7 +45,7 @@ offline without it. If you do sign in:
 ## Data deletion
 
 - **Uninstalling the app** deletes everything stored locally, immediately and irreversibly.
-- **Cloud data** (present only if you ever signed in): email **[CONTACT EMAIL]** with your
+- **Cloud data** (present only if you ever signed in): email **aaditya.d.desai@gmail.com** with your
   Google account email and we will delete your data from Firestore. We don't yet have a
   self-service "delete my account" button in the app itself — if that matters to you, ask, and
   it can be prioritized.
@@ -88,8 +83,8 @@ significant changes, we'll note it in the app itself.
 
 ## Contact
 
-Questions about this policy or your data: **[CONTACT EMAIL]**
+Questions about this policy or your data: **aaditya.d.desai@gmail.com**
 
 ---
 
-*This app is developed and maintained by [DEVELOPER NAME].*
+*This app is developed and maintained by Aaditya Desai.*

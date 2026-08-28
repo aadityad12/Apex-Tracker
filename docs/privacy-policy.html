@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ApexTracker Privacy Policy</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 2rem 1.25rem 4rem;
+    line-height: 1.6;
+    color: #1a1a1a;
+    background: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { color: #e8e8e8; background: #121212; }
+    a { color: #8ab4f8; }
+    th, td { border-color: #333 !important; }
+    blockquote { border-left-color: #444 !important; }
+  }
+  h1 { font-size: 1.75rem; margin-bottom: 0.25rem; }
+  h2 { font-size: 1.2rem; margin-top: 2rem; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+  th, td { border: 1px solid #ccc; padding: 0.5rem 0.75rem; text-align: left; vertical-align: top; font-size: 0.95rem; }
+  th { background: rgba(127,127,127,0.1); }
+  code { background: rgba(127,127,127,0.15); padding: 0.1em 0.35em; border-radius: 4px; font-size: 0.9em; }
+  .updated { color: #666; }
+  @media (prefers-color-scheme: dark) { .updated { color: #999; } }
+  hr { margin: 2.5rem 0 1rem; border: none; border-top: 1px solid rgba(127,127,127,0.3); }
+  footer { font-style: italic; color: #666; }
+  @media (prefers-color-scheme: dark) { footer { color: #999; } }
+</style>
+</head>
+<body>
+
+<h1>ApexTracker Privacy Policy</h1>
+<p class="updated"><strong>Last updated: August 28, 2026</strong></p>
+
+<p>ApexTracker is a personal productivity app for tracking budgets, study time, screen time,
+reminders, notes, and reading — built for one person to use daily, not to build a user base or
+monetize attention. This policy explains what data the app touches, why, and where it goes.</p>
+
+<h2>The short version</h2>
+<p>Your data lives on your device by default. Signing in with Google is optional and only turns on
+sync between your own devices — it does not send your data anywhere else. The app has no ads, no
+analytics, no tracking SDKs, and does not sell data to anyone, ever.</p>
+
+<h2>What data the app collects, and why</h2>
+<table>
+  <thead>
+    <tr><th>Feature</th><th>What's stored</th><th>Where</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Budget, Study, Screen Time, Reminders, Notes, Papers, Dashboard/Goals</td>
+      <td>Everything you enter — amounts, categories, note text, session times, goal progress</td>
+      <td>On your device, in an encrypted local database. Also in Firestore under your account
+        <strong>only if you sign in</strong> (see below).</td>
+    </tr>
+    <tr>
+      <td>Screen Time</td>
+      <td>Which apps you use and for how long, read from Android's on-device usage-access API</td>
+      <td>Stays on your device; only reaches the cloud if you sign in, and then only to your own
+        account for viewing across your own devices</td>
+    </tr>
+    <tr>
+      <td>Receipt scanning (Budget)</td>
+      <td>A photo you pick to prefill an expense — read on-device with on-device text recognition</td>
+      <td>Never uploaded anywhere, never copied into the app's own storage; the photo stays
+        wherever you picked it from</td>
+    </tr>
+    <tr>
+      <td>Daily Apex Tip (opt-in)</td>
+      <td>If you turn this on, a small set of <strong>anonymized daily totals</strong> — today's
+        spending amount, study minutes, screen-time minutes, goal counts, and your current streak</td>
+      <td>Sent to Google's Gemini model (via Firebase AI Logic) to generate one suggestion. Names,
+        note text, transaction details, and app names are never included — only the aggregate
+        numbers. This is off by default and the in-app toggle states exactly what's sent before
+        you turn it on.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Signing in and cloud sync (optional)</h2>
+<p>Signing in uses Google Sign-In and is entirely optional — every feature above works fully
+offline without it. If you do sign in:</p>
+<ul>
+  <li>Your data syncs to a private area of our Firestore database scoped to your account
+    (<code>users/{your-account-id}/...</code>). Server-side security rules enforce that only your
+    signed-in account can read or write your own data — not other users, not us browsing
+    casually.</li>
+  <li>Sync exists so your data follows you to a second device signed into the same account. It is
+    not used for anything else — no aggregation across users, no analytics, no advertising.</li>
+  <li>Signing out stops future sync; it does not retroactively delete what was already synced
+    (see Data deletion below).</li>
+</ul>
+
+<h2>What we don't do</h2>
+<ul>
+  <li>No advertising, and no ad SDKs.</li>
+  <li>No analytics or crash-tracking SDKs beyond what Google Sign-In/Firestore themselves need to
+    function as a login and database service.</li>
+  <li>No selling, renting, or sharing your data with third parties for their own purposes.</li>
+  <li>No account is required to use the app in full.</li>
+</ul>
+
+<h2>Data deletion</h2>
+<ul>
+  <li><strong>Uninstalling the app</strong> deletes everything stored locally, immediately and
+    irreversibly.</li>
+  <li><strong>Cloud data</strong> (present only if you ever signed in): email
+    <strong>aaditya.d.desai@gmail.com</strong> with your Google account email and we will delete
+    your data from Firestore. We don't yet have a self-service "delete my account" button in the
+    app itself — if that matters to you, ask, and it can be prioritized.</li>
+</ul>
+
+<h2>Permissions the app requests, and why</h2>
+<ul>
+  <li><strong>Usage Access</strong> (<code>PACKAGE_USAGE_STATS</code>) — lets Screen Time measure
+    how long you use other apps. Granted manually in system settings, never used for anything
+    besides showing you that number.</li>
+  <li><strong>Notifications</strong> — for reminder alerts.</li>
+  <li><strong>Exact alarms</strong> and <strong>run at boot</strong> — so a reminder set for a
+    specific time actually fires at that time, including after a restart.</li>
+  <li><strong>Internet</strong> — required for optional Google Sign-In and Firestore sync, and
+    for the optional Daily Apex Tip request.</li>
+  <li>The app can see which other apps have a launcher icon (so Screen Time can list "apps you can
+    actually open"), not a list of every package installed on your device.</li>
+</ul>
+
+<h2>Security</h2>
+<ul>
+  <li>The local database is encrypted at rest (SQLCipher, with the encryption key itself
+    protected by Android's hardware-backed Keystore).</li>
+  <li>An optional biometric/PIN lock can gate the Budget and Notes screens behind a fresh device
+    unlock.</li>
+  <li>Firestore access is restricted by server-side rules to your own signed-in account only.</li>
+</ul>
+
+<h2>Children's privacy</h2>
+<p>ApexTracker is not directed at children under 13 and we do not knowingly collect data from
+children under 13.</p>
+
+<h2>Changes to this policy</h2>
+<p>If this policy changes in a way that matters, the "Last updated" date above will change and,
+for significant changes, we'll note it in the app itself.</p>
+
+<h2>Contact</h2>
+<p>Questions about this policy or your data: <strong>aaditya.d.desai@gmail.com</strong></p>
+
+<hr>
+<footer>This app is developed and maintained by Aaditya Desai.</footer>
+
+</body>
+</html>

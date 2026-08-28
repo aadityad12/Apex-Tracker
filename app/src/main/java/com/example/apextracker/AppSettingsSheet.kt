@@ -1,5 +1,9 @@
 package com.example.apextracker
 
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.util.Log
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -17,6 +21,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.DarkMode
@@ -203,7 +208,50 @@ fun AppSettingsSheet(
             )
             Spacer(modifier = Modifier.height(ApexSpacing.m))
             BackupRestoreControls()
+
+            Spacer(modifier = Modifier.height(ApexSpacing.xl))
+
+            Text(
+                stringResource(R.string.menu_about),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(ApexSpacing.m))
+
+            Surface(
+                onClick = { openPrivacyPolicy(context) },
+                shape = RoundedCornerShape(ApexShapes.container),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().padding(ApexSpacing.l)
+                ) {
+                    Text(
+                        stringResource(R.string.menu_privacy_policy),
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Icon(
+                        Icons.AutoMirrored.Filled.OpenInNew,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
+    }
+}
+
+/** Issue #255. The URL is a hardcoded constant this app controls, not untrusted input, so it
+ * doesn't need the sanitizeWebUrl treatment PapersView's openPaper gives paper links. */
+private const val PRIVACY_POLICY_URL = "https://aadityad12.github.io/Apex-Tracker/privacy-policy.html"
+
+private fun openPrivacyPolicy(context: Context) {
+    try {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PRIVACY_POLICY_URL)))
+    } catch (_: ActivityNotFoundException) {
+        // No browser available — nothing sane to do.
     }
 }
 
