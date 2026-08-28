@@ -32,6 +32,10 @@ data class AppUsageInfo(
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ScreenTimeViewModel(application: Application) : AndroidViewModel(application) {
+    private companion object {
+        const val TAG = "ScreenTimeViewModel"
+    }
+
     private val database = AppDatabase.getDatabase(application)
     private val screenTimeDao = database.screenTimeSessionDao()
     private val excludedAppDao = database.excludedAppDao()
@@ -157,12 +161,12 @@ class ScreenTimeViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch {
             if (app.isExcluded) {
                 excludedAppDao.includeApp(ExcludedApp(app.packageName))
-                safeCloudCall("ScreenTimeViewModel", "remove excluded app") {
+                safeCloudCall(TAG, "remove excluded app") {
                     firebaseManager.removeExcludedApp(app.packageName)
                 }
             } else {
                 excludedAppDao.excludeApp(ExcludedApp(app.packageName))
-                safeCloudCall("ScreenTimeViewModel", "push excluded app") {
+                safeCloudCall(TAG, "push excluded app") {
                     firebaseManager.pushExcludedApp(app.packageName)
                 }
             }
@@ -207,7 +211,9 @@ class ScreenTimeViewModel(application: Application) : AndroidViewModel(applicati
 
         // Upload to Firebase if logged in
         if (firebaseManager.userId != null) {
-            firebaseManager.uploadScreenTimeSession(ScreenTimeSession(date = LocalDate.now(), durationMillis = totalFilteredTime))
+            safeCloudCall(TAG, "upload screen time") {
+                firebaseManager.uploadScreenTimeSession(ScreenTimeSession(date = LocalDate.now(), durationMillis = totalFilteredTime))
+            }
         }
         checkAppLimits(usageMap)
         refreshAggregatedUsage(totalFilteredTime)

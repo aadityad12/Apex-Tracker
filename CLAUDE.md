@@ -1090,3 +1090,17 @@ above. This section is a running log; read `gh issue list` for current backlog s
   documented elsewhere in this file for sync work) — verified instead by `assembleDebug`/
   `testDebugUnitTest`/`lintDebug` passing clean and a smoke-launch of the Screen Time screen on
   the `Medium_Phone` emulator showing no crash with the new `flatMapLatest` wiring in place.
+- **[Issue #231] Screen Time's 30-second cloud push now goes through `safeCloudCall`, like every
+  other push in the app.** `updateScreenTime()`'s `firebaseManager.uploadScreenTimeSession(...)`
+  call was the one exception to the codebase-wide convention — it ran unguarded inside the
+  always-on 30s polling loop, so any Firestore exception there (permission-denied, a deadline, or
+  the shared client being torn down mid-write by `firestore.terminate()` during an account
+  switch) had no `CoroutineExceptionHandler` to catch it and would crash the process. Wrapped in
+  `safeCloudCall(TAG, "upload screen time") { ... }`; added the same `private companion object {
+  const val TAG = "ScreenTimeViewModel" }` pattern every other ViewModel already uses, and
+  normalized the two existing `safeCloudCall("ScreenTimeViewModel", ...)` call sites (exclude/
+  include app) to the new `TAG` constant while in the file. Verified: clean `assembleDebug`/
+  `testDebugUnitTest`/`lintDebug`, plus a smoke-launch of Screen Time on the `Medium_Phone`
+  emulator with no crash. Not separately reproducible on-device (would require forcing a real
+  Firestore write failure at the exact moment the poll fires) — the fix is a mechanical
+  apply-the-established-pattern change with no logic change to what gets uploaded.
