@@ -1208,3 +1208,23 @@ above. This section is a running log; read `gh issue list` for current backlog s
   something an emulator can be made to trigger on demand; verified instead by the fix being a
   direct, minimal application of this codebase's own already-proven pattern to two call sites
   that were the only ones missing it.
+- **[Issue #237] Study timer can no longer lose banked time if the system clock moves backward
+  while it's running.** `StudyViewModel.calculateCurrentTotalSeconds()` had no lower-bound clamp
+  on elapsed time, unlike `StudyTimerControl.kt`'s `studyPauseResultFor()`, which already does. A
+  backward clock jump mid-run (a manual change, or an NTP correction) could make `elapsedMillis`
+  negative, producing a total below the already-saved `baseSeconds` — which the very next tick's
+  `saveSessionForDate()` call would then persist over the correct, larger value, permanently
+  losing real banked minutes. Fixed with the same `.coerceAtLeast(0)` guard the pause path
+  already carries. Audited every other elapsed-time computation in `StudyViewModel.kt` (resume
+  from `StudyTimerStateStore`, day-rollover, manual logging) — all of them already route through
+  either this now-fixed function or `StudyTimerControl.kt`'s already-safe helpers, so this was the
+  one gap. Not independently unit-testable — `calculateCurrentTotalSeconds` is a private method on
+  the `AndroidViewModel` itself, not an extracted pure function like its `StudyTimerControl.kt`
+  sibling, and this codebase's ViewModels aren't unit-tested (need Robolectric, per this file's
+  Testing note). Verified: clean `assembleDebug`/`testDebugUnitTest`/`lintDebug`, plus a real
+  on-device run on the `Medium_Phone` emulator — started the timer, watched it tick forward
+  correctly through focus mode (confirming the coercion doesn't affect the ordinary
+  forward-clock case), then paused. The backward-clock scenario itself isn't practical to force
+  on this emulator without changing system time mid-session (which would also perturb every other
+  running verification in this pass), so it's verified by the fix matching the exact
+  already-proven pattern from the sibling function, not by reproducing the clock jump.

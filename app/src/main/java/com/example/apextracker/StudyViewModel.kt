@@ -197,7 +197,10 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun calculateCurrentTotalSeconds(): Long {
         if (!_isRunning.value) return _timeSeconds.value
-        val elapsedMillis = System.currentTimeMillis() - lastStartTimeMillis
+        // Coerced to >= 0: a backward system-clock jump mid-run must never compute a total below
+        // baseSeconds, which the next tick would then persist over the real, already-banked value
+        // (Issue #237). Matches the guard studyPauseResultFor already has for the pause path.
+        val elapsedMillis = (System.currentTimeMillis() - lastStartTimeMillis).coerceAtLeast(0)
         return baseSeconds + (elapsedMillis / 1000)
     }
 
