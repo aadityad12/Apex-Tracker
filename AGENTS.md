@@ -1400,3 +1400,20 @@ above. This section is a running log; read `gh issue list` for current backlog s
   (new file — none existed for this pure function before), covering the under-an-hour/over-an-hour/
   zero cases plus the negative-clamp regression; all 4 pass. Verified: clean `assembleDebug`/
   `testDebugUnitTest`/`lintDebug`, plus a smoke-launch of Study Tracker on-device with no crash.
+- **[Issue #249] The Budget widget's `EXTRA_BUDGET_QUICK_ADD` extra is now only honored when
+  actually paired with `EXTRA_NAVIGATE_TO = "budget_tracker"`**, closing the gap between its own
+  doc comment ("Ignored for any other route") and what the code actually did. `MainActivity` is
+  exported, so any app on the device could previously set just `budget_quick_add=true` without
+  also requesting navigation there — the flag would sit in memory and unexpectedly pop the
+  add-item dialog open the next time the user opened Budget on their own, with no relationship to
+  the intent that set it. Both `onCreate` and `onNewIntent` now gate `pendingBudgetQuickAdd` on
+  `sanitizedRoute == "budget_tracker"`, reusing the exact same `sanitizeRequestedRoute()` result
+  already computed for `pendingRoute` (Issue #105's pattern), rather than a separate check.
+  Verified: clean `assembleDebug`/`testDebugUnitTest`/`lintDebug`, plus two on-device checks via
+  `adb shell am start`/`am start` (the latter routing through `onNewIntent` since the app was
+  already running) on the `Medium_Phone` emulator — the legitimate paired case
+  (`navigate_to=budget_tracker --ez budget_quick_add=true`) still opens straight into the
+  add-item dialog exactly as before, and the mismatched case (`navigate_to=dashboard --ez
+  budget_quick_add=true`, then manually navigating to Budget) now correctly shows the plain
+  Budget screen with no unexpected dialog — confirming the leak is closed without breaking the
+  legitimate widget flow.

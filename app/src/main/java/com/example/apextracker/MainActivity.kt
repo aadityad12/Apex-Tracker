@@ -109,8 +109,14 @@ class MainActivity : FragmentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        pendingRoute = sanitizeRequestedRoute(intent.getStringExtra(EXTRA_NAVIGATE_TO))
-        pendingBudgetQuickAdd = intent.getBooleanExtra(EXTRA_BUDGET_QUICK_ADD, false)
+        val sanitizedRoute = sanitizeRequestedRoute(intent.getStringExtra(EXTRA_NAVIGATE_TO))
+        pendingRoute = sanitizedRoute
+        // Only honored when actually paired with its intended route (Issue #249) — read
+        // unconditionally, this boolean could be set by any app on the device (MainActivity is
+        // exported) without also requesting navigation there, sitting in memory until the user
+        // later opens Budget on their own and unexpectedly popping the add dialog open.
+        pendingBudgetQuickAdd = sanitizedRoute == "budget_tracker" &&
+            intent.getBooleanExtra(EXTRA_BUDGET_QUICK_ADD, false)
     }
 
     override fun onStop() {
@@ -134,8 +140,11 @@ class MainActivity : FragmentActivity() {
         // builds use Play Integrity. Configure it before any Firebase AI request can run.
         configureAppCheck()
         enableEdgeToEdge()
-        pendingRoute = sanitizeRequestedRoute(intent?.getStringExtra(EXTRA_NAVIGATE_TO))
-        pendingBudgetQuickAdd = intent?.getBooleanExtra(EXTRA_BUDGET_QUICK_ADD, false) ?: false
+        val sanitizedRoute = sanitizeRequestedRoute(intent?.getStringExtra(EXTRA_NAVIGATE_TO))
+        pendingRoute = sanitizedRoute
+        // See the matching comment in onNewIntent — only honored paired with its intended route.
+        pendingBudgetQuickAdd = sanitizedRoute == "budget_tracker" &&
+            (intent?.getBooleanExtra(EXTRA_BUDGET_QUICK_ADD, false) ?: false)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
