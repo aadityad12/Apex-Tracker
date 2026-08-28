@@ -1417,3 +1417,13 @@ above. This section is a running log; read `gh issue list` for current backlog s
   budget_quick_add=true`, then manually navigating to Budget) now correctly shows the plain
   Budget screen with no unexpected dialog — confirming the leak is closed without breaking the
   legitimate widget flow.
+- **[Issue #250] `loadBudgetWidgetSnapshot` and `loadTodayStudySeconds` now wrap their bodies in
+  `withContext(Dispatchers.IO)`**, matching the pattern `loadDashboardSnapshot`/`loadTodaySnapshot`
+  already follow — they were the two widget snapshot loaders that read Room/DataStore without the
+  explicit dispatcher switch. Currently low-risk (Room's suspend DAO calls and DataStore's
+  `Flow.first()` already dispatch off the calling thread internally, and Glance's own
+  `provideGlance` runs in a background coroutine session), but the inconsistency meant a future
+  refactor adding a genuinely main-thread-sensitive call to either function would silently violate
+  the convention its siblings already enforce. Mechanical wrapper-only change, no logic touched.
+  Verified: clean `assembleDebug`/`testDebugUnitTest`/`lintDebug`, plus a smoke-launch of Budget
+  on-device with no crash.

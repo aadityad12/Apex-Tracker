@@ -3,6 +3,8 @@ package com.example.apextracker
 import android.content.Context
 import com.example.apextracker.widget.refreshStudyWidget
 import com.example.apextracker.widget.refreshTodayWidget
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -140,9 +142,11 @@ suspend fun loadTodayStudySeconds(
     timerStore: StudyTimerStateStore,
     nowMillis: Long,
     today: LocalDate = LocalDate.now()
-): Long = todayStudySeconds(
-    db.studySessionDao().getAllSessionsOneShot(),
-    today,
-    timerStore.loadRunning(),
-    nowMillis
-)
+): Long = withContext(Dispatchers.IO) {
+    todayStudySeconds(
+        db.studySessionDao().getAllSessionsOneShot(),
+        today,
+        timerStore.loadRunning(),
+        nowMillis
+    )
+}

@@ -1,6 +1,8 @@
 package com.example.apextracker
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import java.time.YearMonth
 
 /**
@@ -61,10 +63,12 @@ suspend fun loadBudgetWidgetSnapshot(
     currencySettings: CurrencySettings,
     securitySettings: SecuritySettings,
     month: YearMonth = YearMonth.now()
-): BudgetWidgetSnapshot = budgetWidgetSnapshot(
-    items = db.budgetDao().getAllItemsOneShot(),
-    month = month,
-    limit = budgetPrefs.overallMonthlyLimit.first(),
-    currencyCode = currencySettings.currencyCode.first(),
-    locked = securitySettings.budgetLockEnabled.first()
-)
+): BudgetWidgetSnapshot = withContext(Dispatchers.IO) {
+    budgetWidgetSnapshot(
+        items = db.budgetDao().getAllItemsOneShot(),
+        month = month,
+        limit = budgetPrefs.overallMonthlyLimit.first(),
+        currencyCode = currencySettings.currencyCode.first(),
+        locked = securitySettings.budgetLockEnabled.first()
+    )
+}
