@@ -1293,3 +1293,20 @@ above. This section is a running log; read `gh issue list` for current backlog s
   a pure-function validation change fully exercised by the unit test suite; not separately
   reproduced through the real CSV-picker UI flow given the fix is already deterministically
   covered end-to-end at the function level.
+- **[Issue #242] Overview's `CalendarGrid` is now locale-aware**, matching the pattern
+  `DashboardView`'s heatmap already established for Issue #106/#120. It previously hardcoded a
+  Sunday-first, English-lettered header (`listOf("S","M","T","W","T","F","S")`) and computed the
+  leading-blank-cell offset as `dayOfWeek.value % 7` — a Sunday-indexed assumption baked into the
+  grid math itself, not just the header labels. Now derives `weekStart` from
+  `WeekFields.of(locale).firstDayOfWeek` (via `LocalLocale.current`), builds the header from
+  `weekStart.plus(0..6).getDisplayName(TextStyle.NARROW, locale)`, and computes the offset as
+  `(dayOfWeek.value - weekStart.value + 7) % 7` so a Monday-first locale shifts the whole grid,
+  not just its labels. **Verified on-device** on the `Medium_Phone` emulator in both locales: the
+  default (English) locale renders "S M T W T F S" with Aug 1, 2026 correctly falling under
+  Saturday and Aug 28 under Friday (matches the real calendar, confirming the offset math is
+  still correct for the unchanged case); switching to Spanish (`adb shell cmd locale
+  set-app-locales com.example.apextracker --locales es`) correctly re-renders as "L M X J V S D"
+  (Monday-first) with the whole grid shifted — Aug 1 now falls under the "S" (Sábado) column,
+  Aug 28 stays under "V" (Viernes) — and the screen title/month name localize too ("RESUMEN
+  DIARIO" / "AGOSTO 2026"), confirming this wasn't already covered by some other locale path.
+  Clean `assembleDebug`/`testDebugUnitTest`/`lintDebug`.

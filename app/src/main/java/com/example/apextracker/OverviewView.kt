@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -24,6 +25,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
+import java.time.temporal.WeekFields
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.ui.text.style.TextOverflow
 import com.example.apextracker.ui.design.ApexDivider
@@ -325,7 +328,12 @@ fun ReminderSummaryCard(
 fun CalendarGrid(selectedDate: LocalDate, onDateSelected: (LocalDate) -> Unit) {
     val currentMonth = remember(selectedDate) { selectedDate.withDayOfMonth(1) }
     val daysInMonth = currentMonth.lengthOfMonth()
-    val firstDayOfWeek = currentMonth.dayOfWeek.value % 7 // 0 for Sunday
+    // Locale-aware, matching DashboardView's heatmap (Issue #106/#120/#242) instead of assuming
+    // Sunday-first/English letters — a Monday-first locale (most of Europe) needs both the header
+    // labels AND the leading-blank-cell offset below to shift, not just the labels.
+    val locale = LocalLocale.current.platformLocale
+    val weekStart = remember(locale) { WeekFields.of(locale).firstDayOfWeek }
+    val firstDayOfWeek = (currentMonth.dayOfWeek.value - weekStart.value + 7) % 7
 
     Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
         Text(
@@ -337,9 +345,12 @@ fun CalendarGrid(selectedDate: LocalDate, onDateSelected: (LocalDate) -> Unit) {
         )
         
         // Days of week header
+        val weekdayLetters = remember(locale, weekStart) {
+            (0L..6L).map { weekStart.plus(it).getDisplayName(TextStyle.NARROW, locale) }
+        }
         Row(modifier = Modifier.fillMaxWidth()) {
-            listOf("S", "M", "T", "W", "T", "F", "S").forEach { day ->
-                Text(day, 
+            weekdayLetters.forEach { day ->
+                Text(day,
                     modifier = Modifier.weight(1f), 
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center, 
                     style = MaterialTheme.typography.labelSmall,
