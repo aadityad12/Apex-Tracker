@@ -134,6 +134,10 @@ private fun OverallLimitRow(status: OverallLimitStatus) {
         fraction = status.fraction,
         remaining = status.remaining,
         isOver = status.isOver,
-        barColor = if (status.isOver) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+        // `error` and `primary` are both full-strength ink post-monochrome (Issue #257 review) —
+        // a category row falls back to its own hue when under, but the overall total has none to
+        // fall back to, so this mirrors the row's own text treatment two lines below
+        // (error/onSurfaceVariant) instead: full ink when over, dimmed when under.
+        barColor = if (status.isOver) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
     )
 }

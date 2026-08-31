@@ -134,7 +134,11 @@ private fun BudgetWidgetContent(snapshot: BudgetWidgetSnapshot, context: Context
             LinearProgressIndicator(
                 progress = status.fraction,
                 modifier = GlanceModifier.fillMaxWidth().height(5.dp).padding(top = 7.dp),
-                color = ink,
+                // fraction is coerced to [0, 1] (CategoryLimits.kt), so a fully-filled bar alone
+                // can't distinguish "right at the limit" from "way over" — mirror the text row's
+                // own ink/muted treatment below so the bar itself still flags over-limit at a
+                // glance, without reintroducing a hue (Issue #257 review).
+                color = if (status.isOver) ink else muted,
                 backgroundColor = track
             )
             Text(
