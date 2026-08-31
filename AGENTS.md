@@ -1539,11 +1539,19 @@ above. This section is a running log; read `gh issue list` for current backlog s
   resumed, Dashboard rendered, no crash), and logcat confirms `FirebaseApp initialization
   successful` for the app's own PID — meaning `google-services.json` has a matching client for
   the new package and the Google Services Gradle plugin didn't need to fall back to a stub.
-  **Not yet verified**: the actual Google Sign-In flow completing end-to-end under the new
+  **Follow-up completed by the user (2026-08-30)**: the Google Cloud Console API key's
+  Application restrictions list (a separate list from Firebase's own per-app SHA-1 registration)
+  now also has `dev.aadityad.apextracker` + the SHA-1 added. **Naming gotcha hit along the way,
+  worth recording**: the project has *four* API keys in Cloud Console, and the console's own
+  "Android key (auto created by Firebase)" (created 12 Mar 2026) is a stale, unrestricted
+  pre-rotation leftover — it is **not** the key this app uses and must not be touched. The real
+  live key, matching the value in `google-services.json` and the one the Issue #60 rotation
+  actually restricted, is labeled **"New Android key (auto created by Firebase)"**, created
+  3 Aug 2026 (the rotation date). Any future Cloud Console work on this project's API key should
+  go to that one, by creation date, not by the more obvious-looking unqualified name.
+  **Still not verified**: the actual Google Sign-In flow completing end-to-end under the new
   package — same "not automatable, needs real interactive OAuth" limitation this file already
-  notes elsewhere for sync work — and the Google Cloud Console API key's Application restrictions
-  list (a separate list from Firebase's own per-app SHA-1 registration, left over from the Issue
-  #60 lockdown) still needs `dev.aadityad.apextracker` + the SHA-1 added before sign-in will
-  actually succeed on a live device; that's a manual step still owed from the user. Clean
-  `assembleDebug`/`testDebugUnitTest`/`lintDebug`. This closes the entire 27-issue
+  notes elsewhere for sync work — but every piece of infrastructure it depends on (Firebase app
+  registration, `google-services.json` client match, Cloud Console key restriction) is now in
+  place. Clean `assembleDebug`/`testDebugUnitTest`/`lintDebug`. This closes the entire 27-issue
   deployment-readiness audit backlog (#230–#256).
