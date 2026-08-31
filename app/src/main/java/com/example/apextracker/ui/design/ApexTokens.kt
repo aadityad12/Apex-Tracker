@@ -126,17 +126,18 @@ object ApexMotion {
 
 /** Semantic colours Material's ColorScheme has no slot for. */
 data class ApexSemantics(
-    val positive: Color,
     /** Fill for non-current chart marks — see ChartMutedDark/Light on why it is not an alpha. */
     val chartMuted: Color,
-    /** Gray fill-per-bucket ramp: index 0 = untracked, 1..5 = intensityBucket 0..4. Drives the
+    /** The heatmap's brightness ramp, indexed by `intensityBucket(fraction) + 1`. Drives the
      *  heatmap cells, the legend, the Glance widgets, and the style plate's ramp swatch. */
     val heatRamp: List<Color>
 )
+// There is deliberately no `positive` here any more. It was Sage, and it was the app's last
+// state hue; met/running now render in ink like everything else (2026-08-11). Adding a colour
+// back to this type is how the inconsistency returns — see the note atop ApexPalette.kt.
 
 val LocalApexSemantics = staticCompositionLocalOf {
     ApexSemantics(
-        positive = SageDark,
         chartMuted = ChartMutedDark,
         heatRamp = ApexHeatRampDark
     )
@@ -167,7 +168,6 @@ fun ApexTrackerTheme(
     }
     val semantics = when (theme) {
         ApexTheme.GRAPHITE -> ApexSemantics(
-            positive = if (darkTheme) SageDark else SageLight,
             chartMuted = if (darkTheme) ChartMutedDark else ChartMutedLight,
             heatRamp = if (darkTheme) ApexHeatRampDark else ApexHeatRampLight
         )

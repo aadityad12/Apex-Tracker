@@ -44,14 +44,17 @@ Read type from `ApexType`/`MaterialTheme.typography`/`ApexNumerals`. An inline `
 one-off with a comment saying why. Martian is a *wide* mono — display sizes are smaller and
 more tightly tracked than a proportional face would be; do not "fix" that by enlarging them.
 
-**Color.** No accent hue. Emphasis is carried by INK — `primary` is near-white (`Frost
-#E9EBEE`) in dark, near-black (`Char #191C20`) in light — so a filled button is an inverse
-block, not a coloured one. The ONLY hues in the app are the two semantics: `Sage` for
-met/positive, `Crimson` (`error`) for over/failed — and a negative state always also carries
-an icon or a word, never hue alone. Third-party app icons keep their own brand colours (they
-are content, not chrome). Categorical colour exists only in data-vis, governed by the chart
-palette. If a screen's hierarchy only works once you add a colour, the hierarchy is broken —
-fix it with weight/size/position, do not add a hue.
+**Color.** No accent hue, and — as of 2026-08-11 — no semantic hue either. Emphasis is carried
+by INK — `primary` is near-white (`Frost #E9EBEE`) in dark, near-black (`Char #191C20`) in
+light — so a filled button is an inverse block, not a coloured one. `error` (and everything it
+feeds — delete controls, overdue rows, over-limit text) is now that same ink, not a colour, so a
+negative state has to carry an icon or a word to read as negative at all; it never got to lean on
+hue alone even when Sage/Crimson existed, so removing them cost nothing legible. Third-party app
+icons keep their own brand colours (they are content, not chrome). The one other exception is
+**budget-category colour** — `CategoryPalette`'s 8 validated hues — which is data-vis content
+(the only thing separating 8 pie slices), governed by the chart palette and always paired with
+the category name as text, never colour alone. If a screen's hierarchy only works once you add a
+colour, the hierarchy is broken — fix it with weight/size/position, do not add a hue.
 
 Hand-authored cold-graphite dark and light palettes. **No Dynamic Color** - the wallpaper
 does not get to repaint this app. No `Color(0xFF...)` outside `ui/design/`.
@@ -77,7 +80,9 @@ These are not stylistic. A screen that fails any of them is not done.
 - **Edge-to-edge.** Content draws behind system bars; insets consumed deliberately, never
   by accident. Nothing important under a system bar or the gesture handle.
 - **Contrast.** Body text >=4.5:1, large text and non-text indicators >=3:1, against the
-  actual surface it sits on - including accent-on-surface and every heatmap ramp step.
+  actual surface it sits on - including every heatmap ramp step against its neighbours (the
+  bottom two steps are deliberately under 3:1 against the *background*, since they encode
+  absence — see Design.md §0.1 before "fixing" that).
 - **Accessibility.** Every non-decorative element has a `contentDescription` from
   `strings.xml`; decorative ones take `null`. State is exposed via `semantics`
   (`selectable`, `toggleable`), not implied by color alone.
@@ -104,9 +109,12 @@ Refuse these even if asked casually, and say why:
 - Pills and chips as decoration. A chip is a filter or a choice; it is not a label.
 - Emoji in UI chrome.
 - Icon-only controls without a label or a tooltip, outside the top bar.
-- Any hue that isn't a semantic (Sage/Crimson). There is no accent to "add" — introducing
-  a coloured highlight, a tinted card, or a branded button reintroduces the thing this
-  identity removed. Emphasis is ink, size, weight, and position.
+- Any hue at all, anywhere outside budget-category colour and third-party app icons. There
+  is no accent and no semantic to "add" — introducing a coloured highlight, a tinted card, a
+  green checkmark, a red delete button, or a branded button reintroduces the thing this
+  identity removed. Emphasis is ink, size, weight, and position. This includes reintroducing
+  Sage or Crimson by name or by hex — both were deliberately removed on 2026-08-11 and doing
+  so again is not a stylistic choice available to make per-screen.
 
 ## Anti-generic constraint (read this before every screen)
 
@@ -122,12 +130,17 @@ default look does not occupy:
 - **Density.** The default look is airy and editorial. This app is dense and instrumental.
   Resist whitespace as a solution; monochrome makes empty space read as *unfinished*, so
   fill screens with structure (hairlines, eyebrows, rhythm), not padding.
-- **The heatmap is the signature, and it is a full-square gray-ramp grid** — the classic
+- **The heatmap is the signature, and it is a full-square brightness-ramp grid** — the classic
   GitHub contribution-graph read. A short-lived variant tried encoding intensity as bar height
-  instead (each cell a bottom-anchored bar, perfect days snapping to a solid fill); it was
-  reverted 2026-08-24 because it made the grid *harder* to scan at a glance, which defeats the
-  point of a signature surface. Don't reintroduce bar-height geometry here. Everything around
-  the heatmap stays quiet.
+  instead (each cell a bottom-anchored bar, perfect days snapping to a solid fill, specifically
+  to *avoid* the GitHub reading); it was reverted 2026-08-24 because it made the grid *harder*
+  to scan at a glance, which defeats the point of a signature surface. As of the 2026-08-11
+  monochrome pass the ramp is also the app's only remaining source of intensity encoding — six
+  flat-filled steps per `ApexHeatRampDark`/`Light`, brightest = most goals met. Index 0 (no
+  goals active that day) must stay visibly dimmer than index 1 (goals active, none met) — that
+  pair collapsing together erases the one distinction the graph exists to draw. Don't
+  reintroduce bar-height or opacity-modulated fills; the ramp step *is* the encoding, nothing
+  else should be. Everything around the heatmap stays quiet.
 - **Shape language.** `androidx.graphics:graphics-shapes` morphing is available and the
   default look has no shape vocabulary at all. Use it for state transitions.
 

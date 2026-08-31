@@ -47,7 +47,6 @@ import com.example.apextracker.ui.design.ApexSectionHeader
 import com.example.apextracker.ui.design.ApexShapes
 import com.example.apextracker.ui.design.ApexSpacing
 import com.example.apextracker.ui.design.ApexTimePickerDialog
-import com.example.apextracker.ui.design.LocalApexSemantics
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -194,10 +193,10 @@ fun ReminderView(onBackToMenu: () -> Unit, viewModel: ReminderViewModel = viewMo
                 item {
                     Spacer(modifier = Modifier.height(ApexSpacing.s))
                     // A real alert treatment rather than a soft tinted blob (Design.md §10 flagged
-                    // this). The outline plus the Alarm-coloured icon say "something is wrong";
-                    // the action stays Ember because Ember is emphasis — the thing to press — and
-                    // Alarm is the diagnosis. Separating those two roles is the whole point of the
-                    // semantic pair.
+                    // this). The outline plus the icon (in `error`, which is full ink, not a hue —
+                    // 2026-08-11) say "something is wrong"; the action button stays a plain filled
+                    // control, since ink is already spent on the warning and doubling it on the
+                    // action would blur which is which.
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(ApexShapes.container),
@@ -658,9 +657,11 @@ fun ReminderSettingsDialog(
  *
  * The overdue state used to repaint the whole row — errorContainer background, an error border, an
  * error-tinted checkbox *and* an error-coloured name. That is four channels saying one thing. It is
- * now carried by the clock icon and the OVERDUE badge, both in Alarm, with the name left in normal
- * ink; the same split used for Screen Time's over-limit rows. Selection is the one state that still
- * tints the row, because selection is about the row as an object rather than about its content.
+ * now carried by the clock icon and the OVERDUE badge text, which reads the word itself — `error`
+ * is full ink as of 2026-08-11 (there is no separate alert hue), the same as the name's own
+ * `onSurface`, so nothing here is trying to differentiate by colour any more. The badge's word is
+ * the signal; the same pattern Screen Time uses for its over-limit rows. Selection is the one state
+ * that still tints the row, because selection is about the row as an object rather than its content.
  *
  * [today] is passed in rather than read from `LocalDate.now()` here, for the same reason [isOverdue]
  * is: the row renders what the caller says the date is, it does not ask the clock. Reading the clock
@@ -702,7 +703,6 @@ fun ReminderItemModern(
         Checkbox(
             checked = reminder.isCompleted,
             onCheckedChange = { if (!isSelectionMode) onToggle() else onClick() },
-            colors = CheckboxDefaults.colors(checkedColor = LocalApexSemantics.current.positive)
         )
 
         Column(modifier = Modifier.weight(1f).padding(start = ApexSpacing.s)) {

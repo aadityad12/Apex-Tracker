@@ -3,15 +3,19 @@
 The specification for how this app looks and behaves visually: the token values, the
 measurements behind them, and the reasoning that is not recoverable from the code.
 
-> **⚠️ IDENTITY CHANGE — GRAPHITE (2026-07-30).** The Ember identity below (warm near-black +
-> terracotta accent + Instrument Serif) has been **replaced** by GRAPHITE: a cold monochrome
-> with a mono display voice and no accent hue (Plan.md Phase 2, superseding issue #139). The
-> current authoritative values are in **[§0. Graphite](#0-graphite-current-identity)** immediately
-> below. The rest of this document — decision log, type tables, palette tables, chart spec — still
-> describes Ember and is retained for the reasoning and the trail; where §0 and a later section
-> disagree on a value, **§0 wins**. Decisions 1–12 are annotated with what §0 supersedes. A full
-> table-by-table rewrite is deferred (a deliberately un-run task, not an oversight — see the
-> doc-drift warning above; the code in `ui/design/` is the tiebreaker of last resort).
+> **⚠️ IDENTITY CHANGE — GRAPHITE (2026-07-30), then MONOCHROME (2026-08-11).** The Ember identity
+> below (warm near-black + terracotta accent + Instrument Serif) was **replaced** by GRAPHITE: a
+> cold monochrome with a mono display voice and no accent hue (Plan.md Phase 2, superseding issue
+> #139). GRAPHITE still had two semantic hues, Sage and Crimson; the owner's follow-up call removed
+> both, and separately replaced the heatmap's fill-height bars with a GitHub-style brightness ramp.
+> The current authoritative values are in **[§0. Graphite](#0-graphite-current-identity)** and
+> **[§0.1 Monochrome](#01-monochrome-2026-08-11)** immediately below. The rest of this document —
+> decision log, type tables, palette tables, chart spec — still describes Ember (and, in the
+> semantic-colour and heatmap sections, pre-monochrome Graphite) and is retained for the reasoning
+> and the trail; where §0/§0.1 and a later section disagree on a value, **§0.1 wins, then §0**.
+> Decisions 1–12 are annotated with what §0 supersedes. A full table-by-table rewrite is deferred
+> (a deliberately un-run task, not an oversight — see the doc-drift warning above; the code in
+> `ui/design/` is the tiebreaker of last resort).
 
 ## 0. Graphite (current identity)
 
@@ -32,34 +36,97 @@ generic look doesn't occupy — the mono voice, density, and the heatmap.
 - **Geist** (Regular/Medium/SemiBold) — titles, body, labels, all running text.
 
 **Colour — `ui/design/ApexPalette.kt`.** No accent. `primary` is ink (dark `Frost #E9EBEE`,
-light `Char #191C20`) — filled buttons/FAB/nav are inverse blocks. Only hues are the semantics:
+light `Char #191C20`) — filled buttons/FAB/nav are inverse blocks. ~~Only hues are the semantics:
 `Sage` (dark `#6FA88C` / light `#3F7A62`, met/positive) and `Crimson` (`error`; dark `#DC3D57` /
-light `#AE1F38`, over/failed), and a negative state always also carries an icon or word.
+light `#AE1F38`, over/failed), and a negative state always also carries an icon or word.~~
+**Superseded by §0.1 — both semantic hues are gone; `error` is ink.**
 - Dark surfaces: base `#0E0F11`, surface `#16181B`, raised `#1D2024`, elevated `#262A2F`,
   hairline `#5E656E`, faint `#2C3036`, text `#E9EBEE` / dim `#9AA1A9`.
 - Light surfaces: base `#F3F4F6`, surface `#FFFFFF`, raised `#E9EBEE`, elevated `#DFE2E6`,
   hairline `#848B95`, faint `#D9DDE2`, text `#191C20` / dim `#575E66`.
 - Measured on the plate (both bumped to clear the 3:1 floor): body-on-bg 16.1:1 dark, hairline
-  3.2:1 dark / 3.1:1 light; Sage 7.0:1 dark / 4.6:1 light, Crimson 4.4:1 / 6.3:1.
+  3.2:1 dark / 3.1:1 light. ~~Sage 7.0:1 dark / 4.6:1 light, Crimson 4.4:1 / 6.3:1.~~ (Both
+  retired — see §0.1.)
 
 **The heatmap is fully-filled colour squares** (`DashboardView.HeatCell`) — the classic GitHub
-contribution-graph read. Each cell fills entirely with one of six gray `heatRamp` shades, picked
+contribution-graph read. Each cell fills entirely with one of six `heatRamp` shades, picked
 by `intensityBucket(fraction) + 1` (index 0 is the untracked/no-active-goals shade). Graphite
 briefly tried the opposite — bars bottom-anchored in a fixed slot, height = fraction of goals met,
 sold at the time as *the* signature and the thing that would stop the grid reading as GitHub's —
 but that was reverted 2026-08-24: the owner wanted the GitHub read back, not away from it.
 `ApexSemantics.heatInk`/`heatSlot`, added for the bar rendering, are gone again; `heatRamp` is now
-the single colour source shared by the in-app heatmap, its legend, and the Glance widgets.
+the single colour source shared by the in-app heatmap, its legend, and the Glance widgets. §0.1
+(2026-08-11) leaves the squares-vs-bars call untouched and only re-authors the ramp's own values —
+see there for why.
 
 **`ApexTheme` enum entry is now `GRAPHITE`** (was `EMBER`). Legacy persisted names fail `valueOf`
 and fall back to default, which is correct. The Glance widgets (`GoalsWidget`/`StreakWidget`)
-carry a hand-kept mirror of the graphite dark hexes — a met goal keeps Sage, everything else is
-ink on graphite.
+carry a hand-kept mirror of the graphite dark hexes — ~~a met goal keeps Sage,~~ everything is
+ink on graphite (§0.1: there is no Sage left to keep).
 
 **Status.** Foundation (palette/type/tokens/heatmap/widgets) swapped globally and audited
 on-device across all primary screens — no screen's hierarchy collapsed without the accent, so no
 per-screen rescue work was needed (the ink primary + mono headlines carry it). Screenshot
 baselines re-recorded. `Design.md`'s Ember tables (§2 onward) are the deferred rewrite.
+
+## 0.1 Monochrome (2026-08-11)
+
+Two changes, both direct owner calls made after living with GRAPHITE, not a redesign of it — the
+type scale, surfaces, spacing and motion above are untouched.
+
+**No hues at all, except budget-category colour.** Sage (met/positive) and Crimson (the `error`
+role) are removed from `ui/design/ApexPalette.kt`. `error`/`onError`/`errorContainer`/
+`onErrorContainer` now resolve to ink (`Frost`/`GraphiteBase`/`GraphiteElevated`/`Frost` dark,
+`Char`/`PaperSurface`/`PaperElevated`/`Char` light) in both schemes — same values `primary` uses,
+because a destructive control or an error message was already required to carry an icon or a word
+alongside the colour, so the colour itself was never the only channel. Removing it costs nothing
+legible and removes the app's last inconsistency: two hues scattered across checkmarks, delete
+buttons and overdue rows read as noise, not as meaning.
+
+`ApexSemantics.positive` is deleted outright (not deprecated) — every call site now reads
+`MaterialTheme.colorScheme.onSurface` directly, so "met" renders exactly like any other
+emphasised figure. The one exception, kept deliberately: budget-category colour
+(`CategoryPalette`'s 8 validated hues). That palette is content, not chrome — it is the only
+thing separating 8 pie slices at a glance, same reasoning that lets third-party app icons keep
+their brand colours in Screen Time. Every surface that paints a category colour still carries the
+category name as text, so colour is still never the *only* channel there either.
+
+**The heatmap is a brightness ramp again** (`DashboardView.HeatCell`, `ApexPalette.
+ApexHeatRampDark`/`Light`). Six flat-filled steps, brightest = most goals met — the familiar
+GitHub reading, which the owner judged worth having back now that the app has no hue left for a
+bar's geometry to compete with. `ApexSemantics.heatInk`/`heatSlot` are gone; `heatRamp` is the
+only heat token left, and every cell (not just the widgets) reads from it now. Index 0 is
+reserved for **a day with no goals active at all**, kept visibly distinct from index 1 (a tracked
+day where nothing was met) — collapsing that pair back into one "empty" reading would erase the
+one thing this graph exists to show: the difference between *nothing was asked of you* and *you
+were asked and missed it*.
+
+The previous ramp was reused-in-spirit from the old gray fallback ramp and it showed: measured
+in L\*, untracked→none-met was only ΔL\* 6.9 in dark / 4.9 in light — visually almost the same
+step, exactly the collision the six-step index above depends on not happening. The replacement
+ramp is evenly spaced (no gap under ΔL\* 8.9 anywhere) with a constant-offset cold cast (not a
+proportional one, which pushed the bright end visibly blue):
+
+| index | dark | light | meaning |
+|---|---|---|---|
+| 0 | `#171C26` | `#E3E8F2` | untracked — no goals were active |
+| 1 | `#2B303A` | `#CACFD9` | tracked, none met |
+| 2 | `#4B505A` | `#A6ABB5` | partial |
+| 3 | `#6D727C` | `#818690` | partial |
+| 4 | `#9499A3` | `#595E68` | partial |
+| 5 | `#C7CCD6` | `#30353F` | perfect |
+
+Contrast against background is deliberately under 3:1 for steps 0–1 (`#0E0F11`/`#F3F4F6`
+background) — those two encode *absence*, and a grid whose empty cells shout drowns the days that
+aren't empty. What has to separate is each step from its neighbours, which the even L\* spacing
+buys; it is not a body-text contrast requirement.
+
+**Widgets.** `widget/WidgetPalette.kt` — `positive`/`negative` still exist as names (call sites
+weren't worth touching) but both now alias `ink`; nothing in `widget/` renders a hue.
+
+**Status.** `assembleDebug`/`testDebugUnitTest`/`lintDebug` pass. On-device verification (both
+themes, the style plate, 200% font scale, a real AMOLED panel) is owed before calling this closed
+— the same way GRAPHITE's own plate pass caught real problems a simulator build did not.
 
 ### The container ladder — which M3 slot gets which tone
 
@@ -198,7 +265,8 @@ Distinctiveness has to come from the axes that default look does not occupy:
 - **Density.** The default look is airy and editorial. This is dense and instrumental.
 - **The heatmap is the signature** — the one place to spend boldness. *(Graphite briefly avoided
   the GitHub contribution-graph read with fill-height bars; reverted 2026-08-24 back to filled
-  colour squares — see §0.)*
+  colour squares — see §0. The 2026-08-11 monochrome pass, §0.1, leaves that call untouched and
+  only re-authors the ramp's own values.)*
 - **Shape language.** The default look has no shape vocabulary at all.
 
 ---

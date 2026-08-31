@@ -7,9 +7,21 @@ import androidx.compose.ui.graphics.Color
 
 /**
  * The GRAPHITE identity (Plan.md Phase 2, superseding issue #139's warm grayscale): a cold
- * monochrome. Colour appears only where it carries meaning — Sage for met/positive, Crimson for
- * over/error — everything else is a neutral ramp. There is deliberately no accent hue: emphasis
- * is carried by ink (near-white in dark, near-black in light), size, and weight.
+ * monochrome — and as of 2026-08-11, **entirely** monochrome. There is no accent hue and no
+ * semantic hue either: emphasis is carried by ink (near-white in dark, near-black in light),
+ * size, weight and position, and nothing else.
+ *
+ * Sage (met/positive) and Crimson (error) used to be the two exceptions. The owner's call was
+ * that two hues scattered across checkmarks, delete buttons and overdue rows read as
+ * inconsistency rather than as meaning, so both are gone. Nothing is lost by it: the design
+ * already required every negative state to carry an icon or a word, never hue alone, so those
+ * signals were never doing the work on their own. `error` is now simply full-strength ink, which
+ * on a screen whose supporting text is `onSurfaceVariant` still reads as the loud thing.
+ *
+ * The one deliberate exception is **budget category colour**, which is content rather than
+ * chrome — eight hues are the only thing separating eight pie slices, and they are validated for
+ * CVD separation in `CategoryPalette`/`Design.md` §6. Third-party app icons keep their brand
+ * colours for the same reason.
  *
  * The temperature is the point. The previous Ember identity's warm near-blacks + terracotta +
  * serif sat squarely in Claude's visual territory; cool graphite is the single biggest move away
@@ -38,16 +50,8 @@ val PaperLineFaint = Color(0xFFD9DDE2)
 val Char           = Color(0xFF191C20) // primary text AND the light theme's ink/primary
 val CharDim        = Color(0xFF575E66)
 
-/**
- * Semantic pair — the only hues in the app, which is exactly why they survive: on a neutral
- * field they read louder than they did next to Ember (measured on the plate: Sage 7.0:1 dark /
- * 4.6:1 light, Crimson 4.4:1 / 6.3:1). Negative states are additionally always carried by an
- * icon or a word, never by hue alone.
- */
-val SageDark  = Color(0xFF6FA88C)
-val SageLight = Color(0xFF3F7A62)
-val AlarmDark  = Color(0xFFDC3D57)
-val AlarmLight = Color(0xFFAE1F38)
+// The semantic hues (Sage / Crimson) were removed on 2026-08-11 — see the note at the top of
+// this file. `error` resolves to ink in both schemes; do not reintroduce a hue here.
 
 val ApexDarkColors: ColorScheme = darkColorScheme(
     // Monochrome's emphasis is light itself: primary is ink, and a filled button is an
@@ -57,8 +61,11 @@ val ApexDarkColors: ColorScheme = darkColorScheme(
     onPrimary = Color(0xFF111316),
     primaryContainer = Color(0xFF2A2F35),
     onPrimaryContainer = Frost,
-    // Secondary is a dimmer ink, never a second hue. (Sage lives only in ApexSemantics.positive
-    // — see the pre-graphite note about FilterChips rendering "goal met" green.)
+    // Secondary is a dimmer ink, never a second hue — there is no semantic hue left at all as of
+    // 2026-08-11 (see the note atop this file). The pre-graphite version of this app had
+    // FilterChips default to secondaryContainer and render "goal met" green; that failure mode is
+    // exactly why secondaryContainer stays a neutral tone (GraphiteElevated/PaperElevated) rather
+    // than resolving to anything meaningful.
     secondary = Color(0xFFA6ADB6),
     onSecondary = Color(0xFF111316),
     secondaryContainer = GraphiteElevated,
@@ -101,10 +108,12 @@ val ApexDarkColors: ColorScheme = darkColorScheme(
     inversePrimary = Char,
     outline = GraphiteLine,
     outlineVariant = GraphiteLineFaint,
-    error = AlarmDark,
-    onError = Color(0xFF1A0E0D),
-    errorContainer = Color(0xFF3D1F1C),
-    onErrorContainer = Color(0xFFF0A49E),
+    // Ink, not a hue. A destructive control is distinguished by its icon and its word; an error
+    // message by sitting at full ink strength while the copy around it is onSurfaceVariant.
+    error = Frost,
+    onError = GraphiteBase,
+    errorContainer = GraphiteElevated,
+    onErrorContainer = Frost,
     // ── Fixed roles (Issue #245, M3 1.4.0) ─────────────────────────────────────────────
     // M3 defines Fixed colors to stay visually identical whether the active theme is light or
     // dark (e.g. a chip that shouldn't flip tone when the user switches themes) — so unlike
@@ -187,10 +196,10 @@ val ApexLightColors: ColorScheme = lightColorScheme(
     inversePrimary = Frost,
     outline = PaperLine,
     outlineVariant = PaperLineFaint,
-    error = AlarmLight,
-    onError = Color(0xFFFFFFFF),
-    errorContainer = Color(0xFFF7DAD7),
-    onErrorContainer = Color(0xFF5C1913),
+    error = Char,
+    onError = PaperSurface,
+    errorContainer = PaperElevated,
+    onErrorContainer = Char,
     // Fixed roles — identical values to ApexDarkColors' block above; see the comment there.
     primaryFixed = PaperElevated,
     primaryFixedDim = PaperRaised,
@@ -214,27 +223,47 @@ val ChartMutedDark = Color(0xFF33383E)
 val ChartMutedLight = Color(0xFFD3D7DC)
 
 /**
- * The gray intensity ramp behind the Dashboard heatmap's filled-square cells, the legend, and the
- * Glance widgets — index 0 is the untracked shade, 1..5 map to `intensityBucket()` 0..4. This is
- * the GitHub-contribution-graph read: a full square whose *colour* carries the day's fraction of
- * goals met. (An earlier Graphite-era pass tried encoding the fraction as bar height instead —
- * see git history on DashboardView.HeatCell — but that read as a bespoke chart rather than the
- * familiar contribution grid, so it was reverted.)
+ * The heatmap's intensity ramp: **brighter means more of that day's goals met** (2026-08-11).
+ *
+ * This replaces the fill-height bars the Graphite redesign shipped. The bars encoded intensity as
+ * geometry specifically so the grid would not read as GitHub's; the owner's call is that the
+ * GitHub reading is the *familiar* one and worth having, and in a now fully-monochrome app a
+ * brightness ramp is the natural encoding anyway — there is no hue left for it to compete with.
+ *
+ * Six steps, indexed by `intensityBucket(fraction) + 1`, with index 0 reserved for a day that had
+ * no goals at all:
+ *
+ * | index | day |
+ * |---|---|
+ * | 0 | untracked — no goals were active |
+ * | 1 | tracked, none met |
+ * | 2–4 | partial |
+ * | 5 | perfect |
+ *
+ * Re-authored rather than reused. The previous ramp compressed at the bottom — untracked→none-met
+ * was only ΔL* 6.9 in dark and 4.9 in light, so "I had goals and missed them all" looked identical
+ * to "I had no goals", which is the one distinction this graph exists to draw. Steps are now
+ * evenly spaced in L* (no gap below 8.9) and the cold cast is a constant RGB offset, so the tint
+ * stays subtle instead of turning blue at the ends.
+ *
+ * The bottom two steps sit deliberately below 3:1 against the background: they encode *absence*,
+ * and a grid whose empty cells shouted would drown the days that aren't empty. What has to be
+ * legible is each step against its neighbours, which is what the even L* spacing buys.
  */
 val ApexHeatRampDark = listOf(
-    Color(0xFF17191C), // -1 untracked
-    Color(0xFF24272C), // 0 tracked, none met
-    Color(0xFF3A4046), // 1
-    Color(0xFF565E67), // 2
-    Color(0xFF7C8791), // 3
-    Color(0xFFC2CAD3)  // 4 perfect
+    Color(0xFF171C26), // 0 untracked
+    Color(0xFF2B303A), // 1 tracked, none met
+    Color(0xFF4B505A), // 2
+    Color(0xFF6D727C), // 3
+    Color(0xFF9499A3), // 4
+    Color(0xFFC7CCD6)  // 5 perfect
 )
 
 val ApexHeatRampLight = listOf(
-    Color(0xFFECEEF1), // -1 untracked
-    Color(0xFFDDE0E5), // 0
-    Color(0xFFBEC4CC), // 1
-    Color(0xFF99A1AB), // 2
-    Color(0xFF6E7883), // 3
-    Color(0xFF30353C)  // 4 perfect
+    Color(0xFFE3E8F2), // 0 untracked
+    Color(0xFFCACFD9), // 1 tracked, none met
+    Color(0xFFA6ABB5), // 2
+    Color(0xFF818690), // 3
+    Color(0xFF595E68), // 4
+    Color(0xFF30353F)  // 5 perfect
 )

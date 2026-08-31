@@ -35,9 +35,9 @@ import kotlin.math.min
  * Launch with:
  *   adb shell am start -n com.example.apextracker/com.example.apextracker.design.StylePlateActivity
  *
- * Everything here exists to answer a question the spec cannot: how Instrument Serif reads at
- * display size on a real AMOLED panel, whether Ember and Alarm are actually distinguishable,
- * and whether the heat ramp separates at 20dp.
+ * Everything here exists to answer a question the spec cannot: how Martian Mono reads at display
+ * size on a real AMOLED panel, whether state still reads with no hue left to carry it, and
+ * whether the heat ramp separates at 20dp.
  */
 class StylePlateActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -308,25 +308,27 @@ private fun SlotRow(label: String, color: Color, cs: ColorScheme) {
     }
 }
 
-// ── 4. The semantic collision test ─────────────────────────────────────────────────────
+// ── 4. State without colour ────────────────────────────────────────────────────────────
 
 @Composable
-private fun SemanticSection() = PlateSection("Semantics — the collision test") {
+private fun SemanticSection() = PlateSection("State — carried without colour") {
     val cs = MaterialTheme.colorScheme
-    val positive = LocalApexSemantics.current.positive
-    Caption("Ember is an orange-red. If Ember and Alarm are not obviously different here, the semantic set is wrong.")
+    // The old collision test compared Ember/Sage/Alarm. There are no hues left to collide
+    // (2026-08-11): every one of these swatches is ink or a neutral, and the question this
+    // section now answers is whether state still reads once colour is not saying it.
+    Caption("No hue anywhere. If a row's state is unclear here, the word or the glyph is doing too little — do not add a colour.")
     Spacer(Modifier.height(ApexSpacing.s))
     Row(horizontalArrangement = Arrangement.spacedBy(ApexSpacing.s), modifier = Modifier.fillMaxWidth()) {
-        SwatchTile("Ember", "emphasis", cs.primary, Modifier.weight(1f))
-        SwatchTile("Sage", "met / under", positive, Modifier.weight(1f))
-        SwatchTile("Alarm", "over / error", cs.error, Modifier.weight(1f))
+        SwatchTile("Ink", "emphasis", cs.primary, Modifier.weight(1f))
+        SwatchTile("Muted", "supporting", cs.onSurfaceVariant, Modifier.weight(1f))
+        SwatchTile("Error", "over / failed", cs.error, Modifier.weight(1f))
     }
     Spacer(Modifier.height(ApexSpacing.m))
-    // In context, which is the only place it matters.
-    StateRow("Study 2h daily", "Met", positive, cs)
-    StateRow("Screen time under 4h", "Missed", cs.error, cs)
+    // In context, which is the only place it matters: emphasis is ink, everything else recedes.
+    StateRow("Study 2h daily", "Met", cs.onSurface, cs)
+    StateRow("Screen time under 4h", "Missed", cs.onSurfaceVariant, cs)
     StateRow("Groceries budget", "$284 over", cs.error, cs)
-    StateRow("Reading streak", "12 days", cs.primary, cs)
+    StateRow("Reading streak", "12 days", cs.onSurface, cs)
 }
 
 @Composable
@@ -348,7 +350,7 @@ private fun StateRow(label: String, value: String, tint: Color, cs: ColorScheme)
 @Composable
 private fun HeatSection() = PlateSection("Heatmap ramp — the signature") {
     val ramp = LocalApexSemantics.current.heatRamp
-    Caption("Six steps. Index 0 is a neutral: an untracked day must not read as a barely-achieved one.")
+    Caption("Six steps, brightest = most goals met. Index 0 is an untracked day and must not read as a barely-achieved one — that gap is what the ramp was re-authored for.")
     Spacer(Modifier.height(ApexSpacing.s))
     Row(horizontalArrangement = Arrangement.spacedBy(ApexSpacing.xs)) {
         ramp.forEachIndexed { i, c ->
@@ -392,8 +394,9 @@ private fun MiniHeatmap(ramp: List<Color>) {
 @Composable
 private fun ComponentSection() = PlateSection("Components") {
     var selected by remember { mutableIntStateOf(0) }
-    // M3 defaults a selected FilterChip to secondaryContainer — which in this palette is Sage,
-    // i.e. "goal met". Selection is emphasis, not a semantic, so it takes the accent.
+    // M3 defaults a selected FilterChip to secondaryContainer, which is a neutral tone in this
+    // palette (GraphiteElevated/PaperElevated), never a semantic hue — see the pre-graphite note
+    // in ApexPalette.kt about this exact slot once rendering "goal met" green by accident.
     Row(horizontalArrangement = Arrangement.spacedBy(ApexSpacing.s)) {
         listOf("12 months", "2026", "2025").forEachIndexed { i, label ->
             FilterChip(
@@ -421,7 +424,7 @@ private fun ComponentSection() = PlateSection("Components") {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Checkbox(checked = checked, onCheckedChange = { checked = it })
         Text("Read 30 minutes", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-        Text("Met", style = MaterialTheme.typography.labelMedium, color = LocalApexSemantics.current.positive)
+        Text("Met", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
     }
     Spacer(Modifier.height(ApexSpacing.s))
     OutlinedTextField(

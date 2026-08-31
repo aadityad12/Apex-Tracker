@@ -46,9 +46,8 @@ class GoalsWidget : GlanceAppWidget() {
     }
 }
 
-// A met goal takes Sage (the positive semantic), matching the app's "Met" — the one place a hue
-// is allowed here; everything else is ink on graphite. See WidgetPalette.
-private val met = WidgetPalette.positive
+// A met goal is ink, unmet is muted — the tick/○ glyph is what says which. No hue anywhere.
+private val met = WidgetPalette.ink
 private val onBg = WidgetPalette.ink
 private val muted = WidgetPalette.muted
 private val bg = WidgetPalette.background

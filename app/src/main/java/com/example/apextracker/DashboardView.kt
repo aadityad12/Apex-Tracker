@@ -370,15 +370,16 @@ private fun TodaySection(
 /**
  * One goal's row: an interactive checkbox (MANUAL) or a read-only computed status (AUTO).
  *
- * A satisfied goal reads Sage, not Ember. Ember is emphasis — the streak, selection, the FAB —
- * and using it for "met" as well would leave the screen unable to distinguish "notable" from
- * "good" (Design.md §3).
+ * A satisfied goal reads full ink, same as the streak and every other emphasised figure
+ * (2026-08-11 — there is no separate "met" hue any more). The checkbox/circle shape plus the
+ * label text ("Met") are what carry the distinction, not colour.
  */
 @Composable
 private fun GoalStatusRow(status: GoalStatus, onToggle: (Goal) -> Unit) {
     val goal = status.goal
     val isManual = goal.type == GoalType.MANUAL
-    val met = LocalApexSemantics.current.positive
+    // Met is ink, not a hue (2026-08-11). The checkbox/filled-circle shape is the signal.
+    val met = MaterialTheme.colorScheme.onSurface
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -392,8 +393,7 @@ private fun GoalStatusRow(status: GoalStatus, onToggle: (Goal) -> Unit) {
         if (isManual) {
             Checkbox(
                 checked = status.satisfied,
-                onCheckedChange = { onToggle(goal) },
-                colors = CheckboxDefaults.colors(checkedColor = met)
+                onCheckedChange = { onToggle(goal) }
             )
         } else {
             Icon(
@@ -588,16 +588,20 @@ private data class HeatCellLabels(
 
 /** Pre-resolved cell colours, so ~371 cells don't each read MaterialTheme (part of the ANR). */
 private data class HeatCellColors(
-    val ramp: List<Color>, // 6-step gray ramp: index 0 = untracked, 1..5 = intensityBucket 0..4
-    val today: Color       // the outline marking today
+    /** Six steps, brightest = most goals met. Index 0 is a day with no goals at all. */
+    val ramp: List<Color>,
+    val today: Color // the outline marking today
 )
 
 /**
- * One heatmap cell, drawn as a **fully-filled square** whose colour intensity carries the day's
- * fraction of goals met — the classic GitHub contribution-graph read, restored after the Graphite
- * pass's bar-height experiment (Plan.md Phase 2) traded it for geometry. `intensityBucket()` maps
- * the fraction to a 0..4 step, offset by one into [colors.ramp] to make room for the untracked
- * shade at index 0.
+ * One heatmap cell: a filled square whose **brightness is the share of that day's goals met**
+ * (2026-08-11), replacing the fill-height bar the Graphite redesign shipped.
+ *
+ * The bar encoded intensity as geometry to avoid the GitHub reading; the owner's call is that the
+ * familiar reading is worth having, and with the app now fully monochrome a brightness ramp has
+ * no hue to compete with. A day with no goals at all takes ramp[0] and stays visibly dimmer than
+ * a day that had goals and met none of them — that distinction is the point of the graph, and it
+ * is why the ramp was re-authored rather than reused (see ApexHeatRampDark).
  */
 @Composable
 private fun HeatCell(
@@ -650,6 +654,8 @@ private fun HeatCell(
 
 @Composable
 private fun HeatmapLegend() {
+    // Less → more, as the ramp's own steps. Index 0 (untracked) is deliberately absent: the
+    // legend explains the *scale*, and "no goals that day" is not a point on it.
     val ramp = LocalApexSemantics.current.heatRamp
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
         Text(stringResource(R.string.dashboard_legend_less), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

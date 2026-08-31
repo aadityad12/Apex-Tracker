@@ -55,7 +55,6 @@ class BudgetWidget : GlanceAppWidget() {
 private val ink = WidgetPalette.ink
 private val muted = WidgetPalette.muted
 private val track = WidgetPalette.track
-private val error = WidgetPalette.negative
 private val background = WidgetPalette.background
 
 @Composable
@@ -135,7 +134,11 @@ private fun BudgetWidgetContent(snapshot: BudgetWidgetSnapshot, context: Context
             LinearProgressIndicator(
                 progress = status.fraction,
                 modifier = GlanceModifier.fillMaxWidth().height(5.dp).padding(top = 7.dp),
-                color = if (status.isOver) error else ink,
+                // fraction is coerced to [0, 1] (CategoryLimits.kt), so a fully-filled bar alone
+                // can't distinguish "right at the limit" from "way over" — mirror the text row's
+                // own ink/muted treatment below so the bar itself still flags over-limit at a
+                // glance, without reintroducing a hue (Issue #257 review).
+                color = if (status.isOver) ink else muted,
                 backgroundColor = track
             )
             Text(
@@ -152,7 +155,8 @@ private fun BudgetWidgetContent(snapshot: BudgetWidgetSnapshot, context: Context
                 },
                 modifier = GlanceModifier.padding(top = 7.dp),
                 style = TextStyle(
-                    color = if (status.isOver) error else muted,
+                    // Over-limit rises to full ink; the label itself says "over" vs "left".
+                    color = if (status.isOver) ink else muted,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium
                 )

@@ -244,10 +244,7 @@ private fun ComponentGallery() {
                 ApexDivider()
                 ApexStatRow("Rent", "$2,100.00", onClick = {})
                 ApexDivider()
-                ApexStatRow(
-                    "Coffee", "$8.75",
-                    valueColor = LocalApexSemantics.current.positive
-                )
+                ApexStatRow("Coffee", "$8.75")
             }
             ApexGroup {
                 ApexSectionHeader("Today")

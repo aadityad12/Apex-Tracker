@@ -31,7 +31,6 @@ import com.example.apextracker.ui.design.ApexDivider
 import com.example.apextracker.ui.design.ApexMotion
 import com.example.apextracker.ui.design.ApexNumerals
 import com.example.apextracker.ui.design.ApexSpacing
-import com.example.apextracker.ui.design.LocalApexSemantics
 import com.example.apextracker.ui.design.apexMenuBorder
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -90,12 +89,13 @@ fun BudgetListItem(
     val catColor = category?.let { categoryColorOf(it.colorHex) } ?: MaterialTheme.colorScheme.outline
     // Pending renewals haven't happened yet, so they read as provisional rather than as spend.
     val dotColor = if (isPending) catColor.copy(alpha = 0.4f) else catColor
-    // Income reads in the same Sage used for "goal met" elsewhere (Issue #218) — money in, not
-    // money out — with a leading "+" since the stored amount is always a positive magnitude.
-    val amountColor = when {
-        !item.isExpense -> LocalApexSemantics.current.positive
-        isPending -> MaterialTheme.colorScheme.onSurfaceVariant
-        else -> MaterialTheme.colorScheme.onSurface
+    // Income used to read in Sage (Issue #218); with all semantic hue removed (2026-08-11) it's
+    // plain ink like any other emphasised figure — the leading "+" is what carries "money in,
+    // not money out" now, since the stored amount is always a positive magnitude.
+    val amountColor = if (isPending && item.isExpense) {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    } else {
+        MaterialTheme.colorScheme.onSurface
     }
     val amountPrefix = if (!item.isExpense) "+" else ""
 

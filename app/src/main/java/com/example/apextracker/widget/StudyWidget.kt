@@ -105,7 +105,7 @@ private fun StudyWidgetContent(state: StudyWidgetState, context: Context) {
                 text = formatDurationCompact(state.todaySeconds * 1000),
                 modifier = GlanceModifier.padding(top = 4.dp),
                 style = TextStyle(
-                    color = if (state.running) WidgetPalette.positive else WidgetPalette.ink,
+                    color = WidgetPalette.ink,
                     fontSize = 30.sp,
                     fontWeight = FontWeight.Bold
                 )

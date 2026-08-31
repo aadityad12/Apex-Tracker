@@ -286,9 +286,8 @@ fun AppUsageItem(app: AppUsageInfo, onClick: () -> Unit = {}) {
                 color = MaterialTheme.colorScheme.onSurface
             )
             app.limitMinutes?.let { minutes ->
-                // The over-limit state is carried by the *word*, in Alarm. The duration itself stays
-                // in the normal ink: colouring both made the row shout twice, and a state that is
-                // spelled out does not also need the number recoloured.
+                // The over-limit state is carried by the *word* alone — `error` and `onSurface` are
+                // the same full ink as of 2026-08-11, so there is no colour left to double up on.
                 Text(
                     text = if (app.isOverLimit) stringResource(R.string.screen_limit_over, minutes)
                     else stringResource(R.string.screen_limit_set, minutes),
