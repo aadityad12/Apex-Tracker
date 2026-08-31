@@ -1549,9 +1549,17 @@ above. This section is a running log; read `gh issue list` for current backlog s
   actually restricted, is labeled **"New Android key (auto created by Firebase)"**, created
   3 Aug 2026 (the rotation date). Any future Cloud Console work on this project's API key should
   go to that one, by creation date, not by the more obvious-looking unqualified name.
-  **Still not verified**: the actual Google Sign-In flow completing end-to-end under the new
-  package — same "not automatable, needs real interactive OAuth" limitation this file already
-  notes elsewhere for sync work — but every piece of infrastructure it depends on (Firebase app
-  registration, `google-services.json` client match, Cloud Console key restriction) is now in
-  place. Clean `assembleDebug`/`testDebugUnitTest`/`lintDebug`. This closes the entire 27-issue
-  deployment-readiness audit backlog (#230–#256).
+  **Google Sign-In verified end-to-end (2026-08-31, real Samsung SM-S931U1 device, not the
+  emulator)**: with the user physically present to pick a real account, the app was installed
+  fresh under `dev.aadityad.apextracker` and Sign in with Google was driven all the way through —
+  the Credential Manager picker resolved real saved accounts (proving the Cloud Console key
+  restriction and Firebase app registration are both correct for the new package), account
+  selection completed, `FirebaseAuth` issued a token, and the Dashboard's sync icon lit up with no
+  `PERMISSION_DENIED` in logcat. One hiccup along the way, corrected before it mattered: a
+  screenshot-coordinate mis-tap briefly signed in as the wrong saved account on the device
+  (`aaddmd.12@gmail.com`) before being caught and signed back out — harmless, since a fresh
+  install has nothing local to push, but worth knowing a stray auth event exists under that
+  account in the Firebase console if anyone goes looking. Clean
+  `assembleDebug`/`testDebugUnitTest`/`lintDebug`. This closes the entire 27-issue
+  deployment-readiness audit backlog (#230–#256), with every piece — including this last
+  interactive check — now confirmed rather than just wired up.
