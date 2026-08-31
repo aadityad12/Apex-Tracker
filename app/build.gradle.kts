@@ -24,7 +24,13 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.example.apextracker"
+        // Issue #254: com.example.apextracker was the unmodified Android Studio template
+        // default. applicationId is permanent once published to Play Store, so this was changed
+        // deliberately before first submission while it still cost nothing. `namespace` above is
+        // left untouched on purpose — it's the R/BuildConfig package, which AGP allows to differ
+        // from applicationId, and every source file's own `package com.example.apextracker`
+        // declaration still matches it. Changing applicationId alone needed no source file moves.
+        applicationId = "dev.aadityad.apextracker"
         minSdk = 26
 
         // Was 35, two levels behind compileSdk (37) -- a real risk of failing Play Console's

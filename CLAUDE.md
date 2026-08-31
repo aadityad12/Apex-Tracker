@@ -1515,3 +1515,33 @@ above. This section is a running log; read `gh issue list` for current backlog s
   step (filling in Play Console's own form fields, which only exists once an app listing is
   created there) — it prepares the text so that step is copy-paste rather than a cold draft
   under review-deadline pressure. No code changed; no build/test/lint to run.
+- **[Issue #254] `applicationId` changed from the unmodified template default
+  `com.example.apextracker` to `dev.aadityad.apextracker`**, decided with the user (a domain they
+  don't own wasn't an option; "dev." reverse-domain is the convention for a solo developer without
+  one) since this becomes permanent the moment the app is first published and there's no cost to
+  deciding it now instead of discovering it post-launch. **`namespace` in `app/build.gradle.kts`
+  was deliberately left as `com.example.apextracker`** — AGP allows `namespace` (the generated
+  R/BuildConfig package) and `applicationId` (the installed-app identity) to differ, and every
+  source file's own `package com.example.apextracker` declaration already matches the namespace,
+  so this needed zero file moves or import changes across the whole codebase. This is a case where
+  code alone couldn't finish the job: Firebase's `google-services.json` is matched by
+  `applicationId`, and the Issue #60 API-key rotation restricted the project's Android key to the
+  old package + this machine's debug SHA-1 — changing the Gradle value alone would have broken the
+  Google Services build check ("no matching client") or silently broken Google Sign-In. The user
+  registered a second Android app under `dev.aadityad.apextracker` in Firebase Console (same
+  project, `apex-tracker-3ed29`), added this machine's debug SHA-1
+  (`03:13:DC:3F:C0:44:38:BD:B3:A9:1A:5A:81:89:FF:5C:47:55:88:88`) to it, and supplied the
+  redownloaded `google-services.json` — now containing **both** package entries, the old one
+  untouched. Verified on-device: fresh install under the new `applicationId` on the
+  `Medium_Phone` emulator launched cleanly (`dev.aadityad.apextracker/com.example.apextracker.MainActivity`
+  resumed, Dashboard rendered, no crash), and logcat confirms `FirebaseApp initialization
+  successful` for the app's own PID — meaning `google-services.json` has a matching client for
+  the new package and the Google Services Gradle plugin didn't need to fall back to a stub.
+  **Not yet verified**: the actual Google Sign-In flow completing end-to-end under the new
+  package — same "not automatable, needs real interactive OAuth" limitation this file already
+  notes elsewhere for sync work — and the Google Cloud Console API key's Application restrictions
+  list (a separate list from Firebase's own per-app SHA-1 registration, left over from the Issue
+  #60 lockdown) still needs `dev.aadityad.apextracker` + the SHA-1 added before sign-in will
+  actually succeed on a live device; that's a manual step still owed from the user. Clean
+  `assembleDebug`/`testDebugUnitTest`/`lintDebug`. This closes the entire 27-issue
+  deployment-readiness audit backlog (#230–#256).
