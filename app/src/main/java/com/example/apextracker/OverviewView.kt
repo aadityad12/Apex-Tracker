@@ -35,7 +35,6 @@ import com.example.apextracker.ui.design.ApexNumerals
 import com.example.apextracker.ui.design.ApexSectionHeader
 import com.example.apextracker.ui.design.ApexShapes
 import com.example.apextracker.ui.design.ApexSpacing
-import com.example.apextracker.ui.design.LocalApexSemantics
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -289,7 +288,6 @@ fun ReminderSummaryCard(
         Checkbox(
             checked = reminder.isCompleted,
             onCheckedChange = { onToggle(reminder) },
-            colors = CheckboxDefaults.colors(checkedColor = LocalApexSemantics.current.positive)
         )
         Spacer(modifier = Modifier.width(ApexSpacing.s))
         Column(modifier = Modifier.weight(1f)) {

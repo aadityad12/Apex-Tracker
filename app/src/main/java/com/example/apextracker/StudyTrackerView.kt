@@ -671,7 +671,8 @@ fun StudyTimerDisplay(
 @Composable
 private fun StudyGoalMeter(fraction: Float, label: String, modifier: Modifier = Modifier) {
     val track = MaterialTheme.colorScheme.outlineVariant
-    val met = LocalApexSemantics.current.positive
+    // Reaching the daily goal reads as full ink, not a hue (2026-08-11).
+    val met = MaterialTheme.colorScheme.onSurface
     val ink = MaterialTheme.colorScheme.onSurface
     val filled = fraction.coerceIn(0f, 1f)
     Column(

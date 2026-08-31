@@ -79,8 +79,7 @@ private fun TodayWidgetContent(snapshot: TodaySnapshot, context: Context) {
                 if (snapshot.studyRunning) R.string.widget_today_study_running else R.string.widget_today_study
             ),
             value = formatDurationCompact(snapshot.studySeconds * 1000),
-            // A running total is the one live figure on the tile; Sage marks it as still moving.
-            valueColor = if (snapshot.studyRunning) WidgetPalette.positive else WidgetPalette.ink,
+            valueColor = WidgetPalette.ink,
             route = "study_tracker",
             context = context
         )
@@ -136,7 +135,8 @@ private fun NextReminderRow(next: NextReminder?, context: Context) {
                 if (next?.isOverdue == true) R.string.widget_today_overdue else R.string.widget_today_next
             ),
             style = TextStyle(
-                color = if (next?.isOverdue == true) WidgetPalette.negative else WidgetPalette.muted,
+                // Monochrome emphasis: overdue rises to full ink, everything else stays muted.
+                color = if (next?.isOverdue == true) WidgetPalette.ink else WidgetPalette.muted,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold
             )

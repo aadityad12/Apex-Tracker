@@ -190,8 +190,8 @@ fun NoteView(onBackToMenu: () -> Unit, viewModel: NoteViewModel = viewModel()) {
  * One note row. Was a tinted card per note, which stacked into a card run.
  *
  * The delete icon used to be `error` tinted, which read as irreversible — it is not: notes go to the
- * recycle bin and can be restored. It is now a normal secondary control, so Alarm keeps meaning
- * "something is wrong" rather than "this button is red".
+ * recycle bin and can be restored. It is now a normal secondary control, so `error` keeps meaning
+ * "something is wrong" rather than "this button gets emphasis it hasn't earned".
  */
 @Composable
 fun NoteRow(note: Note, onClick: () -> Unit, onDelete: () -> Unit, onTogglePin: () -> Unit) {

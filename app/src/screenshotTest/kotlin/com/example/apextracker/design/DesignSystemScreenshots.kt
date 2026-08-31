@@ -74,7 +74,6 @@ private fun TypeSpecimen() {
 @Composable
 private fun PaletteSpecimen() {
     val cs = MaterialTheme.colorScheme
-    val positive = LocalApexSemantics.current.positive
     val ramp = LocalApexSemantics.current.heatRamp
     Column(Modifier.padding(ApexSpacing.l), verticalArrangement = Arrangement.spacedBy(ApexSpacing.s)) {
         ApexSectionHeader("Surfaces")
@@ -83,9 +82,11 @@ private fun PaletteSpecimen() {
                 Box(Modifier.size(40.dp).clip(RoundedCornerShape(ApexShapes.cell)).background(it))
             }
         }
-        ApexSectionHeader("Semantics — Ink / Sage / Crimson must be mutually distinct")
+        // No Sage/Crimson swatches any more (2026-08-11) — error/primary/onSurface are all ink.
+        // What's left to check is that ink still separates from a dimmed surface.
+        ApexSectionHeader("Ink — primary must separate from a dimmed surface")
         Row(horizontalArrangement = Arrangement.spacedBy(ApexSpacing.s)) {
-            listOf(cs.primary, positive, cs.error).forEach {
+            listOf(cs.primary, cs.onSurfaceVariant).forEach {
                 Box(Modifier.size(40.dp).clip(RoundedCornerShape(ApexShapes.cell)).background(it))
             }
         }
@@ -111,7 +112,7 @@ private fun ComponentSpecimen() {
             ApexDivider()
             ApexStatRow("Rent", "$2,100.00")
             ApexDivider()
-            ApexStatRow("Coffee", "$8.75", valueColor = LocalApexSemantics.current.positive)
+            ApexStatRow("Coffee", "$8.75")
         }
         ApexGroup {
             ApexSectionHeader("Today")
@@ -119,7 +120,7 @@ private fun ComponentSpecimen() {
             Text("02:14:37", style = ApexNumerals.hero)
         }
         // Controls whose M3 defaults this design overrides — a pill-shaped Button or a
-        // Sage-green selected chip regressing would show up as a diff here.
+        // coloured selected chip regressing would show up as a diff here.
         Row(horizontalArrangement = Arrangement.spacedBy(ApexSpacing.s)) {
             Button(onClick = {}, shape = RoundedCornerShape(ApexShapes.control)) { Text("Save") }
             OutlinedButton(onClick = {}, shape = RoundedCornerShape(ApexShapes.control)) { Text("Cancel") }

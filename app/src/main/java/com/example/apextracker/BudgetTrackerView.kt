@@ -412,15 +412,20 @@ private fun MonthTotal(total: Double, income: Double, net: Double, itemCount: In
         )
         if (income > 0.0) {
             Spacer(Modifier.height(ApexSpacing.s))
+            // Income/net used to read in Sage (Issue #218); with all semantic hue removed
+            // (2026-08-11) a positive figure is plain ink like any other emphasised value. The
+            // negative-net case still routes through the `error` role rather than a raw color,
+            // even though it resolves to the same ink here, so it tracks correctly if a hue is
+            // ever reintroduced to that role.
             ApexStatRow(
                 label = stringResource(R.string.budget_total_income),
                 value = formatCurrency(income, LocalCurrencyCode.current),
-                valueColor = LocalApexSemantics.current.positive
+                valueColor = MaterialTheme.colorScheme.onSurface
             )
             ApexStatRow(
                 label = stringResource(R.string.budget_net_balance),
                 value = formatCurrency(net, LocalCurrencyCode.current),
-                valueColor = if (net >= 0.0) LocalApexSemantics.current.positive else MaterialTheme.colorScheme.error
+                valueColor = if (net >= 0.0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error
             )
         }
     }

@@ -48,7 +48,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.apextracker.ui.design.ApexNumerals
 import com.example.apextracker.ui.design.ApexSpacing
-import com.example.apextracker.ui.design.LocalApexSemantics
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
@@ -221,8 +220,9 @@ fun DayBreakdownItem(item: BudgetItem, category: Category?) {
             if (!item.description.isNullOrBlank()) Text(text = item.description, style = MaterialTheme.typography.bodySmall)
         }
         val amountText = if (!item.isExpense) "+" + formatCurrency(item.amount, LocalCurrencyCode.current) else formatCurrency(item.amount, LocalCurrencyCode.current)
-        val amountColor = if (!item.isExpense) LocalApexSemantics.current.positive else MaterialTheme.colorScheme.onSurface
-        Text(text = amountText, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = amountColor)
+        // Income used to read in Sage (Issue #218); with all semantic hue removed (2026-08-11)
+        // it's plain ink — the leading "+" above is what carries "money in" now.
+        Text(text = amountText, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
     }
 }
 

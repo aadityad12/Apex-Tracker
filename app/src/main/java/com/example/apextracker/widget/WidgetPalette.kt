@@ -11,8 +11,10 @@ import androidx.glance.unit.ColorProvider
  * per-widget so that "if ApexPalette changes, change these too" is a single edit; nothing enforces
  * the correspondence.
  *
- * The scheme is monochrome by design: [ink] is both the app's `primary` and its `onSurface`, and
- * the only hues are [positive] (Sage, the "met/on track" semantic) and [negative] (Crimson).
+ * The scheme is **fully** monochrome as of 2026-08-11: [ink] is both the app's `primary` and its
+ * `onSurface`, and there are no hues at all. The "met/on track" green and the over-limit red were
+ * removed from the app; a widget that reintroduced either would be the one surface still showing
+ * them. State is carried by the word next to the figure, not by colour.
  */
 internal object WidgetPalette {
     /** Frost — headline text and the monochrome "accent". */
@@ -23,8 +25,8 @@ internal object WidgetPalette {
     val background = ColorProvider(Color(0xFF0E0F11))
     /** Raised graphite — progress tracks and control chips. */
     val track = ColorProvider(Color(0xFF292D33))
-    /** Sage — a met goal, an on-track figure. */
-    val positive = ColorProvider(Color(0xFF6FA88C))
-    /** Crimson — over a limit, overdue. */
-    val negative = ColorProvider(Color(0xFFFFB4AB))
+    /** A met goal, a running timer — ink, same as any other emphasised figure. */
+    val positive = ink
+    /** Over a limit, overdue — also ink; the accompanying label is what says which. */
+    val negative = ink
 }
