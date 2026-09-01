@@ -59,6 +59,12 @@
         <receiver
             android:name=".ReminderAlarmReceiver"
             android:exported="false" />
+        <!-- One beat of the study timer's away check. Manifest-registered because an alarm has to
+             reach this app even when its process was frozen or killed — which is the whole reason
+             StudyAwayGuard exists rather than a runtime receiver for ACTION_USER_PRESENT. -->
+        <receiver
+            android:name=".StudyAwayCheckReceiver"
+            android:exported="false" />
         <receiver
             android:name=".ReminderActionReceiver"
             android:exported="false" />
