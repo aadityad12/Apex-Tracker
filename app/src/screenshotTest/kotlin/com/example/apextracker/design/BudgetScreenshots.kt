@@ -44,8 +44,13 @@ private val MONTH: YearMonth = YearMonth.of(2026, 7)
  * the only way this baseline covers `ApexSemantics.chartMuted`. Pinning it to [MONTH] would draw
  * that bar in `primary` and leave the muted token exercised only by zero-height bars, i.e. not at
  * all. The selected-month label highlight still lands on [MONTH].
+ *
+ * A full date rather than a [YearMonth] because [BudgetOverview] now takes one "now" for
+ * everything it reads, the pending-subscriptions filter included. The day is arbitrary here — the
+ * trend chart only sees the month, and this fixture renders no subscriptions — so mid-month, which
+ * is what a fixture rendering some would want anyway.
  */
-private val TODAY: YearMonth = YearMonth.of(2026, 8)
+private val TODAY: LocalDate = LocalDate.of(2026, 8, 15)
 
 private val categories = listOf(
     // Palette hexes, straight through.

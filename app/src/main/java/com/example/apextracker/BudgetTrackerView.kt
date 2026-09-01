@@ -267,10 +267,18 @@ fun BudgetOverview(
     onEdit: (BudgetItem) -> Unit,
     searchQuery: String = "",
     overallLimit: Double? = null,
-    // The trend chart's window and its current-month bar both key off this. Injectable so a
-    // screenshot fixture can pin it — see BudgetTrendsCard.
-    today: YearMonth = YearMonth.now()
+    // The one "now" this whole composable reads. Injectable so a screenshot fixture can pin it —
+    // a baseline recorded against the wall clock re-renders the moment the month rolls over, which
+    // is exactly how the three Budget baselines broke. It feeds the trend chart's six-month window
+    // and current-month bar (see BudgetTrendsCard) and the pending-subscriptions filter below.
+    //
+    // A LocalDate rather than a YearMonth because the pending-subs filter needs the day, and taking
+    // both would let the two disagree: a month read and a date read taken either side of midnight
+    // on the last of the month would have the filter looking for renewals in a month it had just
+    // decided was not the current one.
+    today: LocalDate = LocalDate.now()
 ) {
+    val currentMonth = YearMonth.from(today)
     val availableMonths = items.map { YearMonth.from(it.date) }.distinct().sortedDescending()
     val monthToDisplay = if (availableMonths.contains(selectedMonth)) selectedMonth 
                          else availableMonths.firstOrNull() ?: selectedMonth
@@ -281,10 +289,10 @@ fun BudgetOverview(
     val categoryNames = categories.associate { it.id to it.name }
     val visibleItems = filterBudgetItems(monthItems, categoryNames, searchQuery)
 
-    val pendingSubs = if (monthToDisplay == YearMonth.now()) {
+    val pendingSubs = if (monthToDisplay == currentMonth) {
         subscriptions.filter { sub ->
             !sub.isPaused &&
-                YearMonth.from(sub.renewalDate) == monthToDisplay && sub.renewalDate.isAfter(LocalDate.now()) &&
+                YearMonth.from(sub.renewalDate) == monthToDisplay && sub.renewalDate.isAfter(today) &&
                 matchesQuery(searchQuery, sub.name, sub.notes)
         }
     } else emptyList()
@@ -346,7 +354,7 @@ fun BudgetOverview(
                     items = expenseItems,
                     selectedMonth = monthToDisplay,
                     onMonthSelected = onMonthChange,
-                    today = today
+                    today = currentMonth
                 )
             }
 
