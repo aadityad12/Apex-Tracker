@@ -53,11 +53,21 @@ fun monthlyTotals(items: List<BudgetItem>, monthsBack: Int, today: YearMonth): L
  * - **Non-current bars use `ApexSemantics.chartMuted`,** not `primary.copy(alpha = 0.3f)`. A single
  *   alpha that reads on the near-black substrate is nearly invisible on paper, which is why the
  *   token is authored per theme.
+ *
+ * [today] is a parameter rather than a `YearMonth.now()` read inside the body so a screenshot
+ * fixture can pin it. It sets both the six-month window and which bar is the current month, so a
+ * baseline recorded against the wall clock re-renders with different labels and a different
+ * highlighted bar the moment the month rolls over — which is exactly how the three Budget baselines
+ * broke.
  */
 @Composable
-fun BudgetTrendsCard(items: List<BudgetItem>, selectedMonth: YearMonth, onMonthSelected: (YearMonth) -> Unit) {
-    val today = remember { YearMonth.now() }
-    val totals = remember(items) { monthlyTotals(items, MONTHS_BACK, today) }
+fun BudgetTrendsCard(
+    items: List<BudgetItem>,
+    selectedMonth: YearMonth,
+    onMonthSelected: (YearMonth) -> Unit,
+    today: YearMonth = YearMonth.now()
+) {
+    val totals = remember(items, today) { monthlyTotals(items, MONTHS_BACK, today) }
     val maxTotal = totals.maxOf { it.second }
 
     ApexChartFrame(stringResource(R.string.budget_trends_title)) {

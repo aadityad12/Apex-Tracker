@@ -266,7 +266,10 @@ fun BudgetOverview(
     onMonthChange: (YearMonth) -> Unit,
     onEdit: (BudgetItem) -> Unit,
     searchQuery: String = "",
-    overallLimit: Double? = null
+    overallLimit: Double? = null,
+    // The trend chart's window and its current-month bar both key off this. Injectable so a
+    // screenshot fixture can pin it — see BudgetTrendsCard.
+    today: YearMonth = YearMonth.now()
 ) {
     val availableMonths = items.map { YearMonth.from(it.date) }.distinct().sortedDescending()
     val monthToDisplay = if (availableMonths.contains(selectedMonth)) selectedMonth 
@@ -339,7 +342,12 @@ fun BudgetOverview(
             }
 
             item {
-                BudgetTrendsCard(items = expenseItems, selectedMonth = monthToDisplay, onMonthSelected = onMonthChange)
+                BudgetTrendsCard(
+                    items = expenseItems,
+                    selectedMonth = monthToDisplay,
+                    onMonthSelected = onMonthChange,
+                    today = today
+                )
             }
 
             if (visibleItems.isNotEmpty() || pendingSubs.isNotEmpty()) {

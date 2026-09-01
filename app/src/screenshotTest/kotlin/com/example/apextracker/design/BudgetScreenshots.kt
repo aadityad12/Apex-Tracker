@@ -34,6 +34,19 @@ import java.time.YearMonth
 
 private val MONTH: YearMonth = YearMonth.of(2026, 7)
 
+/**
+ * The "now" the trend chart is rendered against. Pinned, not `YearMonth.now()`: it sets both the
+ * six-month window the chart labels and which bar is drawn as the current month, so a baseline
+ * recorded against the wall clock re-renders with shifted labels every time the calendar month
+ * rolls over — which is exactly how these three baselines broke, monthly.
+ *
+ * One month after [MONTH] deliberately: the fixture's spend lands on a *non*-current bar, which is
+ * the only way this baseline covers `ApexSemantics.chartMuted`. Pinning it to [MONTH] would draw
+ * that bar in `primary` and leave the muted token exercised only by zero-height bars, i.e. not at
+ * all. The selected-month label highlight still lands on [MONTH].
+ */
+private val TODAY: YearMonth = YearMonth.of(2026, 8)
+
 private val categories = listOf(
     // Palette hexes, straight through.
     Category(id = 1, name = "Groceries", colorHex = PALETTE[5], monthlyLimit = 400.0),
@@ -77,7 +90,8 @@ private fun Budget(searchQuery: String = "", overallLimit: Double? = 2200.0) {
         onMonthChange = {},
         onEdit = {},
         searchQuery = searchQuery,
-        overallLimit = overallLimit
+        overallLimit = overallLimit,
+        today = TODAY
     )
 }
 
@@ -117,7 +131,8 @@ private fun Framed(dark: Boolean, content: @Composable () -> Unit) {
         selectedMonth = MONTH,
         onMonthChange = {},
         onEdit = {},
-        overallLimit = null
+        overallLimit = null,
+        today = TODAY
     )
 }
 
