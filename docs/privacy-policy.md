@@ -1,6 +1,6 @@
 # ApexTracker Privacy Policy
 
-**Last updated: August 28, 2026**
+**Last updated: September 1, 2026**
 
 ApexTracker is a personal productivity app for tracking budgets, study time, screen time,
 reminders, notes, and reading — built for one person to use daily, not to build a user base or
@@ -56,6 +56,15 @@ offline without it. If you do sign in:
   apps. Granted manually in system settings, never used for anything besides showing you that
   number.
 - **Notifications** — for reminder alerts.
+- **Notification access** (`BIND_NOTIFICATION_LISTENER_SERVICE`) — **off unless you turn it on**,
+  in system settings, and used for exactly one thing: showing the track that is currently playing
+  and letting you play, pause and skip it from the study timer's focus screen, so you don't have
+  to leave a session to change the music. This is the only way Android lets an ordinary app reach
+  the media player at all. The app does **not** read your notifications: the component that holds
+  this permission has no code in it, it exists solely as the key to the media session. Nothing
+  about what is playing is stored, synced, or sent anywhere — it is read to draw the panel and
+  forgotten when you leave the screen. Turning the panel off in the study settings, or revoking
+  the permission in system settings, ends it completely.
 - **Exact alarms** and **run at boot** — so a reminder set for a specific time actually fires at
   that time, including after a restart.
 - **Internet** — required for optional Google Sign-In and Firestore sync, and for the optional

@@ -3,6 +3,7 @@ package com.example.apextracker
 import android.app.Application
 import android.content.Context
 import android.os.PowerManager
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.apextracker.widget.refreshStudyWidget
@@ -24,6 +25,7 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
     private companion object {
         const val TAG = "StudyViewModel"
         const val CLOUD_PUSH_INTERVAL_MILLIS = 60_000L
+
     }
 
     private val database = AppDatabase.getDatabase(application)
@@ -40,6 +42,14 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setDailyGoalMinutes(minutes: Int) {
         viewModelScope.launch { studySettings.setDailyGoalMinutes(minutes) }
+    }
+
+    /** Whether the focus surface shows the now-playing panel; local-only, like the goal. */
+    val showMediaControls: StateFlow<Boolean> = studySettings.showMediaControls
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    fun setShowMediaControls(enabled: Boolean) {
+        viewModelScope.launch { studySettings.setShowMediaControls(enabled) }
     }
 
     // Today's grand total across every subject — drives the goal ring/label, whereas timeSeconds is
@@ -76,10 +86,32 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
     private var lastStartTimeMillis: Long = 0L
     private var baseSeconds: Long = 0L
 
+    // Consecutive one-second ticks that have read "the user is away". See checkAwayOnTick.
+    private var awayTicks = 0
+
     init {
         restoreSession()
         startDailyResetCheck()
         observeExternalTimerChanges()
+    }
+
+    /**
+     * The in-app half of the away check: while the ticker is alive, one reading per second, acted on
+     * only after [AWAY_TICKS_BEFORE_PAUSE] agreeing ticks.
+     *
+     * This is deliberately not the whole mechanism. It is exact but short-lived — Android freezes
+     * this process about a dozen seconds after the screen goes off, and the ticker dies with it —
+     * so [StudyAwayGuard]'s alarm carries the same policy from there. See that object for the
+     * measurements, and for why the two obvious alternatives do not work at all.
+     */
+    private fun checkAwayOnTick() {
+        val away = StudyAwayGuard.isUserAwayFromApp(getApplication(), isRunning = _isRunning.value)
+        awayTicks = nextAwayTickCount(awayTicks, away)
+        if (awayTicks >= AWAY_TICKS_BEFORE_PAUSE) {
+            Log.i(TAG, "Device in use elsewhere — pausing the study session")
+            awayTicks = 0
+            pauseTimer()
+        }
     }
 
     /**
@@ -215,6 +247,7 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
     private fun startTimer() {
         if (_isRunning.value) return
 
+        awayTicks = 0
         rolloverIfNeeded()
         // Flipped synchronously so a double-tap can't launch two starts before the store is
         // written; the shared path below is what actually persists the run.
@@ -278,6 +311,7 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
                 // rolloverIfNeeded just synchronized lastResetDate, and selectSubject pauses the
                 // ticker before switching, so this can never write into the wrong row.
                 saveSessionForDate(lastResetDate, _currentSubject.value, current)
+                checkAwayOnTick()
                 delay(1000)
             }
         }
@@ -357,11 +391,22 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
 
     fun getAllSessions() = studySessionDao.getAllSessions()
 
-    // Logic: Pause if user leaves app while screen is ON (Interactive).
-    // Keep counting if screen turns OFF (Non-Interactive).
+    /**
+     * Pause if the user leaves the app while the screen is on; keep counting if the screen went off.
+     *
+     * This is only half the policy. The screen-off branch is revisited when the device is unlocked —
+     * see [registerUnlockGuard] — because otherwise "keep counting" decided here is never taken back,
+     * and opening another app from a lock-screen notification runs the timer indefinitely.
+     */
     fun handleAppBackground() {
-        if (_isRunning.value && powerManager.isInteractive) {
+        if (!_isRunning.value) return
+        if (powerManager.isInteractive) {
             pauseTimer()
+        } else {
+            // The branch that keeps counting is exactly the one that used to be unrevisitable.
+            // MainActivity arms the same heartbeat from its own onStop, so this is belt to that
+            // braces — arming twice is idempotent, the alarm simply replaces itself.
+            StudyAwayGuard.arm(getApplication())
         }
     }
 }

@@ -119,8 +119,25 @@ class MainActivity : FragmentActivity() {
             intent.getBooleanExtra(EXTRA_BUDGET_QUICK_ADD, false)
     }
 
+    override fun onStart() {
+        super.onStart()
+        // The study timer's away guard asks whether this app is on screen; onStart/onStop is where
+        // that fact actually lives. See AppForeground.
+        AppForeground.onActivityStarted()
+        // Back on screen, so there is nothing to watch for. Unconditional: cancelling an alarm that
+        // was never set is free, and the alternative is reasoning about which of the four ways a
+        // session can end got here first.
+        StudyAwayGuard.disarm(this)
+    }
+
     override fun onStop() {
         super.onStop()
+        AppForeground.onActivityStopped()
+        // Armed here rather than only from StudyViewModel, so it holds no matter which screen was
+        // showing — the ViewModel's own ON_STOP observer lives on the study destination and is gone
+        // the moment the user navigates anywhere else with the stopwatch still running. armIfRunning
+        // reads the durable store, so this costs one preferences lookup when nothing is running.
+        StudyAwayGuard.armIfRunning(this)
         // Re-lock every module when the app leaves the foreground, so returning re-prompts (the
         // unlocked-until-backgrounded policy, Issue #45). onStop also covers the system biometric
         // prompt bringing its own UI forward, but markUnlocked() runs on its success callback
@@ -349,10 +366,15 @@ fun AppNavigation(
             // the route check as well would change the bar's behaviour on every navigation in the
             // app, which is an unrelated regression to hide inside this change.
             if (currentRoute in PRIMARY_ROUTES) {
+                // The bar's *height* animates on settle(), the same spec the study screen's shared
+                // clock glides on. That height feeds the Scaffold's innerPadding, which sizes the
+                // NavHost, which is the layout those shared bounds are measured in — so a bar
+                // collapsing on its own clock leaves the glide chasing a target that is still
+                // moving. Opacity keeps enter/exit; only the geometry has to agree.
                 AnimatedVisibility(
                     visible = !studyFocus,
-                    enter = expandVertically(ApexMotion.enter(), expandFrom = Alignment.Bottom) + fadeIn(ApexMotion.enter()),
-                    exit = shrinkVertically(ApexMotion.exit(), shrinkTowards = Alignment.Bottom) + fadeOut(ApexMotion.exit()),
+                    enter = expandVertically(ApexMotion.settle(), expandFrom = Alignment.Bottom) + fadeIn(ApexMotion.enter()),
+                    exit = shrinkVertically(ApexMotion.settle(), shrinkTowards = Alignment.Bottom) + fadeOut(ApexMotion.exit()),
                 ) {
                     AppBottomBar(
                         currentRoute = currentRoute,

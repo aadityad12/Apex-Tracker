@@ -4,23 +4,28 @@ import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Settings
+import android.util.Log
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.*
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
@@ -57,6 +62,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -66,6 +72,9 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.apextracker.media.MediaControlViewModel
+import com.example.apextracker.media.NowPlaying
+import com.example.apextracker.media.StudyMediaPanel
 import com.example.apextracker.ui.design.ApexChartFrame
 import com.example.apextracker.ui.design.ApexDatePickerDialog
 import com.example.apextracker.ui.design.ApexDivider
@@ -84,7 +93,11 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(
+    ExperimentalMaterial3Api::class,
+    ExperimentalLayoutApi::class,
+    ExperimentalSharedTransitionApi::class
+)
 @Composable
 fun StudyTrackerView(
     onBackToMenu: () -> Unit,
@@ -101,8 +114,11 @@ fun StudyTrackerView(
     val dailyGoalMinutes by viewModel.dailyGoalMinutes.collectAsState()
     val todayTotalSeconds by viewModel.todayTotalSeconds.collectAsState()
     val studyStreak by viewModel.studyStreak.collectAsState()
+    val showMediaControls by viewModel.showMediaControls.collectAsState()
     val context = LocalContext.current
     var ambientDisplay by rememberSaveable { mutableStateOf(false) }
+
+    val mediaViewModel: MediaControlViewModel = viewModel()
 
     // Hoisted above the focus swap so scroll position survives a focus round trip.
     val scrollState = rememberScrollState()
@@ -134,6 +150,11 @@ fun StudyTrackerView(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_STOP) {
                 viewModel.handleAppBackground()
+            }
+            // Notification access is granted in system Settings, so the app is in the background
+            // for the whole act of turning the panel on and nothing tells it when the user returns.
+            if (event == Lifecycle.Event.ON_RESUME) {
+                mediaViewModel.refreshAccess()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -190,8 +211,10 @@ fun StudyTrackerView(
 
     var showGoalDialog by remember { mutableStateOf(false) }
     if (showGoalDialog) {
-        StudyGoalDialog(
+        StudySettingsDialog(
             currentMinutes = dailyGoalMinutes,
+            showMediaControls = showMediaControls,
+            onShowMediaControlsChange = { viewModel.setShowMediaControls(it) },
             onDismiss = { showGoalDialog = false },
             onSave = { viewModel.setDailyGoalMinutes(it); showGoalDialog = false }
         )
@@ -215,10 +238,17 @@ fun StudyTrackerView(
             // Hidden while focused. expand/shrink rather than a bare fade, because the Scaffold
             // derives innerPadding from the measured bar height — animating the height animates the
             // padding too, so the body grows into the vacated space instead of leaving a hole.
+            //
+            // The *height* runs on settle(), not the enter/exit pair, while the opacity keeps its
+            // own tokens. The clock is a shared element now, and its target bounds are measured
+            // inside a body whose height this bar is still changing — so a bar collapsing on a
+            // front-loaded 180ms tween while the clock glides on a spring leaves the glide chasing a
+            // target that lands somewhere else first. Geometry settles together; opacity is free to
+            // arrive and leave on its own clock. AppBottomBar in MainActivity matches.
             AnimatedVisibility(
                 visible = !isRunning,
-                enter = expandVertically(ApexMotion.enter(), expandFrom = Alignment.Top) + fadeIn(ApexMotion.enter()),
-                exit = shrinkVertically(ApexMotion.exit(), shrinkTowards = Alignment.Top) + fadeOut(ApexMotion.exit()),
+                enter = expandVertically(ApexMotion.settle(), expandFrom = Alignment.Top) + fadeIn(ApexMotion.enter()),
+                exit = shrinkVertically(ApexMotion.settle(), shrinkTowards = Alignment.Top) + fadeOut(ApexMotion.exit()),
             ) {
                 CenterAlignedTopAppBar(
                     title = {
@@ -260,46 +290,100 @@ fun StudyTrackerView(
             }
         }
     ) { innerPadding ->
-        // Running collapses the screen to the focus surface. The incoming side fades and scales in,
-        // echoing the NavHost's own idiom, so focus mode reads as arriving somewhere rather than as
-        // the rest of the screen merely vanishing.
-        AnimatedContent(
-            targetState = isRunning,
-            transitionSpec = {
-                (fadeIn(ApexMotion.enter()) + scaleIn(initialScale = 0.96f, animationSpec = ApexMotion.enter()))
-                    .togetherWith(fadeOut(ApexMotion.exit()))
-                    .using(SizeTransform(clip = false))
-            },
-            modifier = Modifier
-                .padding(innerPadding)
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background),
-            label = "focus"
-        ) { focused ->
-            if (focused) {
-                StudyFocusContent(
-                    seconds = { timeSecondsState.value },
-                    subject = currentSubject,
-                    ambient = ambientDisplay,
-                    onToggleAmbient = { ambientDisplay = !ambientDisplay },
-                    onPause = { viewModel.toggleTimer() }
-                )
-            } else {
-                StudyIdleContent(
-                    scrollState = scrollState,
-                    seconds = { timeSecondsState.value },
-                    currentSubject = currentSubject,
-                    allSessions = allSessions,
-                    dailyGoalMinutes = dailyGoalMinutes,
-                    todayTotalSeconds = todayTotalSeconds,
-                    studyStreak = studyStreak,
-                    pastDays = pastDays,
-                    onToggleTimer = { viewModel.toggleTimer() },
-                    onPickSubject = { showSubjectPicker = true },
-                    onManualEntry = { manualEntry = it }
-                )
+        // Running collapses the screen to the focus surface. The clock and the start/pause button
+        // are shared elements, so they *travel* between the two layouts rather than cross-dissolving
+        // between a position near the top of a scrolling column and the middle of a blank screen —
+        // which is what used to read as the surface jerking into place. Everything that genuinely
+        // only exists on one side (chart, history, goal meter, subject chip) still fades.
+        //
+        // The scaleIn that used to ride along is gone: with real anchors gliding, a simultaneous
+        // scale is a second motion competing with the first for the eye.
+        SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
+            AnimatedContent(
+                targetState = isRunning,
+                transitionSpec = {
+                    fadeIn(ApexMotion.enter())
+                        .togetherWith(fadeOut(ApexMotion.exit()))
+                        .using(SizeTransform(clip = false))
+                },
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background),
+                label = "focus"
+            ) { focused ->
+                if (focused) {
+                    // Deliberately *not* padded by innerPadding. Focus mode hides the system bars and
+                    // has no top bar of its own, so it belongs at its final coordinates on the first
+                    // frame — otherwise the shared elements would be animating toward a target that
+                    // the collapsing top bar is still moving underneath them.
+                    StudyFocusContent(
+                        animatedVisibilityScope = this@AnimatedContent,
+                        seconds = { timeSecondsState.value },
+                        subject = currentSubject,
+                        ambient = ambientDisplay,
+                        onToggleAmbient = { ambientDisplay = !ambientDisplay },
+                        onPause = { viewModel.toggleTimer() },
+                        // Built inside the focused branch, so the platform media listener is
+                        // registered only while the panel is actually on screen — not for as long
+                        // as the study screen happens to be open.
+                        media = if (showMediaControls) rememberFocusMedia(mediaViewModel) else null
+                    )
+                } else {
+                    StudyIdleContent(
+                        animatedVisibilityScope = this@AnimatedContent,
+                        scrollState = scrollState,
+                        seconds = { timeSecondsState.value },
+                        currentSubject = currentSubject,
+                        allSessions = allSessions,
+                        dailyGoalMinutes = dailyGoalMinutes,
+                        todayTotalSeconds = todayTotalSeconds,
+                        studyStreak = studyStreak,
+                        pastDays = pastDays,
+                        onToggleTimer = { viewModel.toggleTimer() },
+                        onPickSubject = { showSubjectPicker = true },
+                        onManualEntry = { manualEntry = it },
+                        modifier = Modifier.padding(innerPadding)
+                    )
+                }
             }
         }
+    }
+}
+
+/**
+ * Keys for the elements that survive the focus swap. Two, and only two: the clock is what the eye is
+ * tracking and the button is what the finger just touched, so those are the things whose position
+ * must stay believable. Everything else genuinely belongs to one side or the other and should fade.
+ */
+private const val SHARED_CLOCK = "study-clock"
+private const val SHARED_TOGGLE = "study-toggle"
+
+/**
+ * The stopwatch readout, in the single place both layouts get it from. Idle and focus render the same
+ * composable at the same width, so the shared bounds interpolate a pure translation; only the card
+ * tone ([active]) crossfades inside them.
+ *
+ * sharedBounds rather than sharedElement: the two sides are not pixel-identical (tone, and in the
+ * button's case the label), and sharedElement is for content that genuinely is.
+ */
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+private fun SharedTransitionScope.StudyFlipClock(
+    seconds: () -> Long,
+    active: Boolean,
+    ambient: Boolean,
+    animatedVisibilityScope: AnimatedVisibilityScope,
+    modifier: Modifier = Modifier,
+) {
+    FlipClockFitToWidth(
+        modifier = modifier.sharedBounds(
+            rememberSharedContentState(SHARED_CLOCK),
+            animatedVisibilityScope = animatedVisibilityScope,
+            boundsTransform = { _, _ -> ApexMotion.settle() }
+        )
+    ) {
+        ApexFlipClock(seconds = seconds, active = active, ambient = ambient)
     }
 }
 
@@ -358,6 +442,7 @@ private fun FocusWindowEffects(active: Boolean, ambient: Boolean) {
 }
 
 private const val AMBIENT_SCREEN_BRIGHTNESS = 0.03f
+private const val TAG = "StudyTrackerView"
 
 /**
  * The focus surface: the subject that is banking the time, the clock, and the way out. Nothing else
@@ -368,13 +453,53 @@ private const val AMBIENT_SCREEN_BRIGHTNESS = 0.03f
  * a pre-existing cost: the session writes a Room row every second, so the weekly chart and every
  * history row used to re-execute once a second for the whole session.
  */
+/**
+ * Everything the focus surface needs to carry the now-playing panel, or null when the user has
+ * turned it off. One parameter object rather than six: the panel is optional as a whole, and six
+ * nullable parameters cannot express that — this way "no panel" is a single null.
+ */
+private data class FocusMedia(
+    val nowPlaying: NowPlaying?,
+    val hasAccess: Boolean,
+    val onPlayPause: () -> Unit,
+    val onNext: () -> Unit,
+    val onPrevious: () -> Unit,
+    val onConnect: () -> Unit,
+)
+
+/**
+ * Collects the media state and binds the transport callbacks. A composable rather than a plain
+ * function so the collection — and therefore the platform session listener behind it — lives
+ * exactly as long as the panel does.
+ */
 @Composable
-private fun StudyFocusContent(
+private fun rememberFocusMedia(mediaViewModel: MediaControlViewModel): FocusMedia {
+    val context = LocalContext.current
+    val nowPlaying by mediaViewModel.nowPlaying.collectAsState()
+    val hasAccess by mediaViewModel.hasAccess.collectAsState()
+    return FocusMedia(
+        nowPlaying = nowPlaying,
+        hasAccess = hasAccess,
+        onPlayPause = mediaViewModel::playPause,
+        onNext = mediaViewModel::next,
+        onPrevious = mediaViewModel::previous,
+        onConnect = {
+            runCatching { context.startActivity(mediaViewModel.accessSettingsIntent()) }
+                .onFailure { Log.w(TAG, "No notification-access settings screen to open", it) }
+        }
+    )
+}
+
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+private fun SharedTransitionScope.StudyFocusContent(
+    animatedVisibilityScope: AnimatedVisibilityScope,
     seconds: () -> Long,
     subject: String,
     ambient: Boolean,
     onToggleAmbient: () -> Unit,
     onPause: () -> Unit,
+    media: FocusMedia?,
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -393,29 +518,57 @@ private fun StudyFocusContent(
                 color = if (ambient) FrostDim else MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = ApexSpacing.l),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = subject.ifBlank { stringResource(R.string.study_no_subject) },
-                style = MaterialTheme.typography.titleSmall,
-                color = if (ambient) FrostDim else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(ApexSpacing.xl))
-            FlipClockFitToWidth {
-                ApexFlipClock(seconds = seconds, active = true, ambient = ambient)
+        Column(modifier = Modifier.fillMaxSize()) {
+            // The clock takes the remaining height and centres itself in it, so adding the media
+            // panel moves the clock rather than pushing anything off the bottom of the screen.
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(horizontal = ApexSpacing.l),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = subject.ifBlank { stringResource(R.string.study_no_subject) },
+                    style = MaterialTheme.typography.titleSmall,
+                    color = if (ambient) FrostDim else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(ApexSpacing.xl))
+                StudyFlipClock(
+                    seconds = seconds,
+                    active = true,
+                    ambient = ambient,
+                    animatedVisibilityScope = animatedVisibilityScope
+                )
+                Spacer(Modifier.height(ApexSpacing.xxl))
+                StudyToggleButton(
+                    isRunning = true,
+                    ambient = ambient,
+                    onClick = onPause,
+                    modifier = Modifier.sharedBounds(
+                        rememberSharedContentState(SHARED_TOGGLE),
+                        animatedVisibilityScope = animatedVisibilityScope,
+                        boundsTransform = { _, _ -> ApexMotion.settle() }
+                    )
+                )
             }
-            Spacer(Modifier.height(ApexSpacing.xxl))
-            // navigationBarsPadding: 0dp while the bars are hidden, and correct if one is swiped
-            // transiently back in — the button must never end up underneath the gesture handle.
-            StudyToggleButton(
-                isRunning = true,
-                ambient = ambient,
-                onClick = onPause,
-                modifier = Modifier.navigationBarsPadding()
-            )
+            if (media != null) {
+                StudyMediaPanel(
+                    nowPlaying = media.nowPlaying,
+                    hasAccess = media.hasAccess,
+                    ambient = ambient,
+                    onPlayPause = media.onPlayPause,
+                    onNext = media.onNext,
+                    onPrevious = media.onPrevious,
+                    onConnect = media.onConnect,
+                    modifier = Modifier.padding(bottom = ApexSpacing.s)
+                )
+            }
+            // navigationBarsPadding at the foot of the whole column, so it protects whichever
+            // control is actually last: 0dp while the bars are hidden, and correct if one is
+            // swiped transiently back in — nothing may end up under the gesture handle.
+            Spacer(Modifier.navigationBarsPadding())
         }
     }
 }
@@ -427,8 +580,10 @@ private fun StudyFocusContent(
  * additionally left the timer region mostly empty while clipping the chart's day labels, and it
  * would have collapsed the same way the Dashboard's heatmap did at a large font scale.
  */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-private fun StudyIdleContent(
+private fun SharedTransitionScope.StudyIdleContent(
+    animatedVisibilityScope: AnimatedVisibilityScope,
     scrollState: ScrollState,
     seconds: () -> Long,
     currentSubject: String,
@@ -453,6 +608,7 @@ private fun StudyIdleContent(
 
         val goalSeconds = dailyGoalMinutes * 60L
         StudyTimerDisplay(
+            animatedVisibilityScope = animatedVisibilityScope,
             seconds = seconds,
             goalFraction = goalFraction(todayTotalSeconds, goalSeconds),
             goalLabel = if (dailyGoalMinutes > 0) {
@@ -472,7 +628,15 @@ private fun StudyIdleContent(
         }
 
         Spacer(Modifier.height(ApexSpacing.xl))
-        StudyToggleButton(isRunning = false, onClick = onToggleTimer)
+        StudyToggleButton(
+            isRunning = false,
+            onClick = onToggleTimer,
+            modifier = Modifier.sharedBounds(
+                rememberSharedContentState(SHARED_TOGGLE),
+                animatedVisibilityScope = animatedVisibilityScope,
+                boundsTransform = { _, _ -> ApexMotion.settle() }
+            )
+        )
 
         Spacer(Modifier.height(ApexSpacing.xl))
         ApexDivider()
@@ -619,8 +783,10 @@ fun SubjectPickerDialog(
     )
 }
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-fun StudyTimerDisplay(
+fun SharedTransitionScope.StudyTimerDisplay(
+    animatedVisibilityScope: AnimatedVisibilityScope,
     seconds: () -> Long,
     goalFraction: Float = 0f,
     goalLabel: String? = null
@@ -641,9 +807,12 @@ fun StudyTimerDisplay(
     // session is StudyFocusContent's own ApexFlipClock(active = true) with no READY/FOCUSING
     // caption at all — see that composable.
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        FlipClockFitToWidth {
-            ApexFlipClock(seconds = seconds, active = false)
-        }
+        StudyFlipClock(
+            seconds = seconds,
+            active = false,
+            ambient = false,
+            animatedVisibilityScope = animatedVisibilityScope
+        )
         Spacer(Modifier.height(ApexSpacing.m))
         Text(
             text = stringResource(R.string.study_ready),
@@ -778,11 +947,17 @@ fun StudyStreakChip(streak: Int) {
 
 /** Set the daily study goal in minutes; 0 turns the goal/streak UI off (Issue #42). */
 @Composable
-fun StudyGoalDialog(currentMinutes: Int, onDismiss: () -> Unit, onSave: (Int) -> Unit) {
+fun StudySettingsDialog(
+    currentMinutes: Int,
+    showMediaControls: Boolean,
+    onShowMediaControlsChange: (Boolean) -> Unit,
+    onDismiss: () -> Unit,
+    onSave: (Int) -> Unit
+) {
     var text by remember { mutableStateOf(currentMinutes.toString()) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.study_goal_setting)) },
+        title = { Text(stringResource(R.string.study_settings_title)) },
         text = {
             Column {
                 Text(stringResource(R.string.study_goal_desc), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -795,6 +970,34 @@ fun StudyGoalDialog(currentMinutes: Int, onDismiss: () -> Unit, onSave: (Int) ->
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
+                Spacer(modifier = Modifier.height(ApexSpacing.l))
+                ApexDivider()
+                Spacer(modifier = Modifier.height(ApexSpacing.l))
+                // toggleable on the Row, not just the Switch: the whole row is the target, and the
+                // state is announced once rather than as an unlabelled control beside a label.
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .toggleable(
+                            value = showMediaControls,
+                            role = Role.Switch,
+                            onValueChange = onShowMediaControlsChange
+                        ),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            stringResource(R.string.study_show_media_controls),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        Text(
+                            stringResource(R.string.study_show_media_controls_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(checked = showMediaControls, onCheckedChange = null)
+                }
             }
         },
         confirmButton = {

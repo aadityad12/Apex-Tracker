@@ -178,6 +178,17 @@
     <string name="study_goal_desc">Una meta de minutos de estudio al día. Pon 0 para desactivarla.</string>
     <string name="study_goal_minutes_label">Minutos por día</string>
     <string name="study_dim_display">Atenuar pantalla</string>
+    <!-- Estudio: panel de reproducción en la pantalla de enfoque -->
+    <string name="study_settings_title">Ajustes de estudio</string>
+    <string name="study_show_media_controls">Mostrar controles de música</string>
+    <string name="study_show_media_controls_desc">Controla lo que suena sin salir del modo enfoque.</string>
+    <string name="study_media_connect">Conectar controles de música</string>
+    <string name="study_media_nothing_playing">No hay nada sonando</string>
+    <string name="study_media_unknown_track">Pista desconocida</string>
+    <string name="cd_media_previous">Pista anterior</string>
+    <string name="cd_media_play">Reproducir</string>
+    <string name="cd_media_pause">Pausar</string>
+    <string name="cd_media_next">Pista siguiente</string>
     <string name="study_restore_brightness">Restaurar brillo</string>
     <string name="study_goal_progress">%1$d / %2$d min</string>
     <string name="study_streak">Racha de %1$d días</string>

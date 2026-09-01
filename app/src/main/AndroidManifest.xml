@@ -59,6 +59,12 @@
         <receiver
             android:name=".ReminderAlarmReceiver"
             android:exported="false" />
+        <!-- One beat of the study timer's away check. Manifest-registered because an alarm has to
+             reach this app even when its process was frozen or killed — which is the whole reason
+             StudyAwayGuard exists rather than a runtime receiver for ACTION_USER_PRESENT. -->
+        <receiver
+            android:name=".StudyAwayCheckReceiver"
+            android:exported="false" />
         <receiver
             android:name=".ReminderActionReceiver"
             android:exported="false" />
@@ -71,6 +77,29 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+
+        <!--
+          Notification-listener component for the study timer's music controls.
+
+          It reads no notifications — see ApexMediaListenerService, whose body is deliberately
+          empty. It exists because MediaSessionManager.getActiveSessions() is only reachable by a
+          registered notification listener; the alternative, MEDIA_CONTENT_CONTROL, is a signature
+          permission no third-party app can hold. Access is off until the user turns it on in
+          system Settings, and the panel is removable from the study settings dialog.
+
+          exported=true guarded by the signature-level BIND_NOTIFICATION_LISTENER_SERVICE, which is
+          the standard declaration: the system is the only thing that can bind it, and it cannot
+          bind at all without the intent-filter being visible.
+        -->
+        <service
+            android:name=".media.ApexMediaListenerService"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
 
         <provider
             android:name="androidx.core.content.FileProvider"
