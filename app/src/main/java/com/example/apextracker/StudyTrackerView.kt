@@ -4,6 +4,7 @@ import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Settings
+import android.util.Log
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
@@ -24,6 +25,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
@@ -60,6 +62,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -69,6 +72,9 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.apextracker.media.MediaControlViewModel
+import com.example.apextracker.media.NowPlaying
+import com.example.apextracker.media.StudyMediaPanel
 import com.example.apextracker.ui.design.ApexChartFrame
 import com.example.apextracker.ui.design.ApexDatePickerDialog
 import com.example.apextracker.ui.design.ApexDivider
@@ -108,8 +114,11 @@ fun StudyTrackerView(
     val dailyGoalMinutes by viewModel.dailyGoalMinutes.collectAsState()
     val todayTotalSeconds by viewModel.todayTotalSeconds.collectAsState()
     val studyStreak by viewModel.studyStreak.collectAsState()
+    val showMediaControls by viewModel.showMediaControls.collectAsState()
     val context = LocalContext.current
     var ambientDisplay by rememberSaveable { mutableStateOf(false) }
+
+    val mediaViewModel: MediaControlViewModel = viewModel()
 
     // Hoisted above the focus swap so scroll position survives a focus round trip.
     val scrollState = rememberScrollState()
@@ -141,6 +150,11 @@ fun StudyTrackerView(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_STOP) {
                 viewModel.handleAppBackground()
+            }
+            // Notification access is granted in system Settings, so the app is in the background
+            // for the whole act of turning the panel on and nothing tells it when the user returns.
+            if (event == Lifecycle.Event.ON_RESUME) {
+                mediaViewModel.refreshAccess()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -197,8 +211,10 @@ fun StudyTrackerView(
 
     var showGoalDialog by remember { mutableStateOf(false) }
     if (showGoalDialog) {
-        StudyGoalDialog(
+        StudySettingsDialog(
             currentMinutes = dailyGoalMinutes,
+            showMediaControls = showMediaControls,
+            onShowMediaControlsChange = { viewModel.setShowMediaControls(it) },
             onDismiss = { showGoalDialog = false },
             onSave = { viewModel.setDailyGoalMinutes(it); showGoalDialog = false }
         )
@@ -307,7 +323,11 @@ fun StudyTrackerView(
                         subject = currentSubject,
                         ambient = ambientDisplay,
                         onToggleAmbient = { ambientDisplay = !ambientDisplay },
-                        onPause = { viewModel.toggleTimer() }
+                        onPause = { viewModel.toggleTimer() },
+                        // Built inside the focused branch, so the platform media listener is
+                        // registered only while the panel is actually on screen — not for as long
+                        // as the study screen happens to be open.
+                        media = if (showMediaControls) rememberFocusMedia(mediaViewModel) else null
                     )
                 } else {
                     StudyIdleContent(
@@ -422,6 +442,7 @@ private fun FocusWindowEffects(active: Boolean, ambient: Boolean) {
 }
 
 private const val AMBIENT_SCREEN_BRIGHTNESS = 0.03f
+private const val TAG = "StudyTrackerView"
 
 /**
  * The focus surface: the subject that is banking the time, the clock, and the way out. Nothing else
@@ -432,6 +453,43 @@ private const val AMBIENT_SCREEN_BRIGHTNESS = 0.03f
  * a pre-existing cost: the session writes a Room row every second, so the weekly chart and every
  * history row used to re-execute once a second for the whole session.
  */
+/**
+ * Everything the focus surface needs to carry the now-playing panel, or null when the user has
+ * turned it off. One parameter object rather than six: the panel is optional as a whole, and six
+ * nullable parameters cannot express that — this way "no panel" is a single null.
+ */
+private data class FocusMedia(
+    val nowPlaying: NowPlaying?,
+    val hasAccess: Boolean,
+    val onPlayPause: () -> Unit,
+    val onNext: () -> Unit,
+    val onPrevious: () -> Unit,
+    val onConnect: () -> Unit,
+)
+
+/**
+ * Collects the media state and binds the transport callbacks. A composable rather than a plain
+ * function so the collection — and therefore the platform session listener behind it — lives
+ * exactly as long as the panel does.
+ */
+@Composable
+private fun rememberFocusMedia(mediaViewModel: MediaControlViewModel): FocusMedia {
+    val context = LocalContext.current
+    val nowPlaying by mediaViewModel.nowPlaying.collectAsState()
+    val hasAccess by mediaViewModel.hasAccess.collectAsState()
+    return FocusMedia(
+        nowPlaying = nowPlaying,
+        hasAccess = hasAccess,
+        onPlayPause = mediaViewModel::playPause,
+        onNext = mediaViewModel::next,
+        onPrevious = mediaViewModel::previous,
+        onConnect = {
+            runCatching { context.startActivity(mediaViewModel.accessSettingsIntent()) }
+                .onFailure { Log.w(TAG, "No notification-access settings screen to open", it) }
+        }
+    )
+}
+
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun SharedTransitionScope.StudyFocusContent(
@@ -441,6 +499,7 @@ private fun SharedTransitionScope.StudyFocusContent(
     ambient: Boolean,
     onToggleAmbient: () -> Unit,
     onPause: () -> Unit,
+    media: FocusMedia?,
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -459,38 +518,57 @@ private fun SharedTransitionScope.StudyFocusContent(
                 color = if (ambient) FrostDim else MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = ApexSpacing.l),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = subject.ifBlank { stringResource(R.string.study_no_subject) },
-                style = MaterialTheme.typography.titleSmall,
-                color = if (ambient) FrostDim else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(ApexSpacing.xl))
-            StudyFlipClock(
-                seconds = seconds,
-                active = true,
-                ambient = ambient,
-                animatedVisibilityScope = animatedVisibilityScope
-            )
-            Spacer(Modifier.height(ApexSpacing.xxl))
-            // navigationBarsPadding: 0dp while the bars are hidden, and correct if one is swiped
-            // transiently back in — the button must never end up underneath the gesture handle.
-            StudyToggleButton(
-                isRunning = true,
-                ambient = ambient,
-                onClick = onPause,
+        Column(modifier = Modifier.fillMaxSize()) {
+            // The clock takes the remaining height and centres itself in it, so adding the media
+            // panel moves the clock rather than pushing anything off the bottom of the screen.
+            Column(
                 modifier = Modifier
-                    .navigationBarsPadding()
-                    .sharedBounds(
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(horizontal = ApexSpacing.l),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = subject.ifBlank { stringResource(R.string.study_no_subject) },
+                    style = MaterialTheme.typography.titleSmall,
+                    color = if (ambient) FrostDim else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(ApexSpacing.xl))
+                StudyFlipClock(
+                    seconds = seconds,
+                    active = true,
+                    ambient = ambient,
+                    animatedVisibilityScope = animatedVisibilityScope
+                )
+                Spacer(Modifier.height(ApexSpacing.xxl))
+                StudyToggleButton(
+                    isRunning = true,
+                    ambient = ambient,
+                    onClick = onPause,
+                    modifier = Modifier.sharedBounds(
                         rememberSharedContentState(SHARED_TOGGLE),
                         animatedVisibilityScope = animatedVisibilityScope,
                         boundsTransform = { _, _ -> ApexMotion.settle() }
                     )
-            )
+                )
+            }
+            if (media != null) {
+                StudyMediaPanel(
+                    nowPlaying = media.nowPlaying,
+                    hasAccess = media.hasAccess,
+                    ambient = ambient,
+                    onPlayPause = media.onPlayPause,
+                    onNext = media.onNext,
+                    onPrevious = media.onPrevious,
+                    onConnect = media.onConnect,
+                    modifier = Modifier.padding(bottom = ApexSpacing.s)
+                )
+            }
+            // navigationBarsPadding at the foot of the whole column, so it protects whichever
+            // control is actually last: 0dp while the bars are hidden, and correct if one is
+            // swiped transiently back in — nothing may end up under the gesture handle.
+            Spacer(Modifier.navigationBarsPadding())
         }
     }
 }
@@ -869,11 +947,17 @@ fun StudyStreakChip(streak: Int) {
 
 /** Set the daily study goal in minutes; 0 turns the goal/streak UI off (Issue #42). */
 @Composable
-fun StudyGoalDialog(currentMinutes: Int, onDismiss: () -> Unit, onSave: (Int) -> Unit) {
+fun StudySettingsDialog(
+    currentMinutes: Int,
+    showMediaControls: Boolean,
+    onShowMediaControlsChange: (Boolean) -> Unit,
+    onDismiss: () -> Unit,
+    onSave: (Int) -> Unit
+) {
     var text by remember { mutableStateOf(currentMinutes.toString()) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.study_goal_setting)) },
+        title = { Text(stringResource(R.string.study_settings_title)) },
         text = {
             Column {
                 Text(stringResource(R.string.study_goal_desc), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -886,6 +970,34 @@ fun StudyGoalDialog(currentMinutes: Int, onDismiss: () -> Unit, onSave: (Int) ->
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
+                Spacer(modifier = Modifier.height(ApexSpacing.l))
+                ApexDivider()
+                Spacer(modifier = Modifier.height(ApexSpacing.l))
+                // toggleable on the Row, not just the Switch: the whole row is the target, and the
+                // state is announced once rather than as an unlabelled control beside a label.
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .toggleable(
+                            value = showMediaControls,
+                            role = Role.Switch,
+                            onValueChange = onShowMediaControlsChange
+                        ),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            stringResource(R.string.study_show_media_controls),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        Text(
+                            stringResource(R.string.study_show_media_controls_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(checked = showMediaControls, onCheckedChange = null)
+                }
             }
         },
         confirmButton = {

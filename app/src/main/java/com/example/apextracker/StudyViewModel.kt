@@ -44,6 +44,14 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { studySettings.setDailyGoalMinutes(minutes) }
     }
 
+    /** Whether the focus surface shows the now-playing panel; local-only, like the goal. */
+    val showMediaControls: StateFlow<Boolean> = studySettings.showMediaControls
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    fun setShowMediaControls(enabled: Boolean) {
+        viewModelScope.launch { studySettings.setShowMediaControls(enabled) }
+    }
+
     // Today's grand total across every subject — drives the goal ring/label, whereas timeSeconds is
     // only the currently-selected subject's total. Computed off the DB flow (not the view) so it
     // stays stable across recompositions.

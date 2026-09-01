@@ -21,6 +21,27 @@ fun formatDurationCompact(millis: Long): String {
 }
 
 /**
+ * A media-player clock: "3:29", or "1:04:07" once a track runs past an hour.
+ *
+ * Separate from [formatDurationCompact] rather than a mode of it, because they answer different
+ * questions. "How long did I study" wants a rounded, readable "1h 30m"; "where am I in this track"
+ * wants seconds, zero-padded, and the same width from one second to the next so the figure does not
+ * jitter under a progress line. Negative input clamps to zero for the same reason its neighbour
+ * does (Issue #248) — a media session is free to report nonsense, and this is where it surfaces.
+ */
+fun formatClockTime(millis: Long): String {
+    val totalSeconds = millis.coerceAtLeast(0L) / 1000
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+    return if (hours > 0) {
+        String.format(Locale.getDefault(), "%d:%02d:%02d", hours, minutes, seconds)
+    } else {
+        String.format(Locale.getDefault(), "%d:%02d", minutes, seconds)
+    }
+}
+
+/**
  * Labels for a duration chart's y-axis gridlines (max, half, zero — top to bottom). Picks one unit
  * for all three from the magnitude of [maxMillis], so a chart whose busiest day is under a minute
  * doesn't render three identical "0m" labels (Issue #97). Values round rather than truncate, so

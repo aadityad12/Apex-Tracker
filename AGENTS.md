@@ -4,7 +4,7 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Last full audit: 2026-07-07 (Firebase/auth follow-up: 2026-07-08; Known Issues fix pass + dependency bumps: 2026-07-09, branch `fix/known-issues-3-through-10`; Firebase sync unification (Issue #4): 2026-07-09, branch `fix/issue-4-firebase-sync`, merged as PR #16; bug-fix pass for issues #18–#31: 2026-07-10, merged as PRs #48/#50 — see "2026-07-10 Bug-Fix Pass" below; feature pass for issues #17/#32–#41/#53: 2026-07-11 → 2026-07-14, see "2026-07-11 → 2026-07-14 Feature Pass" below; doc-accuracy pass reconciling this file with the code: 2026-07-17; feature+verification pass 2026-07-18 → 2026-07-20: currency setting #76, category limits #75, notes export #77, screen-time app-list+chart #43, overview drill-in #47, subscriptions-colour #82, study subjects #78, and biometric lock #45 all merged, with the DB-migration (#78, v14) and biometric (#45) changes verified on-device — see the dated sections below; **Dashboard goal-tracking feature 2026-07-21 → 2026-07-22**, PRs #100–#103 merged + sync in progress, making the Dashboard the app home and bumping the DB to **v15** — see the "2026-07-21 → 2026-07-22 Dashboard" section; **bug/a11y/docs pass 2026-07-23** on branch `fix/issues-2026-07-23` covering issues #105–#120 and #97 — see the dated section at the end; **UI redesign foundation 2026-07-28 → 2026-07-29** on branch `redesign/foundation`, which replaced the whole theming layer, bundled real typefaces, and added a design-system skill — see "2026-07-29 Redesign foundation" at the end and **`Design.md` at the repo root**; **study timer flip clock 2026-08-01** on branch `feature/study-flip-clock`, which replaced the stopwatch readout with a split-flap digit display and added a focus mode — see "2026-08-01 Study timer flip clock" below; **Papers discovery redesign 2026-08-07**, which replaced the bare-field rotation with keyword topics and an engagement-weighted recommender, bumping the DB to **v22** — see "2026-08-07 Papers discovery redesign" below; **feature pass 2026-08-10 → 2026-08-11** clearing the last five open issues one PR each — the at-a-glance widget (#44), the study-timer widget and the shared start/pause path in `StudyTimerControl.kt` (#132), Papers recommendations (#150), receipt scanning (#46), and **SQLCipher at-rest encryption of the database** (#117) — see "Database encryption", "Home-screen widgets", "Receipt scanning" above; **doc reconciliation 2026-08-11**: CLAUDE.md and AGENTS.md had drifted in *both* directions (each held sections the other lacked) and were merged back to one roster — if you update one, update the other, or collapse them; **heatmap reverted to colour squares 2026-08-24**: the Dashboard's contribution-graph cells went back to GitHub-style fully-filled squares with colour-ramp intensity, undoing the 2026-07-30 Graphite pass's fill-height-bar experiment — see "2026-08-24 Heatmap reverted to colour squares" at the end; **backup key-wrapper fix 2026-08-25 (Issue #206)**: `database_key.xml` was missing from both backup-exclusion files, so a device restore left a passphrase this device's Keystore could never decrypt and the app silently fell back to an unencrypted database forever — fixed, plus a stale-wrapper self-heal in `DatabaseEncryption.kt` — see "2026-08-25 Backup excludes the SQLCipher key wrapper" at the end; **Play Store deployment pass starting 2026-08-27** on branch `claude/play-store-deployment-prep-cdf5b3`, working the open-issue backlog one issue per commit (implement → test → docs → push to main) toward a store-ready release — see "2026-08-27 Play Store deployment pass" at the end for the running log; **Screen Time launcher-exclusion fix (Issue #228), 2026-08-27**, a follow-up on a separate worktree branch to the loose end #209 flagged — see the `[Issue #228]` entry at the end of the Play Store deployment pass log; that same pass also shipped Budget CSV import (Issue #219) — see the `[Issue #219]` entry just above it; that pass's final entry, **Papers explicit paper-to-paper linking (Issue #223), 2026-08-27**, bumped the DB to **v25** and closed out the entire backlog — see the `[Issue #223]` entry at the very end of the Play Store deployment pass log; **deployment-readiness audit + fix pass starting 2026-08-28**: with the issue backlog cleared, a fine-tooth-comb multi-agent audit of the whole codebase (release config, DB migrations, Firebase sync, background work, encryption/backup, every feature module, i18n/theming) surfaced 27 new issues (#230–#256), now being worked the same one-issue-per-commit way — see "2026-08-28 Deployment-readiness audit fix pass" at the end for the running log). If you make significant architectural changes, update this file in the same session.
+Last full audit: 2026-07-07 (Firebase/auth follow-up: 2026-07-08; Known Issues fix pass + dependency bumps: 2026-07-09, branch `fix/known-issues-3-through-10`; Firebase sync unification (Issue #4): 2026-07-09, branch `fix/issue-4-firebase-sync`, merged as PR #16; bug-fix pass for issues #18–#31: 2026-07-10, merged as PRs #48/#50 — see "2026-07-10 Bug-Fix Pass" below; feature pass for issues #17/#32–#41/#53: 2026-07-11 → 2026-07-14, see "2026-07-11 → 2026-07-14 Feature Pass" below; doc-accuracy pass reconciling this file with the code: 2026-07-17; feature+verification pass 2026-07-18 → 2026-07-20: currency setting #76, category limits #75, notes export #77, screen-time app-list+chart #43, overview drill-in #47, subscriptions-colour #82, study subjects #78, and biometric lock #45 all merged, with the DB-migration (#78, v14) and biometric (#45) changes verified on-device — see the dated sections below; **Dashboard goal-tracking feature 2026-07-21 → 2026-07-22**, PRs #100–#103 merged + sync in progress, making the Dashboard the app home and bumping the DB to **v15** — see the "2026-07-21 → 2026-07-22 Dashboard" section; **bug/a11y/docs pass 2026-07-23** on branch `fix/issues-2026-07-23` covering issues #105–#120 and #97 — see the dated section at the end; **UI redesign foundation 2026-07-28 → 2026-07-29** on branch `redesign/foundation`, which replaced the whole theming layer, bundled real typefaces, and added a design-system skill — see "2026-07-29 Redesign foundation" at the end and **`Design.md` at the repo root**; **study timer flip clock 2026-08-01** on branch `feature/study-flip-clock`, which replaced the stopwatch readout with a split-flap digit display and added a focus mode — see "2026-08-01 Study timer flip clock" below; **Papers discovery redesign 2026-08-07**, which replaced the bare-field rotation with keyword topics and an engagement-weighted recommender, bumping the DB to **v22** — see "2026-08-07 Papers discovery redesign" below; **feature pass 2026-08-10 → 2026-08-11** clearing the last five open issues one PR each — the at-a-glance widget (#44), the study-timer widget and the shared start/pause path in `StudyTimerControl.kt` (#132), Papers recommendations (#150), receipt scanning (#46), and **SQLCipher at-rest encryption of the database** (#117) — see "Database encryption", "Home-screen widgets", "Receipt scanning" above; **doc reconciliation 2026-08-11**: CLAUDE.md and AGENTS.md had drifted in *both* directions (each held sections the other lacked) and were merged back to one roster — if you update one, update the other, or collapse them; **heatmap reverted to colour squares 2026-08-24**: the Dashboard's contribution-graph cells went back to GitHub-style fully-filled squares with colour-ramp intensity, undoing the 2026-07-30 Graphite pass's fill-height-bar experiment — see "2026-08-24 Heatmap reverted to colour squares" at the end; **backup key-wrapper fix 2026-08-25 (Issue #206)**: `database_key.xml` was missing from both backup-exclusion files, so a device restore left a passphrase this device's Keystore could never decrypt and the app silently fell back to an unencrypted database forever — fixed, plus a stale-wrapper self-heal in `DatabaseEncryption.kt` — see "2026-08-25 Backup excludes the SQLCipher key wrapper" at the end; **Play Store deployment pass starting 2026-08-27** on branch `claude/play-store-deployment-prep-cdf5b3`, working the open-issue backlog one issue per commit (implement → test → docs → push to main) toward a store-ready release — see "2026-08-27 Play Store deployment pass" at the end for the running log; **Screen Time launcher-exclusion fix (Issue #228), 2026-08-27**, a follow-up on a separate worktree branch to the loose end #209 flagged — see the `[Issue #228]` entry at the end of the Play Store deployment pass log; that same pass also shipped Budget CSV import (Issue #219) — see the `[Issue #219]` entry just above it; that pass's final entry, **Papers explicit paper-to-paper linking (Issue #223), 2026-08-27**, bumped the DB to **v25** and closed out the entire backlog — see the `[Issue #223]` entry at the very end of the Play Store deployment pass log; **deployment-readiness audit + fix pass starting 2026-08-28**: with the issue backlog cleared, a fine-tooth-comb multi-agent audit of the whole codebase (release config, DB migrations, Firebase sync, background work, encryption/backup, every feature module, i18n/theming) surfaced 27 new issues (#230–#256), now being worked the same one-issue-per-commit way — see "2026-08-28 Deployment-readiness audit fix pass" at the end for the running log; **study-timer pass 2026-09-01** on branch `claude/study-timer-music-animations-22d3da`, adding now-playing music controls to the focus surface, closing the lock-screen hole that let the stopwatch run unbounded in other apps, and rebuilding the focus transition as a shared-element glide — see "2026-09-01 Study timer: music controls, away guard, focus transition" at the very end). If you make significant architectural changes, update this file in the same session.
 
 **Doc-accuracy note (2026-07-17)**: issues #68–#74 were all filed against *this file* for drifting out of sync with the code — stale DB version, a test roster missing three files, shipped features listed as open work. Enumerated lists here rot; prefer pointing at the source of truth (`gh issue list`, `find app/src/test -name '*Test.kt'`) over restating it.
 
@@ -1563,3 +1563,91 @@ above. This section is a running log; read `gh issue list` for current backlog s
   `assembleDebug`/`testDebugUnitTest`/`lintDebug`. This closes the entire 27-issue
   deployment-readiness audit backlog (#230–#256), with every piece — including this last
   interactive check — now confirmed rather than just wired up.
+
+## 2026-09-01 Study timer: music controls, away guard, focus transition
+
+Three changes to the Study Tracker, all on branch `claude/study-timer-music-animations-22d3da`,
+one commit each. Two were bugs the owner hit in use; the third is a feature.
+
+- **The focus transition glides instead of jumping.** Entering focus mode cross-dissolved two
+  entirely different layouts — the flip clock sits near the top of a scrolling column when idle and
+  dead centre when focused — while the top bar and the bottom nav collapsed on their own timelines
+  and `innerPadding` moved the body underneath both. The clock and the start/pause button are now
+  **shared elements** (`SharedTransitionLayout` + `sharedBounds`, keys `study-clock`/`study-toggle`,
+  `@OptIn(ExperimentalSharedTransitionApi::class)`), so they travel; everything belonging to one
+  side still fades. Three supporting changes each mattered independently: the focus branch no longer
+  takes the Scaffold's `innerPadding` (it hides the system bars and has no top bar, so it belongs at
+  its final coordinates on frame one — otherwise the shared bounds animate toward a target the
+  collapsing top bar is still moving); **both** nav bars animate their *height* on
+  `ApexMotion.settle()` rather than the `enter`/`exit` pair, because those heights feed the layout
+  the bounds are measured in (opacity keeps its own tokens); and the `scaleIn` is gone.
+  **`settle()` for geometry is the change that did the most work** — measured frame-by-frame off
+  `screenrecord`, `enter()`'s `EmphasizedDecelerate` covers ~58% of the travel in the *first frame*,
+  which reads as a snap however long the animation nominally lasts. Reach for `settle()` for any
+  large positional move; `enter()` is a fade curve.
+- **The stopwatch can no longer be bypassed via the lock screen.** `handleAppBackground()`
+  implements "leaving the app while awake pauses; the screen going off keeps counting", but `ON_STOP`
+  was its only trigger — so the screen-off branch was a permanent escape hatch: sleep the phone with
+  a session running, open something else from a lock-screen notification, and the decision to keep
+  counting was never revisited. The policy is now the pure `shouldAutoPauseOnUnlock()`
+  (`StudyForegroundGuard.kt`), enforced from two places because neither alone suffices — the
+  per-second ticker after two agreeing readings, and a one-minute `AlarmManager` heartbeat
+  (`StudyAwayGuard` / `StudyAwayCheckReceiver`) while the app is backgrounded. **Both obvious
+  implementations were tried and measured to fail, which is recorded in the code so nobody
+  re-derives them**: a dynamically registered receiver for `ACTION_USER_PRESENT`/`ACTION_SCREEN_ON`
+  fires reliably while the app is foreground and *never* while it is cached (and `USER_PRESENT` is
+  not deliverable to a manifest receiver at all); and the ticker ran for ~12s after screen-off, then
+  was frozen for the remaining 140s of the test and never resumed even once the device was unlocked
+  into another app. An alarm is what thaws a frozen process. `AppForeground` is a process-scoped
+  counter set from `MainActivity.onStart/onStop`, the same shape as `UnlockSession`, deliberately in
+  preference to adding `lifecycle-process`; the alarm is armed from `onStop` rather than only from
+  the ViewModel, whose `ON_STOP` observer disappears the moment the user navigates off the study
+  screen. Pausing goes through the shared `pauseStudyTimer()`, so a live ViewModel adopts it through
+  `StudyTimerStateStore.runningFlow()` exactly as it does the widget's toggle. **Known limits**: the
+  pause lands within a minute of the unlock rather than on it, and a process killed outright still
+  has `restoreSession` credit the wall-clock gap. Closing either needs a foreground service.
+- **Now-playing controls on the focus surface** (`media/`). The one thing a studying user reliably
+  leaves focus mode for is the music player, so the focus screen carries it: cover art, title and
+  artist, a hairline of progress with tabular elapsed/duration, and play-pause/skip — anchored at the
+  foot, with the clock centred in the remaining height so it stays the centre of gravity.
+  `MediaSessionRepository` is the only file that touches the platform media APIs (the containment
+  `ReceiptOcr.kt` gives ML Kit); the pure parts — `pickPreferredSession`, `estimatePositionMillis` —
+  are in `NowPlaying.kt` and unit-tested. Three things worth knowing before touching this:
+  1. **`ApexMediaListenerService` is deliberately empty.** Reaching `getActiveSessions()` needs
+     either `MEDIA_CONTENT_CONTROL` (signature-only) or a registered notification listener, so the
+     service exists purely as the key and overrides nothing — no notification enters the process.
+     That claim is load-bearing for Play review and appears in four places that must stay in
+     agreement: the class doc, the manifest `<service>` comment, `docs/privacy-policy.md`(+`.html`),
+     and `docs/play-console-permissions-declaration.md`.
+  2. **`PlaybackState.position` is a snapshot, not a live value** — published once when playback
+     starts and then silent. Read directly, the progress bar freezes where the song began, which
+     looks exactly like a bug. `estimatePositionMillis` adds the elapsed wall time scaled by
+     playback speed; the panel advances it in a `produceState`, *not* the ViewModel, because a
+     `StateFlow` conflates equal values and re-emitting the same snapshot reaches no collector.
+  3. The panel's `FocusMedia` is built inside the focused branch (`rememberFocusMedia`), so the
+     platform session listener lives exactly as long as the panel — not as long as the study screen.
+  `StudySettings.showMediaControls` (on by default) removes it; the study top bar's settings icon now
+  opens `StudySettingsDialog` (was `StudyGoalDialog`) carrying both that toggle and the daily goal.
+
+Verification, and what it does and does not cover. All three commits: `assembleDebug` /
+`testDebugUnitTest` / `lintDebug` clean. On the `Medium_Phone` emulator: the transition recorded at
+60fps in both directions and stepped frame by frame; all three away-guard cases driven end to end
+(backgrounded and asleep for 170s → still running; then woken into Settings → paused by the alarm
+receiver through a frozen process; slept and woken straight back into ApexTracker → still running,
+no spurious pause); and the media panel's un-granted → granted transition driven live, with
+notification access granted headlessly via
+`adb shell cmd notification allow_listener dev.aadityad.apextracker/com.example.apextracker.media.ApexMediaListenerService 0`
+(**the trailing user id is required** — without it the command silently no-ops). **What the emulator
+cannot cover is a real media session**: nothing on the image publishes one (YouTube Music's
+`AudioPreviewPlayerActivity` plays a local file with `dumpsys media_session` still reporting zero
+sessions), so metadata mapping and the transport buttons actually driving a player are the one thing
+still owed, on the physical device with Spotify. Standing in for it are four screenshot baselines
+(`MediaPanelScreenshots.kt`: dark, light, ambient, dark @200%) covering all four panel states with
+real fixtures.
+
+**Pre-existing, not from this pass**: `validateDebugScreenshotTest` fails on the three
+`BudgetScreenshotsKt` baselines. The Budget trend chart's month axis comes from
+`monthlyTotals(items, monthsBack, today)` with a real `LocalDate.now()`, so those baselines rot every
+time the month rolls over — the diff is exactly the month labels and bar positions shifting by one.
+Re-recording them just moves the failure to next month; the fix is to make the fixture take a fixed
+date. Left alone here rather than folded into an unrelated change.

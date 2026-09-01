@@ -178,6 +178,17 @@
     <string name="study_goal_desc">A minutes-per-day study target. Set 0 to turn it off.</string>
     <string name="study_goal_minutes_label">Minutes per day</string>
     <string name="study_dim_display">Dim display</string>
+    <!-- Study: now-playing panel on the focus surface -->
+    <string name="study_settings_title">Study settings</string>
+    <string name="study_show_media_controls">Show music controls</string>
+    <string name="study_show_media_controls_desc">Control whatever is playing without leaving focus mode.</string>
+    <string name="study_media_connect">Connect music controls</string>
+    <string name="study_media_nothing_playing">Nothing playing</string>
+    <string name="study_media_unknown_track">Unknown track</string>
+    <string name="cd_media_previous">Previous track</string>
+    <string name="cd_media_play">Play</string>
+    <string name="cd_media_pause">Pause</string>
+    <string name="cd_media_next">Next track</string>
     <string name="study_restore_brightness">Restore brightness</string>
     <string name="study_goal_progress">%1$d / %2$d min</string>
     <string name="study_streak">%1$d-day streak</string>
