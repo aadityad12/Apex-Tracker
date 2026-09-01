@@ -349,10 +349,15 @@ fun AppNavigation(
             // the route check as well would change the bar's behaviour on every navigation in the
             // app, which is an unrelated regression to hide inside this change.
             if (currentRoute in PRIMARY_ROUTES) {
+                // The bar's *height* animates on settle(), the same spec the study screen's shared
+                // clock glides on. That height feeds the Scaffold's innerPadding, which sizes the
+                // NavHost, which is the layout those shared bounds are measured in — so a bar
+                // collapsing on its own clock leaves the glide chasing a target that is still
+                // moving. Opacity keeps enter/exit; only the geometry has to agree.
                 AnimatedVisibility(
                     visible = !studyFocus,
-                    enter = expandVertically(ApexMotion.enter(), expandFrom = Alignment.Bottom) + fadeIn(ApexMotion.enter()),
-                    exit = shrinkVertically(ApexMotion.exit(), shrinkTowards = Alignment.Bottom) + fadeOut(ApexMotion.exit()),
+                    enter = expandVertically(ApexMotion.settle(), expandFrom = Alignment.Bottom) + fadeIn(ApexMotion.enter()),
+                    exit = shrinkVertically(ApexMotion.settle(), shrinkTowards = Alignment.Bottom) + fadeOut(ApexMotion.exit()),
                 ) {
                     AppBottomBar(
                         currentRoute = currentRoute,

@@ -9,12 +9,15 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.*
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
@@ -84,7 +87,11 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(
+    ExperimentalMaterial3Api::class,
+    ExperimentalLayoutApi::class,
+    ExperimentalSharedTransitionApi::class
+)
 @Composable
 fun StudyTrackerView(
     onBackToMenu: () -> Unit,
@@ -215,10 +222,17 @@ fun StudyTrackerView(
             // Hidden while focused. expand/shrink rather than a bare fade, because the Scaffold
             // derives innerPadding from the measured bar height — animating the height animates the
             // padding too, so the body grows into the vacated space instead of leaving a hole.
+            //
+            // The *height* runs on settle(), not the enter/exit pair, while the opacity keeps its
+            // own tokens. The clock is a shared element now, and its target bounds are measured
+            // inside a body whose height this bar is still changing — so a bar collapsing on a
+            // front-loaded 180ms tween while the clock glides on a spring leaves the glide chasing a
+            // target that lands somewhere else first. Geometry settles together; opacity is free to
+            // arrive and leave on its own clock. AppBottomBar in MainActivity matches.
             AnimatedVisibility(
                 visible = !isRunning,
-                enter = expandVertically(ApexMotion.enter(), expandFrom = Alignment.Top) + fadeIn(ApexMotion.enter()),
-                exit = shrinkVertically(ApexMotion.exit(), shrinkTowards = Alignment.Top) + fadeOut(ApexMotion.exit()),
+                enter = expandVertically(ApexMotion.settle(), expandFrom = Alignment.Top) + fadeIn(ApexMotion.enter()),
+                exit = shrinkVertically(ApexMotion.settle(), shrinkTowards = Alignment.Top) + fadeOut(ApexMotion.exit()),
             ) {
                 CenterAlignedTopAppBar(
                     title = {
@@ -260,46 +274,96 @@ fun StudyTrackerView(
             }
         }
     ) { innerPadding ->
-        // Running collapses the screen to the focus surface. The incoming side fades and scales in,
-        // echoing the NavHost's own idiom, so focus mode reads as arriving somewhere rather than as
-        // the rest of the screen merely vanishing.
-        AnimatedContent(
-            targetState = isRunning,
-            transitionSpec = {
-                (fadeIn(ApexMotion.enter()) + scaleIn(initialScale = 0.96f, animationSpec = ApexMotion.enter()))
-                    .togetherWith(fadeOut(ApexMotion.exit()))
-                    .using(SizeTransform(clip = false))
-            },
-            modifier = Modifier
-                .padding(innerPadding)
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background),
-            label = "focus"
-        ) { focused ->
-            if (focused) {
-                StudyFocusContent(
-                    seconds = { timeSecondsState.value },
-                    subject = currentSubject,
-                    ambient = ambientDisplay,
-                    onToggleAmbient = { ambientDisplay = !ambientDisplay },
-                    onPause = { viewModel.toggleTimer() }
-                )
-            } else {
-                StudyIdleContent(
-                    scrollState = scrollState,
-                    seconds = { timeSecondsState.value },
-                    currentSubject = currentSubject,
-                    allSessions = allSessions,
-                    dailyGoalMinutes = dailyGoalMinutes,
-                    todayTotalSeconds = todayTotalSeconds,
-                    studyStreak = studyStreak,
-                    pastDays = pastDays,
-                    onToggleTimer = { viewModel.toggleTimer() },
-                    onPickSubject = { showSubjectPicker = true },
-                    onManualEntry = { manualEntry = it }
-                )
+        // Running collapses the screen to the focus surface. The clock and the start/pause button
+        // are shared elements, so they *travel* between the two layouts rather than cross-dissolving
+        // between a position near the top of a scrolling column and the middle of a blank screen —
+        // which is what used to read as the surface jerking into place. Everything that genuinely
+        // only exists on one side (chart, history, goal meter, subject chip) still fades.
+        //
+        // The scaleIn that used to ride along is gone: with real anchors gliding, a simultaneous
+        // scale is a second motion competing with the first for the eye.
+        SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
+            AnimatedContent(
+                targetState = isRunning,
+                transitionSpec = {
+                    fadeIn(ApexMotion.enter())
+                        .togetherWith(fadeOut(ApexMotion.exit()))
+                        .using(SizeTransform(clip = false))
+                },
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background),
+                label = "focus"
+            ) { focused ->
+                if (focused) {
+                    // Deliberately *not* padded by innerPadding. Focus mode hides the system bars and
+                    // has no top bar of its own, so it belongs at its final coordinates on the first
+                    // frame — otherwise the shared elements would be animating toward a target that
+                    // the collapsing top bar is still moving underneath them.
+                    StudyFocusContent(
+                        animatedVisibilityScope = this@AnimatedContent,
+                        seconds = { timeSecondsState.value },
+                        subject = currentSubject,
+                        ambient = ambientDisplay,
+                        onToggleAmbient = { ambientDisplay = !ambientDisplay },
+                        onPause = { viewModel.toggleTimer() }
+                    )
+                } else {
+                    StudyIdleContent(
+                        animatedVisibilityScope = this@AnimatedContent,
+                        scrollState = scrollState,
+                        seconds = { timeSecondsState.value },
+                        currentSubject = currentSubject,
+                        allSessions = allSessions,
+                        dailyGoalMinutes = dailyGoalMinutes,
+                        todayTotalSeconds = todayTotalSeconds,
+                        studyStreak = studyStreak,
+                        pastDays = pastDays,
+                        onToggleTimer = { viewModel.toggleTimer() },
+                        onPickSubject = { showSubjectPicker = true },
+                        onManualEntry = { manualEntry = it },
+                        modifier = Modifier.padding(innerPadding)
+                    )
+                }
             }
         }
+    }
+}
+
+/**
+ * Keys for the elements that survive the focus swap. Two, and only two: the clock is what the eye is
+ * tracking and the button is what the finger just touched, so those are the things whose position
+ * must stay believable. Everything else genuinely belongs to one side or the other and should fade.
+ */
+private const val SHARED_CLOCK = "study-clock"
+private const val SHARED_TOGGLE = "study-toggle"
+
+/**
+ * The stopwatch readout, in the single place both layouts get it from. Idle and focus render the same
+ * composable at the same width, so the shared bounds interpolate a pure translation; only the card
+ * tone ([active]) crossfades inside them.
+ *
+ * sharedBounds rather than sharedElement: the two sides are not pixel-identical (tone, and in the
+ * button's case the label), and sharedElement is for content that genuinely is.
+ */
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+private fun SharedTransitionScope.StudyFlipClock(
+    seconds: () -> Long,
+    active: Boolean,
+    ambient: Boolean,
+    animatedVisibilityScope: AnimatedVisibilityScope,
+    modifier: Modifier = Modifier,
+) {
+    FlipClockFitToWidth(
+        modifier = modifier.sharedBounds(
+            rememberSharedContentState(SHARED_CLOCK),
+            animatedVisibilityScope = animatedVisibilityScope,
+            boundsTransform = { _, _ -> ApexMotion.settle() }
+        )
+    ) {
+        ApexFlipClock(seconds = seconds, active = active, ambient = ambient)
     }
 }
 
@@ -368,8 +432,10 @@ private const val AMBIENT_SCREEN_BRIGHTNESS = 0.03f
  * a pre-existing cost: the session writes a Room row every second, so the weekly chart and every
  * history row used to re-execute once a second for the whole session.
  */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-private fun StudyFocusContent(
+private fun SharedTransitionScope.StudyFocusContent(
+    animatedVisibilityScope: AnimatedVisibilityScope,
     seconds: () -> Long,
     subject: String,
     ambient: Boolean,
@@ -404,9 +470,12 @@ private fun StudyFocusContent(
                 color = if (ambient) FrostDim else MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(ApexSpacing.xl))
-            FlipClockFitToWidth {
-                ApexFlipClock(seconds = seconds, active = true, ambient = ambient)
-            }
+            StudyFlipClock(
+                seconds = seconds,
+                active = true,
+                ambient = ambient,
+                animatedVisibilityScope = animatedVisibilityScope
+            )
             Spacer(Modifier.height(ApexSpacing.xxl))
             // navigationBarsPadding: 0dp while the bars are hidden, and correct if one is swiped
             // transiently back in — the button must never end up underneath the gesture handle.
@@ -414,7 +483,13 @@ private fun StudyFocusContent(
                 isRunning = true,
                 ambient = ambient,
                 onClick = onPause,
-                modifier = Modifier.navigationBarsPadding()
+                modifier = Modifier
+                    .navigationBarsPadding()
+                    .sharedBounds(
+                        rememberSharedContentState(SHARED_TOGGLE),
+                        animatedVisibilityScope = animatedVisibilityScope,
+                        boundsTransform = { _, _ -> ApexMotion.settle() }
+                    )
             )
         }
     }
@@ -427,8 +502,10 @@ private fun StudyFocusContent(
  * additionally left the timer region mostly empty while clipping the chart's day labels, and it
  * would have collapsed the same way the Dashboard's heatmap did at a large font scale.
  */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-private fun StudyIdleContent(
+private fun SharedTransitionScope.StudyIdleContent(
+    animatedVisibilityScope: AnimatedVisibilityScope,
     scrollState: ScrollState,
     seconds: () -> Long,
     currentSubject: String,
@@ -453,6 +530,7 @@ private fun StudyIdleContent(
 
         val goalSeconds = dailyGoalMinutes * 60L
         StudyTimerDisplay(
+            animatedVisibilityScope = animatedVisibilityScope,
             seconds = seconds,
             goalFraction = goalFraction(todayTotalSeconds, goalSeconds),
             goalLabel = if (dailyGoalMinutes > 0) {
@@ -472,7 +550,15 @@ private fun StudyIdleContent(
         }
 
         Spacer(Modifier.height(ApexSpacing.xl))
-        StudyToggleButton(isRunning = false, onClick = onToggleTimer)
+        StudyToggleButton(
+            isRunning = false,
+            onClick = onToggleTimer,
+            modifier = Modifier.sharedBounds(
+                rememberSharedContentState(SHARED_TOGGLE),
+                animatedVisibilityScope = animatedVisibilityScope,
+                boundsTransform = { _, _ -> ApexMotion.settle() }
+            )
+        )
 
         Spacer(Modifier.height(ApexSpacing.xl))
         ApexDivider()
@@ -619,8 +705,10 @@ fun SubjectPickerDialog(
     )
 }
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-fun StudyTimerDisplay(
+fun SharedTransitionScope.StudyTimerDisplay(
+    animatedVisibilityScope: AnimatedVisibilityScope,
     seconds: () -> Long,
     goalFraction: Float = 0f,
     goalLabel: String? = null
@@ -641,9 +729,12 @@ fun StudyTimerDisplay(
     // session is StudyFocusContent's own ApexFlipClock(active = true) with no READY/FOCUSING
     // caption at all — see that composable.
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        FlipClockFitToWidth {
-            ApexFlipClock(seconds = seconds, active = false)
-        }
+        StudyFlipClock(
+            seconds = seconds,
+            active = false,
+            ambient = false,
+            animatedVisibilityScope = animatedVisibilityScope
+        )
         Spacer(Modifier.height(ApexSpacing.m))
         Text(
             text = stringResource(R.string.study_ready),
