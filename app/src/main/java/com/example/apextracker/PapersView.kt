@@ -923,7 +923,14 @@ private fun AddPaperDialog(viewModel: PapersViewModel, onDismiss: () -> Unit) {
                         )
                     is PaperFetchState.Error ->
                         Text(
-                            stringResource(if (f.notFound) R.string.papers_add_not_found else R.string.papers_add_network_error),
+                            stringResource(
+                                when (f.kind) {
+                                    PaperFetchError.NOT_FOUND -> R.string.papers_add_not_found
+                                    PaperFetchError.RATE_LIMITED -> R.string.papers_add_rate_limited
+                                    PaperFetchError.OFFLINE -> R.string.papers_add_offline
+                                    PaperFetchError.UNAVAILABLE -> R.string.papers_add_unavailable
+                                }
+                            ),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error
                         )

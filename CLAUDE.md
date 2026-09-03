@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Last full audit: 2026-07-07 (Firebase/auth follow-up: 2026-07-08; Known Issues fix pass + dependency bumps: 2026-07-09, branch `fix/known-issues-3-through-10`; Firebase sync unification (Issue #4): 2026-07-09, branch `fix/issue-4-firebase-sync`, merged as PR #16; bug-fix pass for issues #18–#31: 2026-07-10, merged as PRs #48/#50 — see "2026-07-10 Bug-Fix Pass" below; feature pass for issues #17/#32–#41/#53: 2026-07-11 → 2026-07-14, see "2026-07-11 → 2026-07-14 Feature Pass" below; doc-accuracy pass reconciling this file with the code: 2026-07-17; feature+verification pass 2026-07-18 → 2026-07-20: currency setting #76, category limits #75, notes export #77, screen-time app-list+chart #43, overview drill-in #47, subscriptions-colour #82, study subjects #78, and biometric lock #45 all merged, with the DB-migration (#78, v14) and biometric (#45) changes verified on-device — see the dated sections below; **Dashboard goal-tracking feature 2026-07-21 → 2026-07-22**, PRs #100–#103 merged + sync in progress, making the Dashboard the app home and bumping the DB to **v15** — see the "2026-07-21 → 2026-07-22 Dashboard" section; **bug/a11y/docs pass 2026-07-23** on branch `fix/issues-2026-07-23` covering issues #105–#120 and #97 — see the dated section at the end; **UI redesign foundation 2026-07-28 → 2026-07-29** on branch `redesign/foundation`, which replaced the whole theming layer, bundled real typefaces, and added a design-system skill — see "2026-07-29 Redesign foundation" at the end and **`Design.md` at the repo root**; **study timer flip clock 2026-08-01** on branch `feature/study-flip-clock`, which replaced the stopwatch readout with a split-flap digit display and added a focus mode — see "2026-08-01 Study timer flip clock" below; **Papers discovery redesign 2026-08-07**, which replaced the bare-field rotation with keyword topics and an engagement-weighted recommender, bumping the DB to **v22** — see "2026-08-07 Papers discovery redesign" below; **feature pass 2026-08-10 → 2026-08-11** clearing the last five open issues one PR each — the at-a-glance widget (#44), the study-timer widget and the shared start/pause path in `StudyTimerControl.kt` (#132), Papers recommendations (#150), receipt scanning (#46), and **SQLCipher at-rest encryption of the database** (#117) — see "Database encryption", "Home-screen widgets", "Receipt scanning" above; **doc reconciliation 2026-08-11**: CLAUDE.md and AGENTS.md had drifted in *both* directions (each held sections the other lacked) and were merged back to one roster — if you update one, update the other, or collapse them; **heatmap reverted to colour squares 2026-08-24**: the Dashboard's contribution-graph cells went back to GitHub-style fully-filled squares with colour-ramp intensity, undoing the 2026-07-30 Graphite pass's fill-height-bar experiment — see "2026-08-24 Heatmap reverted to colour squares" at the end; **backup key-wrapper fix 2026-08-25 (Issue #206)**: `database_key.xml` was missing from both backup-exclusion files, so a device restore left a passphrase this device's Keystore could never decrypt and the app silently fell back to an unencrypted database forever — fixed, plus a stale-wrapper self-heal in `DatabaseEncryption.kt` — see "2026-08-25 Backup excludes the SQLCipher key wrapper" at the end; **Play Store deployment pass starting 2026-08-27** on branch `claude/play-store-deployment-prep-cdf5b3`, working the open-issue backlog one issue per commit (implement → test → docs → push to main) toward a store-ready release — see "2026-08-27 Play Store deployment pass" at the end for the running log; **Screen Time launcher-exclusion fix (Issue #228), 2026-08-27**, a follow-up on a separate worktree branch to the loose end #209 flagged — see the `[Issue #228]` entry at the end of the Play Store deployment pass log; that same pass also shipped Budget CSV import (Issue #219) — see the `[Issue #219]` entry just above it; that pass's final entry, **Papers explicit paper-to-paper linking (Issue #223), 2026-08-27**, bumped the DB to **v25** and closed out the entire backlog — see the `[Issue #223]` entry at the very end of the Play Store deployment pass log; **deployment-readiness audit + fix pass starting 2026-08-28**: with the issue backlog cleared, a fine-tooth-comb multi-agent audit of the whole codebase (release config, DB migrations, Firebase sync, background work, encryption/backup, every feature module, i18n/theming) surfaced 27 new issues (#230–#256), now being worked the same one-issue-per-commit way — see "2026-08-28 Deployment-readiness audit fix pass" at the end for the running log; **study-timer pass 2026-09-01** on branch `claude/study-timer-music-animations-22d3da`, adding now-playing music controls to the focus surface, closing the lock-screen hole that let the stopwatch run unbounded in other apps, and rebuilding the focus transition as a shared-element glide — see "2026-09-01 Study timer: music controls, away guard, focus transition" at the very end). If you make significant architectural changes, update this file in the same session.
+Last full audit: 2026-07-07 (Firebase/auth follow-up: 2026-07-08; Known Issues fix pass + dependency bumps: 2026-07-09, branch `fix/known-issues-3-through-10`; Firebase sync unification (Issue #4): 2026-07-09, branch `fix/issue-4-firebase-sync`, merged as PR #16; bug-fix pass for issues #18–#31: 2026-07-10, merged as PRs #48/#50 — see "2026-07-10 Bug-Fix Pass" below; feature pass for issues #17/#32–#41/#53: 2026-07-11 → 2026-07-14, see "2026-07-11 → 2026-07-14 Feature Pass" below; doc-accuracy pass reconciling this file with the code: 2026-07-17; feature+verification pass 2026-07-18 → 2026-07-20: currency setting #76, category limits #75, notes export #77, screen-time app-list+chart #43, overview drill-in #47, subscriptions-colour #82, study subjects #78, and biometric lock #45 all merged, with the DB-migration (#78, v14) and biometric (#45) changes verified on-device — see the dated sections below; **Dashboard goal-tracking feature 2026-07-21 → 2026-07-22**, PRs #100–#103 merged + sync in progress, making the Dashboard the app home and bumping the DB to **v15** — see the "2026-07-21 → 2026-07-22 Dashboard" section; **bug/a11y/docs pass 2026-07-23** on branch `fix/issues-2026-07-23` covering issues #105–#120 and #97 — see the dated section at the end; **UI redesign foundation 2026-07-28 → 2026-07-29** on branch `redesign/foundation`, which replaced the whole theming layer, bundled real typefaces, and added a design-system skill — see "2026-07-29 Redesign foundation" at the end and **`Design.md` at the repo root**; **study timer flip clock 2026-08-01** on branch `feature/study-flip-clock`, which replaced the stopwatch readout with a split-flap digit display and added a focus mode — see "2026-08-01 Study timer flip clock" below; **Papers discovery redesign 2026-08-07**, which replaced the bare-field rotation with keyword topics and an engagement-weighted recommender, bumping the DB to **v22** — see "2026-08-07 Papers discovery redesign" below; **feature pass 2026-08-10 → 2026-08-11** clearing the last five open issues one PR each — the at-a-glance widget (#44), the study-timer widget and the shared start/pause path in `StudyTimerControl.kt` (#132), Papers recommendations (#150), receipt scanning (#46), and **SQLCipher at-rest encryption of the database** (#117) — see "Database encryption", "Home-screen widgets", "Receipt scanning" above; **doc reconciliation 2026-08-11**: CLAUDE.md and AGENTS.md had drifted in *both* directions (each held sections the other lacked) and were merged back to one roster — if you update one, update the other, or collapse them; **heatmap reverted to colour squares 2026-08-24**: the Dashboard's contribution-graph cells went back to GitHub-style fully-filled squares with colour-ramp intensity, undoing the 2026-07-30 Graphite pass's fill-height-bar experiment — see "2026-08-24 Heatmap reverted to colour squares" at the end; **backup key-wrapper fix 2026-08-25 (Issue #206)**: `database_key.xml` was missing from both backup-exclusion files, so a device restore left a passphrase this device's Keystore could never decrypt and the app silently fell back to an unencrypted database forever — fixed, plus a stale-wrapper self-heal in `DatabaseEncryption.kt` — see "2026-08-25 Backup excludes the SQLCipher key wrapper" at the end; **Play Store deployment pass starting 2026-08-27** on branch `claude/play-store-deployment-prep-cdf5b3`, working the open-issue backlog one issue per commit (implement → test → docs → push to main) toward a store-ready release — see "2026-08-27 Play Store deployment pass" at the end for the running log; **Screen Time launcher-exclusion fix (Issue #228), 2026-08-27**, a follow-up on a separate worktree branch to the loose end #209 flagged — see the `[Issue #228]` entry at the end of the Play Store deployment pass log; that same pass also shipped Budget CSV import (Issue #219) — see the `[Issue #219]` entry just above it; that pass's final entry, **Papers explicit paper-to-paper linking (Issue #223), 2026-08-27**, bumped the DB to **v25** and closed out the entire backlog — see the `[Issue #223]` entry at the very end of the Play Store deployment pass log; **deployment-readiness audit + fix pass starting 2026-08-28**: with the issue backlog cleared, a fine-tooth-comb multi-agent audit of the whole codebase (release config, DB migrations, Firebase sync, background work, encryption/backup, every feature module, i18n/theming) surfaced 27 new issues (#230–#256), now being worked the same one-issue-per-commit way — see "2026-08-28 Deployment-readiness audit fix pass" at the end for the running log; **study-timer pass 2026-09-01** on branch `claude/study-timer-music-animations-22d3da`, adding now-playing music controls to the focus surface, closing the lock-screen hole that let the stopwatch run unbounded in other apps, and rebuilding the focus transition as a shared-element glide — see "2026-09-01 Study timer: music controls, away guard, focus transition"; **Papers arXiv/DOI fallback resolvers 2026-09-03** on branch `claude/arxiv-paper-addition-bug-b9d740`: "Add a paper" failed on every arXiv link because Semantic Scholar's unauthenticated pool 429s essentially every request and `fetchPaper` was the one client method with no 429 branch, so it reached the user as "check your connection" — `PaperResolvers.kt` adds arXiv + Crossref fallbacks and the dialog now names the real failure, see "2026-09-03 Papers: arXiv/DOI fallback resolvers" at the very end). If you make significant architectural changes, update this file in the same session.
 
 **Doc-accuracy note (2026-07-17)**: issues #68–#74 were all filed against *this file* for drifting out of sync with the code — stale DB version, a test roster missing three files, shipped features listed as open work. Enumerated lists here rot; prefer pointing at the source of truth (`gh issue list`, `find app/src/test -name '*Test.kt'`) over restating it.
 
@@ -1649,3 +1649,79 @@ real fixtures.
 time the month rolls over — the diff is exactly the month labels and bar positions shifting by one.
 Re-recording them just moves the failure to next month; the fix is to make the fixture take a fixed
 date. Left alone here rather than folded into an unrelated change.
+
+## 2026-09-03 Papers: arXiv/DOI fallback resolvers (the "can't add a paper" report)
+
+Pasting an arXiv link into **Add a paper** failed with *"Couldn't reach Semantic Scholar — check
+your connection and try again"*, for every arXiv paper tried. **The connection was fine and the
+input parsed correctly.** Semantic Scholar's unauthenticated pool returns **HTTP 429 to
+essentially every request** — reproduced 6/6 from a cold machine, and still doing so days later —
+**with no `Retry-After` header**. Two code defects turned that server condition into a dead end:
+
+1. **`fetchPaper()` had no `429` branch**, alone among the three client methods in
+   `SemanticScholar.kt` — `searchRecent`/`fetchRecommendations` both already threw
+   `SemanticScholarRateLimitedException`. A 429 fell into `else -> IllegalStateException`.
+2. **The error taxonomy was one boolean.** `PaperFetchState.Error(notFound)` collapsed rate-limit,
+   offline, 5xx and parse failure into the connection message, and the constructed
+   `"Semantic Scholar HTTP $code"` was **never logged** — the failure was undiagnosable from the
+   device. Fixing this first is what surfaced every bug below.
+
+**The fix keeps S2 preferred but no longer sole.** `PaperResolvers.kt` (new) adds arXiv's own API
+and Crossref — both free, keyless, unthrottled — and `PaperResolver` chains them:
+`arXiv:…` → S2 → arXiv API; `DOI:…` → S2 → Crossref; a raw S2 sha or `URL:` landing page has no
+fallback and reports the real reason. S2 stays first because it alone carries `tldr` and the
+`s2Id` that `PapersRecommendations` needs as an example. **A known-blocked S2 is skipped, not
+retried** — the existing shared 429 window (`PapersDiscoveryPrefs.blockedUntilMillis`) is read
+before the request, and a manual-add 429 now records into it via the new `recordRateLimit()`,
+which deliberately writes *only* the backoff: `recordAttempt`/`recordRecommendationAttempt` would
+also stamp their day markers and silently consume today's discovery run. **The fallback's verdict
+wins** — arXiv is authoritative for an arXiv id, so its 404 means not-found, rather than handing
+the user S2's rate-limit message for a question S2 never answered.
+
+Five things here were only found by running it, and are the reason this took more than one pass:
+
+- **Android's `DocumentBuilderFactory` is Harmony's, not Xerces.** `disallow-doctype-decl` throws
+  `ParserConfigurationException` and `setXIncludeAware` throws `UnsupportedOperationException` —
+  so the XXE-hardening block killed *every* arXiv lookup on-device while the JVM unit tests passed,
+  because desktop Java *is* Xerces. Each hardening call is now individually tolerant
+  (`setFeatureQuietly`, `runCatching`); `isExpandEntityReferences = false` is honoured everywhere
+  and is what actually carries the protection on Android. **A pure function passing its unit tests
+  is not evidence it parses on the device.**
+- **arXiv answers an unknown id with HTTP 200**, a well-formed feed and
+  `<opensearch:totalResults>0</opensearch:totalResults>` — no `<entry>`, no error status. That maps
+  to `PaperNotFoundException`, or the one case the user most needs named reads as "something went
+  wrong."
+- **The feed has a `<title>` of its own** — an echo of the query string. Everything is read from
+  inside the `<entry>` element, never the document root.
+- **Crossref JSON carries HTML entities**: the Optuna venue really is
+  `Knowledge Discovery &amp; Data Mining`, which rendered the entity literally to the reader until
+  `decodeXmlEntities` was applied to title and venue, not just the JATS abstract.
+- **`ARXIV_URL`/`DOI_URL` are `$`-anchored**, so any query string or fragment pushed the id out of
+  reach and silently degraded an arXiv link to the `URL:` form — `?context=cs.LG` is routine in a
+  copied link. Query/fragment are now stripped before matching, and the `arxiv:` prefix strip is
+  case-insensitive (`ARXIV:` used to return null).
+
+**`s2Id` stays `""` for a fallback-resolved paper**, which is an already-supported state (every
+bundled seed has one) and needs no schema change — but **the dedup path had to widen**:
+`getByS2Id` is written `AND s2Id != ''`, so it correctly matches nothing for these papers and
+nothing would have caught a re-add. `findExistingPaper()` falls back to the existing
+`PaperDao.getByUrl`, exactly as the seeds already rely on. This is the main regression risk in the
+change and is the thing to re-check if Papers ever starts duplicating rows.
+
+**Verified on the `Medium_Phone` emulator against the live 429**, so every case below exercised
+the real fallback rather than a simulated one: the exact reported input
+`https://arxiv.org/pdf/1706.03762` resolved to "Attention Is All You Need" with all 8 authors and
+added to the queue; `https://arxiv.org/abs/1706.03762v5?context=cs.LG` (query string + version, a
+different URL form for the same paper) correctly reported **"Already in your log"** rather than
+duplicating — the `getByUrl` path; a bare DOI `10.1145/3292500.3330701` resolved via Crossref to
+"Optuna" with venue and year; a second unrelated paper `2201.11903` resolved to
+"Chain-of-Thought Prompting…"; and airplane mode reported **"No connection"**, distinct from the
+rate-limit message. `assembleDebug` / `testDebugUnitTest` (587 tests, 0 failures) / `lintDebug`
+(0 errors) all clean.
+
+**Still broken, deliberately out of scope**: daily topic discovery and recommendations draw on the
+same 429'd pool. They handle it correctly, but with no `Retry-After` one 429 sets the **6-hour**
+default window (`21_600L` in `semanticScholarBlockedUntil`), so the queue just quietly stops
+filling. arXiv has no relevance-ranked search equivalent and no recommendations endpoint at all —
+**an S2 API key is the only real fix for those two**, and needs an application at
+semanticscholar.org plus a gitignored secret mechanism like `keystore.properties`.

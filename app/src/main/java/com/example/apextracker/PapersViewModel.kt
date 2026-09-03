@@ -1,6 +1,7 @@
 package com.example.apextracker
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -8,10 +9,13 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.time.LocalDate
 import java.util.UUID
 
@@ -43,7 +47,37 @@ sealed interface PaperFetchState {
     data class Preview(val paper: FetchedPaper) : PaperFetchState
     /** The paper is already in the log — surfaced instead of silently duplicating. */
     data class Duplicate(val existing: Paper) : PaperFetchState
-    data class Error(val notFound: Boolean) : PaperFetchState
+    data class Error(val kind: PaperFetchError) : PaperFetchState
+}
+
+/**
+ * Why a lookup failed, in the terms the user can act on.
+ *
+ * This was a single `notFound: Boolean` until every non-404 — a 429 from Semantic Scholar's
+ * unauthenticated pool, an offline device, an HTTP 5xx, a malformed response — collapsed into one
+ * "check your connection" message. That message blamed the device for what was almost always a
+ * server condition, and left the user retrying something that could not succeed.
+ */
+enum class PaperFetchError {
+    /** No source recognized the input, or the authoritative source returned 404. */
+    NOT_FOUND,
+
+    /** Semantic Scholar rate-limited us and no fallback source could answer for this id. */
+    RATE_LIMITED,
+
+    /** The request never reached a server — no connectivity, or it timed out. */
+    OFFLINE,
+
+    /** A server answered, but not usefully: HTTP 5xx, or a response we could not parse. */
+    UNAVAILABLE
+}
+
+/** Maps a resolver failure onto the state the dialog renders. */
+fun paperFetchErrorFor(e: Throwable): PaperFetchError = when (e) {
+    is PaperNotFoundException -> PaperFetchError.NOT_FOUND
+    is SemanticScholarRateLimitedException -> PaperFetchError.RATE_LIMITED
+    is UnknownHostException, is SocketTimeoutException -> PaperFetchError.OFFLINE
+    else -> PaperFetchError.UNAVAILABLE
 }
 
 /** A day-level summary across however many topic slots ran — no per-topic naming (up to 3 now). */
@@ -84,6 +118,13 @@ class PapersViewModel(application: Application) : AndroidViewModel(application) 
     private val paperTopicDao = AppDatabase.getDatabase(application).paperTopicDao()
     private val paperLinkDao = AppDatabase.getDatabase(application).paperLinkDao()
     private val client = SemanticScholarClient()
+
+    /**
+     * The manual add path only. Discovery and recommendations still go straight to [client]:
+     * neither arXiv nor Crossref offers a relevance-ranked search or a recommendations endpoint,
+     * so there is nothing to fall back *to* for those.
+     */
+    private val resolver = PaperResolver(client)
     private val firebaseManager = FirebaseManager(application)
     private val discoveryPrefs = PapersDiscoveryPrefs(application)
     private val dailyFetchMutex = Mutex()
@@ -235,23 +276,43 @@ class PapersViewModel(application: Application) : AndroidViewModel(application) 
     fun fetchForAdd(input: String) {
         val normalized = normalizePaperIdInput(input)
         if (normalized == null) {
-            _fetchState.value = PaperFetchState.Error(notFound = true)
+            _fetchState.value = PaperFetchState.Error(PaperFetchError.NOT_FOUND)
             return
         }
         _fetchState.value = PaperFetchState.Loading
         viewModelScope.launch {
-            client.fetchPaper(normalized)
+            val blockedUntil = discoveryPrefs.preferences.first().blockedUntilMillis
+            resolver.resolve(normalized, blockedUntil, System.currentTimeMillis())
                 .onSuccess { fetched ->
-                    val existing = paperDao.getByS2Id(fetched.s2Id)
+                    val existing = findExistingPaper(fetched)
                     _fetchState.value =
                         if (existing != null) PaperFetchState.Duplicate(existing)
                         else PaperFetchState.Preview(fetched)
                 }
                 .onFailure { e ->
-                    _fetchState.value = PaperFetchState.Error(notFound = e is PaperNotFoundException)
+                    Log.w(TAG, "fetchForAdd($normalized) failed", e)
+                    // The pool is shared, so a 429 earned here has to slow discovery down too —
+                    // the same reciprocity recordRecommendationAttempt already documents.
+                    if (e is SemanticScholarRateLimitedException) {
+                        val now = System.currentTimeMillis()
+                        discoveryPrefs.recordRateLimit(semanticScholarBlockedUntil(e.retryAfterSeconds, now))
+                    }
+                    _fetchState.value = PaperFetchState.Error(paperFetchErrorFor(e))
                 }
         }
     }
+
+    /**
+     * The duplicate check for a fetched paper, by whichever identity it actually has.
+     *
+     * A paper resolved by arXiv or Crossref carries no [Paper.s2Id], and `getByS2Id` is written
+     * `AND s2Id != ''` — so it correctly matches nothing, and without the URL check nothing would
+     * catch the re-add. The landing URL is the stable identity in that case, exactly as it already
+     * is for the bundled seeds (see PaperDao.getByUrl).
+     */
+    private suspend fun findExistingPaper(fetched: FetchedPaper): Paper? =
+        paperDao.getByS2Id(fetched.s2Id)
+            ?: fetched.url.takeIf { it.isNotBlank() }?.let { paperDao.getByUrl(it) }
 
     fun resetFetch() {
         _fetchState.value = PaperFetchState.Idle
@@ -440,7 +501,7 @@ class PapersViewModel(application: Application) : AndroidViewModel(application) 
     /** Confirm the previewed paper into the queue. */
     fun addFetched(fetched: FetchedPaper) {
         viewModelScope.launch {
-            if (paperDao.getByS2Id(fetched.s2Id) == null) {
+            if (findExistingPaper(fetched) == null) {
                 val paper = Paper(
                     s2Id = fetched.s2Id,
                     title = fetched.title,

@@ -524,6 +524,9 @@
     <string name="papers_add_duplicate">Already in your log: %1$s</string>
     <string name="papers_add_not_found">Couldn\'t identify a paper from that — try an arXiv link, DOI, or Semantic Scholar URL</string>
     <string name="papers_add_network_error">Couldn\'t reach Semantic Scholar — check your connection and try again</string>
+    <string name="papers_add_rate_limited">Semantic Scholar is rate-limiting right now, and this paper isn\'t on arXiv or Crossref. Try again later.</string>
+    <string name="papers_add_offline">No connection — check your network and try again</string>
+    <string name="papers_add_unavailable">The lookup service returned an unexpected response. Try again later.</string>
     <string name="papers_open">Open paper</string>
     <string name="papers_mark_read">Mark read</string>
     <string name="papers_abandon">Abandon</string>

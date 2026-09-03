@@ -87,6 +87,20 @@ class PapersDiscoveryPrefs(private val context: Context) {
         }
     }
 
+    /**
+     * Record a 429 window without touching either day marker.
+     *
+     * The manual add path shares this pool, so a rate limit it earns has to slow discovery down
+     * too — but a user tapping "Look up" must not consume today's *discovery* attempt, which is
+     * what [recordAttempt] and [recordRecommendationAttempt] would do by stamping their dates.
+     */
+    suspend fun recordRateLimit(blockedUntilMillis: Long) {
+        if (blockedUntilMillis <= 0L) return
+        context.papersDiscoveryDataStore.edit { prefs ->
+            prefs[blockedUntilKey] = blockedUntilMillis
+        }
+    }
+
     suspend fun dismissOnboarding() {
         context.papersDiscoveryDataStore.edit { prefs -> prefs[onboardingDismissedKey] = true }
     }

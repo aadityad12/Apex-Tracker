@@ -524,6 +524,9 @@
     <string name="papers_add_duplicate">Ya está en tu registro: %1$s</string>
     <string name="papers_add_not_found">No se pudo identificar un artículo con eso — intenta con un enlace de arXiv, un DOI o una URL de Semantic Scholar</string>
     <string name="papers_add_network_error">No se pudo conectar con Semantic Scholar — revisa tu conexión e intenta de nuevo</string>
+    <string name="papers_add_rate_limited">Semantic Scholar está limitando las solicitudes ahora mismo, y este artículo no está en arXiv ni en Crossref. Inténtalo más tarde.</string>
+    <string name="papers_add_offline">Sin conexión: revisa tu red e inténtalo de nuevo</string>
+    <string name="papers_add_unavailable">El servicio de búsqueda devolvió una respuesta inesperada. Inténtalo más tarde.</string>
     <string name="papers_open">Abrir artículo</string>
     <string name="papers_mark_read">Marcar como leído</string>
     <string name="papers_abandon">Abandonar</string>

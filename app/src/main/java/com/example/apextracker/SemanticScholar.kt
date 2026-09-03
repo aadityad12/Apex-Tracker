@@ -1,5 +1,6 @@
 package com.example.apextracker
 
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -37,6 +38,8 @@ private val ARXIV_URL = Regex("""arxiv\.org/(?:abs|pdf)/([^?#]+?)(?:\.pdf)?/?$""
 private val DOI_URL = Regex("""(?:dx\.)?doi\.org/(.+)$""", RegexOption.IGNORE_CASE)
 private val S2_URL = Regex("""semanticscholar\.org/paper/(?:[^/]+/)?([0-9a-f]{40})""", RegexOption.IGNORE_CASE)
 
+private val ARXIV_PREFIX = Regex("""^arxiv:""", RegexOption.IGNORE_CASE)
+
 private fun stripArxivVersion(id: String) = id.replace(Regex("""v\d+$"""), "")
 
 /**
@@ -67,7 +70,8 @@ fun sanitizeWebUrl(raw: String): String {
  * arXiv version suffixes are stripped: S2 indexes the paper, not the revision.
  */
 fun normalizePaperIdInput(raw: String): String? {
-    val input = raw.trim().removePrefix("arxiv:").removePrefix("arXiv:").trim()
+    // Case-insensitive: "ARXIV:", "Arxiv:" and "arXiv:" are all spellings people actually paste.
+    val input = ARXIV_PREFIX.replace(raw.trim(), "").trim()
     if (input.isEmpty()) return null
 
     if (BARE_NEW_ARXIV.matches(input) || BARE_OLD_ARXIV.matches(input)) {
@@ -77,9 +81,13 @@ fun normalizePaperIdInput(raw: String): String? {
     if (input.startsWith("10.") && input.contains('/')) return "DOI:$input"
 
     if (input.startsWith("http://", ignoreCase = true) || input.startsWith("https://", ignoreCase = true)) {
-        ARXIV_URL.find(input)?.let { return "arXiv:" + stripArxivVersion(it.groupValues[1]) }
-        DOI_URL.find(input)?.let { return "DOI:" + it.groupValues[1].trimEnd('/') }
-        S2_URL.find(input)?.let { return it.groupValues[1].lowercase() }
+        // ARXIV_URL/DOI_URL are $-anchored, so a query string or fragment would push the id out of
+        // reach and silently degrade an arXiv link to the URL: form. Copied links carry them
+        // routinely ("?context=cs.LG", a "#section" jump), so strip both before matching.
+        val bare = input.substringBefore('#').substringBefore('?')
+        ARXIV_URL.find(bare)?.let { return "arXiv:" + stripArxivVersion(it.groupValues[1]) }
+        DOI_URL.find(bare)?.let { return "DOI:" + it.groupValues[1].trimEnd('/') }
+        S2_URL.find(bare)?.let { return it.groupValues[1].lowercase() }
         return "URL:$input" // S2 resolves arbitrary indexed landing pages
     }
     return null
@@ -168,10 +176,18 @@ fun buildRecommendationsUrl(limit: Int): String =
     "https://api.semanticscholar.org/recommendations/v1/papers?fields=$S2_FIELDS&limit=$limit"
 
 class SemanticScholarClient {
+    private companion object { const val TAG = "SemanticScholar" }
+
     /**
      * One GET against `/graph/v1/paper/{id}`. Returns a failed Result (never throws) so the
-     * ViewModel can surface "not found" / "no connection" as dialog states. The id path segment
-     * is percent-encoded because DOIs contain slashes.
+     * ViewModel can surface "not found" / "rate limited" / "no connection" as dialog states. The
+     * id path segment is percent-encoded because DOIs contain slashes.
+     *
+     * 429 is called out explicitly, exactly as [searchRecent] and [fetchRecommendations] do: the
+     * unauthenticated pool is shared and rate-limits hard, so this is the *ordinary* failure, not
+     * an exotic one. It used to fall into the `else` branch and reach the user as "check your
+     * connection" — blaming the device for a server condition, with the real status thrown away
+     * inside an exception message nothing ever read (hence the logging below).
      */
     suspend fun fetchPaper(normalizedId: String): Result<FetchedPaper> = withContext(Dispatchers.IO) {
         runCatching {
@@ -187,7 +203,15 @@ class SemanticScholarClient {
                         parseS2PaperJson(conn.inputStream.bufferedReader().use { it.readText() })
                     HttpURLConnection.HTTP_NOT_FOUND ->
                         throw PaperNotFoundException()
-                    else -> throw IllegalStateException("Semantic Scholar HTTP $code")
+                    429 -> {
+                        val retrySeconds = conn.getHeaderField("Retry-After")?.toLongOrNull()
+                        Log.w(TAG, "fetchPaper($normalizedId): rate limited, Retry-After=$retrySeconds")
+                        throw SemanticScholarRateLimitedException(retrySeconds)
+                    }
+                    else -> {
+                        Log.w(TAG, "fetchPaper($normalizedId): HTTP $code")
+                        throw IllegalStateException("Semantic Scholar HTTP $code")
+                    }
                 }
             } finally {
                 conn.disconnect()

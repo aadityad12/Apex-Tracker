@@ -72,6 +72,58 @@ class SemanticScholarTest {
         )
     }
 
+    // --- Regression cases for the "can't add an arXiv paper" report. --------------------------
+    // The reported input was a /pdf/ link with neither a version nor a .pdf suffix, which no
+    // existing case covered: the suite tested `…/pdf/1706.03762v5.pdf` and `…/abs/1706.03762`,
+    // and both happened to work, so nothing here contradicted the (wrong) theory that
+    // normalization was at fault. It was not — Semantic Scholar was returning 429.
+
+    @Test
+    fun `arxiv pdf url without version or suffix maps to arXiv id`() {
+        assertEquals("arXiv:1706.03762", normalizePaperIdInput("https://arxiv.org/pdf/1706.03762"))
+    }
+
+    @Test
+    fun `arxiv url query string does not defeat the arxiv branch`() {
+        // $-anchored regexes used to miss here and fall through to the URL: form.
+        assertEquals(
+            "arXiv:1706.03762",
+            normalizePaperIdInput("https://arxiv.org/abs/1706.03762?context=cs.LG")
+        )
+    }
+
+    @Test
+    fun `arxiv url fragment does not defeat the arxiv branch`() {
+        assertEquals(
+            "arXiv:2201.11903",
+            normalizePaperIdInput("https://arxiv.org/abs/2201.11903#section-3")
+        )
+    }
+
+    @Test
+    fun `http arxiv url is accepted like https`() {
+        assertEquals("arXiv:2201.11903", normalizePaperIdInput("http://arxiv.org/pdf/2201.11903.pdf"))
+    }
+
+    @Test
+    fun `old-style arxiv id inside a url maps to arXiv id`() {
+        assertEquals("arXiv:cs/0112017", normalizePaperIdInput("https://arxiv.org/abs/cs/0112017"))
+    }
+
+    @Test
+    fun `uppercase arxiv prefix is stripped like the lowercase spelling`() {
+        assertEquals("arXiv:1706.03762", normalizePaperIdInput("ARXIV:1706.03762"))
+        assertEquals("arXiv:1706.03762", normalizePaperIdInput("Arxiv:1706.03762v2"))
+    }
+
+    @Test
+    fun `doi url with a query string still maps to DOI id`() {
+        assertEquals(
+            "DOI:10.1145/3292500.3330701",
+            normalizePaperIdInput("https://doi.org/10.1145/3292500.3330701?utm_source=x")
+        )
+    }
+
     @Test
     fun `free text and blank are rejected`() {
         assertNull(normalizePaperIdInput("attention is all you need"))
